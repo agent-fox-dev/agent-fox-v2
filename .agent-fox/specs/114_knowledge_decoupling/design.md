@@ -98,8 +98,9 @@ flowchart TB
 10. **`session_lifecycle.py`** (modified) — Retrieval assembly replaced with
     `KnowledgeProvider.retrieve()` call. Knowledge harvest replaced with
     `KnowledgeProvider.ingest()` call.
-11. **`barrier.py`** (modified) — Consolidation, compaction, lifecycle cleanup,
-    sleep compute, and rendering calls removed.
+11. **`barrier.py`** (modified) — Consolidation, compaction, lifecycle cleanup
+    (`run_cleanup`), sleep compute, and rendering (`render_summary`) calls
+    removed.
 12. **`engine.py`** (modified) — End-of-run consolidation and rendering removed.
 13. **`run.py`** (modified) — `EmbeddingGenerator` and `run_background_ingestion`
     imports removed. Provider injected via factory.
@@ -158,7 +159,7 @@ flowchart TB
 ```python
 # agent_fox/knowledge/provider.py
 
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 @runtime_checkable
 class KnowledgeProvider(Protocol):
@@ -166,7 +167,7 @@ class KnowledgeProvider(Protocol):
         self,
         session_id: str,
         spec_name: str,
-        context: dict,
+        context: dict[str, Any],
     ) -> None:
         """Ingest knowledge from a completed session.
 
@@ -206,7 +207,7 @@ class NoOpKnowledgeProvider:
         self,
         session_id: str,
         spec_name: str,
-        context: dict,
+        context: dict[str, Any],
     ) -> None:
         return None
 
@@ -318,7 +319,7 @@ class KnowledgeConfig(BaseModel):
 
 ### Property 4: Engine Import Isolation
 
-*For any* Python module in `agent_fox/engine/`, the set of names imported from `agent_fox.knowledge.*` SHALL NOT include any name from the deleted module set: `AdaptiveRetriever`, `RetrievalConfig`, `EmbeddingGenerator`, `extract_facts`, `extract_and_store_knowledge`, `store_causal_links`, `dedup_new_facts`, `detect_contradictions`, `run_consolidation`, `compact`, `render_summary`, `SleepComputer`, `SleepContext`, `BundleBuilder`, `ContextRewriter`, `run_cleanup`, `load_all_facts`, `Fact`.
+*For any* Python module in `agent_fox/engine/`, the set of names imported from `agent_fox.knowledge.*` SHALL NOT include any name from the deleted module set: `AdaptiveRetriever`, `RetrievalConfig`, `EmbeddingGenerator`, `extract_facts`, `extract_and_store_knowledge`, `run_background_ingestion`, `store_causal_links`, `dedup_new_facts`, `detect_contradictions`, `run_consolidation`, `compact`, `render_summary`, `SleepComputer`, `SleepContext`, `BundleBuilder`, `ContextRewriter`, `run_cleanup`, `load_all_facts`, `Fact`.
 
 **Validates: Requirements 3.2, 4.2, 5.1**
 
@@ -361,7 +362,7 @@ class KnowledgeConfig(BaseModel):
 | Old config fields present | Silently ignored via `extra="ignore"` | 114-REQ-8.5 |
 | Import of deleted module | `ImportError` at startup (fails fast) | 114-REQ-7.5 |
 | Old DB tables exist | Not read or written; left in place | 114-REQ-5.E1, 114-REQ-6.E1 |
-| Partial protocol impl | `TypeError` on `isinstance()` check | 114-REQ-1.E1 |
+| Partial protocol impl | `isinstance()` returns `False` | 114-REQ-1.E1 |
 | Removed CLI command invoked | Command not registered; Click error | 114-REQ-9.E1 |
 
 ## Technology Stack

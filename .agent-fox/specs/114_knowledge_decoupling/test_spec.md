@@ -27,7 +27,7 @@ both `ingest` and `retrieve` methods having correct signatures.
 - Import `KnowledgeProvider` from `agent_fox.knowledge.provider`.
 
 **Expected:**
-- `KnowledgeProvider` has an `ingest` method accepting `(self, session_id: str, spec_name: str, context: dict) -> None`.
+- `KnowledgeProvider` has an `ingest` method accepting `(self, session_id: str, spec_name: str, context: dict[str, Any]) -> None`.
 - `KnowledgeProvider` has a `retrieve` method accepting `(self, spec_name: str, task_description: str) -> list[str]`.
 
 **Assertion pseudocode:**
@@ -111,16 +111,17 @@ ASSERT sig.return_annotation == list[str]
 - Inspect `KnowledgeProvider.ingest` signature.
 
 **Expected:**
-- `context` parameter is annotated as `dict`.
+- `context` parameter is annotated as `dict[str, Any]`.
 - Return annotation is `None`.
 
 **Assertion pseudocode:**
 ```
 import inspect
+from typing import Any
 from agent_fox.knowledge.provider import KnowledgeProvider
 
 sig = inspect.signature(KnowledgeProvider.ingest)
-ASSERT sig.parameters["context"].annotation == dict
+ASSERT sig.parameters["context"].annotation == dict[str, Any]
 ASSERT sig.return_annotation == None
 ```
 
@@ -354,7 +355,7 @@ ASSERT "session_status" in ctx
 ```
 BANNED = {"extract_session_facts", "extract_tool_calls", "store_causal_links",
           "dedup_new_facts", "detect_contradictions", "extract_and_store_knowledge",
-          "extract_facts", "load_all_facts"}
+          "run_background_ingestion", "extract_facts", "load_all_facts"}
 for file in glob("agent_fox/engine/*.py"):
     source = read(file)
     for name in BANNED:
@@ -402,17 +403,19 @@ compaction, sleep compute, or lifecycle cleanup.
 ```
 source = read("agent_fox/engine/barrier.py")
 BANNED = {"run_consolidation", "compact", "SleepComputer", "SleepContext",
-          "BundleBuilder", "ContextRewriter", "run_cleanup"}
+          "BundleBuilder", "ContextRewriter", "run_cleanup", "render_summary"}
 for name in BANNED:
     ASSERT name NOT IN source
 ```
 
-### TS-114-16: Barrier Still Runs Retained Steps
+### TS-114-16: Barrier Still Runs Retained Operational Steps
 
 **Requirement:** 114-REQ-5.2
 **Type:** unit
-**Description:** Verify `run_sync_barrier_sequence` still executes worktree
-verification, develop sync, hot-load, and barrier callback.
+**Description:** Verify `run_sync_barrier_sequence` still executes its
+operational steps (worktree verification, develop sync, hot-load, barrier
+callback) but not lifecycle cleanup, rendering, consolidation, compaction, or
+sleep compute.
 
 **Preconditions:**
 - Mock functions for worktree verification, sync, hot-load, callback.
@@ -421,8 +424,8 @@ verification, develop sync, hot-load, and barrier callback.
 - Call `run_sync_barrier_sequence(...)` with mock dependencies.
 
 **Expected:**
-- All retained steps are called in order.
-- No consolidation/compaction/sleep steps are attempted.
+- All retained operational steps are called in order.
+- No consolidation/compaction/sleep/lifecycle cleanup/rendering steps are attempted.
 
 **Assertion pseudocode:**
 ```
@@ -527,6 +530,31 @@ for file in ["ignore_ingest.py", "dedup.py", "ignore_filter.py"]:
     source = read(f"agent_fox/nightshift/{file}")
     for mod in BANNED_MODULES:
         ASSERT f"knowledge.{mod}" NOT IN source
+```
+
+### TS-114-20b: ignore_ingest.py ingest_ignore_signals Is No-Op
+
+**Requirement:** 114-REQ-6.5
+**Type:** unit
+**Description:** Verify `ingest_ignore_signals()` in `ignore_ingest.py` is a
+no-op that returns immediately without importing `Fact` or `_write_fact`.
+
+**Preconditions:**
+- `agent_fox/nightshift/ignore_ingest.py` is accessible.
+
+**Input:**
+- Read source of `ignore_ingest.py`.
+- Call `ingest_ignore_signals()` if callable.
+
+**Expected:**
+- No references to `Fact` or `_write_fact` in non-TYPE_CHECKING imports.
+- Function returns without side effects.
+
+**Assertion pseudocode:**
+```
+source = read("agent_fox/nightshift/ignore_ingest.py")
+ASSERT "from agent_fox.knowledge.facts import Fact" NOT IN source
+ASSERT "from agent_fox.knowledge.git_mining import _write_fact" NOT IN source
 ```
 
 ### TS-114-21: Knowledge Module Files Deleted
@@ -770,22 +798,25 @@ ASSERT NOT hasattr(kc, "embedding_model")  # ignored
 
 **Requirement:** 114-REQ-9.1
 **Type:** unit
-**Description:** Verify the `onboard` CLI command is removed or disabled.
+**Description:** Verify `cli/onboard.py` is deleted and its import and
+registration are removed from `cli/app.py`.
 
 **Preconditions:**
 - CLI module is importable.
 
 **Input:**
-- Check if `onboard` command is registered.
+- Check file existence and `cli/app.py` source.
 
 **Expected:**
-- Command not found or module deleted.
+- `agent_fox/cli/onboard.py` does not exist.
+- `cli/app.py` does not contain `onboard_cmd` import or registration.
 
 **Assertion pseudocode:**
 ```
 ASSERT NOT Path("agent_fox/cli/onboard.py").exists()
-OR
-# If file exists, verify the command is not registered in the CLI group
+source = read("agent_fox/cli/app.py")
+ASSERT "onboard_cmd" NOT IN source
+ASSERT "onboard" NOT IN [cmd.name for cmd in main.commands.values()]
 ```
 
 ### TS-114-32: CLI nightshift.py No EmbeddingGenerator
@@ -1274,11 +1305,11 @@ deleted module set.
 ```
 BANNED = {
     "AdaptiveRetriever", "RetrievalConfig", "EmbeddingGenerator",
-    "extract_facts", "extract_and_store_knowledge", "store_causal_links",
-    "dedup_new_facts", "detect_contradictions", "run_consolidation",
-    "compact", "render_summary", "SleepComputer", "SleepContext",
-    "BundleBuilder", "ContextRewriter", "run_cleanup", "load_all_facts",
-    "Fact",
+    "extract_facts", "extract_and_store_knowledge", "run_background_ingestion",
+    "store_causal_links", "dedup_new_facts", "detect_contradictions",
+    "run_consolidation", "compact", "render_summary", "SleepComputer",
+    "SleepContext", "BundleBuilder", "ContextRewriter", "run_cleanup",
+    "load_all_facts", "Fact",
 }
 for module_path in glob("agent_fox/engine/*.py"):
     source = read(module_path)
@@ -1593,6 +1624,7 @@ await runner._extract_knowledge_and_findings("spec_01:1", 1, workspace)
 | 114-REQ-6.2 | TS-114-18 | integration |
 | 114-REQ-6.3 | TS-114-19 | integration |
 | 114-REQ-6.4 | TS-114-20 | integration |
+| 114-REQ-6.5 | TS-114-20b | unit |
 | 114-REQ-6.E1 | TS-114-E6 | integration |
 | 114-REQ-7.1 | TS-114-21 | unit |
 | 114-REQ-7.2 | TS-114-22 | unit |

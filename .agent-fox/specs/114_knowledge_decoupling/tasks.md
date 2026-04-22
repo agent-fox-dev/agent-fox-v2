@@ -77,7 +77,7 @@ each group), and group 7 verifies everything end-to-end.
 - [ ] 2. Define KnowledgeProvider protocol and NoOpKnowledgeProvider
   - [ ] 2.1 Create `agent_fox/knowledge/provider.py`
     - Define `KnowledgeProvider` as `typing.Protocol` with `@runtime_checkable`
-    - `ingest(session_id: str, spec_name: str, context: dict) -> None`
+    - `ingest(session_id: str, spec_name: str, context: dict[str, Any]) -> None`
     - `retrieve(spec_name: str, task_description: str) -> list[str]`
     - _Requirements: 1.1, 1.2, 1.3, 1.4_
 
@@ -173,16 +173,17 @@ each group), and group 7 verifies everything end-to-end.
   - [ ] 5.6 Fix remaining import references
     - Scan entire `agent_fox/` package for imports from deleted modules
     - Fix nightshift files: `ignore_ingest.py`, `dedup.py`, `ignore_filter.py`, `streams.py`
+    - Convert `ingest_ignore_signals()` in `ignore_ingest.py` to a no-op (remove `Fact` and `_write_fact` usage)
     - Fix CLI files: `nightshift.py`, `status.py`
     - Fix any other files discovered by scan
-    - _Requirements: 6.1, 6.2, 6.3, 6.4, 7.5, 9.2, 9.3_
+    - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 7.5, 9.2, 9.3_
 
   - [ ] 5.V Verify task group 5
     - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/engine/test_engine_import_isolation.py -k "deletion or import_isolation or nightshift or cli"`
     - [ ] `python -c "import agent_fox"` succeeds with zero errors
     - [ ] All existing tests still pass: `uv run pytest -q`
     - [ ] No linter warnings introduced: `uv run ruff check agent_fox/`
-    - [ ] Requirements 4.3, 6.1, 6.2, 6.3, 6.4, 7.1, 7.2, 7.3, 7.4, 7.5, 9.2, 9.3 acceptance criteria met
+    - [ ] Requirements 4.3, 6.1, 6.2, 6.3, 6.4, 6.5, 7.1, 7.2, 7.3, 7.4, 7.5, 9.2, 9.3 acceptance criteria met
 
 - [ ] 6. Configuration cleanup, CLI cleanup, and test cleanup
   - [ ] 6.1 Simplify KnowledgeConfig
@@ -193,8 +194,8 @@ each group), and group 7 verifies everything end-to-end.
     - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
 
   - [ ] 6.2 Remove `cli/onboard.py` command
-    - Delete `agent_fox/cli/onboard.py` or remove the command registration
-    - Update CLI group to not register the onboard command
+    - Delete `agent_fox/cli/onboard.py`
+    - Remove `onboard_cmd` import and `main.add_command(onboard_cmd, name="onboard")` from `cli/app.py`
     - _Requirements: 9.1_
 
   - [ ] 6.3 Update `cli/plan.py`
@@ -317,6 +318,7 @@ each group), and group 7 verifies everything end-to-end.
 | 114-REQ-6.2 | TS-114-18 | 5.6 | tests/unit/engine/test_engine_import_isolation.py::test_nightshift_no_sleep |
 | 114-REQ-6.3 | TS-114-19 | 5.6 | tests/unit/engine/test_engine_import_isolation.py::test_nightshift_no_sleep_stream |
 | 114-REQ-6.4 | TS-114-20 | 5.6 | tests/unit/engine/test_engine_import_isolation.py::test_nightshift_ingest_dedup |
+| 114-REQ-6.5 | TS-114-20b | 5.6 | tests/unit/engine/test_engine_import_isolation.py::test_ignore_ingest_noop |
 | 114-REQ-6.E1 | TS-114-E6 | 5.6 | tests/unit/engine/test_engine_import_isolation.py::test_nightshift_old_artifacts |
 | 114-REQ-7.1 | TS-114-21 | 5.1 | tests/unit/engine/test_engine_import_isolation.py::test_knowledge_files_deleted |
 | 114-REQ-7.2 | TS-114-22 | 5.2 | tests/unit/engine/test_engine_import_isolation.py::test_lang_dir_deleted |
@@ -351,7 +353,7 @@ each group), and group 7 verifies everything end-to-end.
 ## Notes
 
 - Task group 5 (deletion) is the riskiest — it removes 27+ files, 2 directories, and 1 engine file in a single group. The import scan in subtask 5.6 must catch all dangling references.
-- Nightshift files (`ignore_ingest.py`, `dedup.py`, `ignore_filter.py`) currently depend on `Fact` dataclass and `EmbeddingGenerator`. After deletion, these files need to either be updated to not use embeddings or simplified to remove embedding-dependent functionality.
+- Nightshift files (`ignore_ingest.py`, `dedup.py`, `ignore_filter.py`) currently depend on `Fact` dataclass and `EmbeddingGenerator`. After deletion, `ingest_ignore_signals()` in `ignore_ingest.py` must be converted to a no-op (REQ-6.5), and the other files must have their removed-module imports cleaned up.
 - The `SleepComputeStream` class in `streams.py` must be deleted or the stream registration removed.
 - `cli/status.py`'s `project_model` integration must be replaced with a stub or the status output simplified.
 - `reset.py`'s `compact()` call must be removed — the compaction module is being deleted.
