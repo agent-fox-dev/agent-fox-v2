@@ -389,9 +389,7 @@ class KnowledgeIngestor:
 
         # Valid categories for git extraction
         valid_categories = {"decision", "pattern", "gotcha", "convention"}
-        now_str = __import__("datetime").datetime.now(
-            __import__("datetime").UTC
-        ).isoformat()
+        now_str = __import__("datetime").datetime.now(__import__("datetime").UTC).isoformat()
 
         facts: list[Fact] = []
         for item in json_data:
@@ -526,9 +524,7 @@ def run_background_ingestion(
             import concurrent.futures
 
             with concurrent.futures.ThreadPoolExecutor() as pool:
-                git_result = pool.submit(
-                    asyncio.run, ingestor.ingest_git_commits()
-                ).result()
+                git_result = pool.submit(asyncio.run, ingestor.ingest_git_commits()).result()
         else:
             git_result = asyncio.run(ingestor.ingest_git_commits())
 

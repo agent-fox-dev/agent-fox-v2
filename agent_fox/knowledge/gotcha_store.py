@@ -132,10 +132,7 @@ def query_gotchas(
     """
     cutoff = datetime.now(UTC) - timedelta(days=ttl_days)
     rows = conn.execute(
-        "SELECT text FROM gotchas "
-        "WHERE spec_name = ? AND created_at > ? "
-        "ORDER BY created_at DESC "
-        "LIMIT ?",
+        "SELECT text FROM gotchas WHERE spec_name = ? AND created_at > ? ORDER BY created_at DESC LIMIT ?",
         [spec_name, cutoff, limit],
     ).fetchall()
     return [f"[GOTCHA] {row[0]}" for row in rows]

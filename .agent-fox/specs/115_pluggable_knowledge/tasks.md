@@ -123,7 +123,7 @@ Each group produces testable artifacts that accumulate into the full provider.
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/knowledge/gotcha_extraction.py`
     - [x] Requirements 2.1, 2.2, 2.3, 2.5, 2.E2, 2.E3 acceptance criteria met
 
-- [ ] 5. Checkpoint - Store modules complete
+- [x] 5. Checkpoint - Store modules complete
   - Ensure all store-level tests pass.
   - Gotcha store, errata store, and gotcha extraction are individually tested.
   - Config and migration are in place.

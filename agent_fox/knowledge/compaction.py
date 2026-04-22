@@ -170,8 +170,7 @@ def _deduplicate_by_content(facts: list[Fact]) -> list[Fact]:
             existing = best[h]
             # Higher confidence wins; ties broken by recency (later created_at)
             if (fact.confidence > existing.confidence) or (
-                fact.confidence == existing.confidence
-                and fact.created_at > existing.created_at
+                fact.confidence == existing.confidence and fact.created_at > existing.created_at
             ):
                 best[h] = fact
 

@@ -56,15 +56,13 @@ def register_errata(
         The registered (or existing) ErrataEntry.
     """
     conn.execute(
-        "INSERT OR IGNORE INTO errata_index (spec_name, file_path, created_at) "
-        "VALUES (?, ?, CURRENT_TIMESTAMP)",
+        "INSERT OR IGNORE INTO errata_index (spec_name, file_path, created_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
         [spec_name, file_path],
     )
 
     # Query back to get the actual created_at (whether newly inserted or existing)
     row = conn.execute(
-        "SELECT spec_name, file_path, created_at FROM errata_index "
-        "WHERE spec_name = ? AND file_path = ?",
+        "SELECT spec_name, file_path, created_at FROM errata_index WHERE spec_name = ? AND file_path = ?",
         [spec_name, file_path],
     ).fetchone()
 
@@ -120,8 +118,7 @@ def query_errata(
         List of formatted strings prefixed with ``[ERRATA] ``.
     """
     rows = conn.execute(
-        "SELECT file_path FROM errata_index WHERE spec_name = ? "
-        "ORDER BY created_at",
+        "SELECT file_path FROM errata_index WHERE spec_name = ? ORDER BY created_at",
         [spec_name],
     ).fetchall()
     return [f"[ERRATA] {row[0]}" for row in rows]
