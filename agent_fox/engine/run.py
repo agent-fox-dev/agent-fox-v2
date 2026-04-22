@@ -98,11 +98,11 @@ def _setup_infrastructure(
     knowledge_db = open_knowledge_store(config.knowledge)
     sink_dispatcher.add(DuckDBSink(knowledge_db.connection, debug=debug))
 
-    # Attach agent trace sink when debug is active (103-REQ-1.1, 103-REQ-7.2)
-    if debug:
-        from agent_fox.knowledge.agent_trace import AgentTraceSink
+    # Attach agent trace sink unconditionally so that trace-based transcript
+    # reconstruction is available for knowledge extraction (113-REQ-1.1).
+    from agent_fox.knowledge.agent_trace import AgentTraceSink
 
-        sink_dispatcher.add(AgentTraceSink(AUDIT_DIR, ""))
+    sink_dispatcher.add(AgentTraceSink(AUDIT_DIR, ""))
 
     # Ingest at startup
     try:
@@ -152,7 +152,7 @@ def _setup_infrastructure(
             timeout_override=timeout_override,
             max_turns_override=max_turns_override,
             embedder=embedder,
-            trace_enabled=debug,
+            trace_enabled=True,
         )
 
     # 108-REQ-5.1: Create platform instance (None if not configured)

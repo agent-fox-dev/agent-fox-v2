@@ -205,7 +205,7 @@ class NodeSessionRunner:
         timeout_override: int | None = None,
         max_turns_override: int | None = None,
         embedder: EmbeddingGenerator | None = None,
-        trace_enabled: bool = False,
+        trace_enabled: bool = True,
     ) -> None:
         self._node_id = node_id
         self._config = config
@@ -598,15 +598,11 @@ class NodeSessionRunner:
                       113-REQ-1.E2
         """
         # 113-REQ-1.1: Reconstruct full transcript from agent trace JSONL
-        # Only attempt trace reconstruction when debug tracing is active;
-        # the trace file is not written in normal (non-debug) runs.
-        transcript = ""
-        if self._trace_enabled:
-            from agent_fox.core.paths import AUDIT_DIR
-            from agent_fox.knowledge.agent_trace import reconstruct_transcript
+        from agent_fox.core.paths import AUDIT_DIR
+        from agent_fox.knowledge.agent_trace import reconstruct_transcript
 
-            audit_dir = getattr(self, "_audit_dir", None) or AUDIT_DIR
-            transcript = reconstruct_transcript(audit_dir, self._run_id, node_id)
+        audit_dir = getattr(self, "_audit_dir", None) or AUDIT_DIR
+        transcript = reconstruct_transcript(audit_dir, self._run_id, node_id)
 
         # 113-REQ-1.E1, 113-REQ-1.E2: Fall back to _build_fallback_input
         # when trace is unavailable or has no assistant messages
