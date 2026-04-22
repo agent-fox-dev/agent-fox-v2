@@ -233,29 +233,34 @@ class QualityGateCategory(BaseHuntCategory):
             from agent_fox.core.json_extraction import extract_json_array
 
             backend = self._backend
-            if backend is None:
+            owns_backend = backend is None
+            if owns_backend:
                 from agent_fox.core.client import create_async_anthropic_client
 
                 backend = create_async_anthropic_client()
 
-            prompt = QUALITY_GATE_PROMPT.format(static_output=static_output)
-            response = await backend.messages.create(  # type: ignore[attr-defined]
-                model=_model_id,
-                max_tokens=4096,
-                messages=[{"role": "user", "content": prompt}],
-            )
+            try:
+                prompt = QUALITY_GATE_PROMPT.format(static_output=static_output)
+                response = await backend.messages.create(  # type: ignore[attr-defined]
+                    model=_model_id,
+                    max_tokens=4096,
+                    messages=[{"role": "user", "content": prompt}],
+                )
 
-            # Emit cost for this auxiliary AI call (91-REQ-4.4)
-            from agent_fox.core.config import PricingConfig
-            from agent_fox.nightshift.cost_helpers import emit_auxiliary_cost
+                # Emit cost for this auxiliary AI call (91-REQ-4.4)
+                from agent_fox.core.config import PricingConfig
+                from agent_fox.nightshift.cost_helpers import emit_auxiliary_cost
 
-            emit_auxiliary_cost(sink, run_id, "quality_gate", response, _model_id, PricingConfig())
+                emit_auxiliary_cost(sink, run_id, "quality_gate", response, _model_id, PricingConfig())
 
-            response_text = response.content[0].text  # type: ignore[attr-defined]
+                response_text = response.content[0].text  # type: ignore[attr-defined]
 
-            items = extract_json_array(response_text)
-            if items is None:
-                raise ValueError("AI returned unparseable JSON")
+                items = extract_json_array(response_text)
+                if items is None:
+                    raise ValueError("AI returned unparseable JSON")
+            finally:
+                if owns_backend:
+                    await backend.close()  # type: ignore[union-attr]
 
             findings: list[Finding] = []
             for item in items:
