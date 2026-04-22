@@ -19,7 +19,7 @@ import hashlib
 import logging
 import math
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
     from agent_fox.nightshift.finding import FindingGroup
@@ -28,6 +28,15 @@ if TYPE_CHECKING:
 from agent_fox.platform.labels import LABEL_HUNT
 
 logger = logging.getLogger(__name__)
+
+
+class EmbedderProtocol(Protocol):
+    """Structural interface for embedding providers used in semantic deduplication."""
+
+    def embed_batch(self, texts: list[str]) -> list[list[float]]:
+        """Embed a batch of texts, returning one float vector per text."""
+        ...
+
 
 # Label applied to every issue created by the hunt scan pipeline.
 # Used to efficiently query only night-shift-created issues during dedup.
@@ -138,7 +147,7 @@ async def filter_known_duplicates(
     platform: PlatformProtocol,
     *,
     similarity_threshold: float = 0.85,
-    embedder: object | None = None,
+    embedder: EmbedderProtocol | None = None,
 ) -> list[FindingGroup]:
     """Fetch af:hunt issues (open + closed), return novel FindingGroups.
 

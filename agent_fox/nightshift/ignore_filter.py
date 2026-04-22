@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from agent_fox.platform.protocol import PlatformProtocol
 
 from agent_fox.nightshift.dedup import (
+    EmbedderProtocol,
     build_finding_group_text,
     build_issue_text,
     cosine_similarity,
@@ -32,7 +33,7 @@ async def filter_ignored(
     platform: PlatformProtocol,
     *,
     similarity_threshold: float = 0.85,
-    embedder: object | None = None,
+    embedder: EmbedderProtocol | None = None,
 ) -> list[FindingGroup]:
     """Fetch af:ignore issues (open + closed), return novel FindingGroups.
 

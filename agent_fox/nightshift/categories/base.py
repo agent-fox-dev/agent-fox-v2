@@ -15,6 +15,8 @@ from typing import TYPE_CHECKING
 from agent_fox.nightshift.finding import Finding
 
 if TYPE_CHECKING:
+    import anthropic
+
     from agent_fox.knowledge.sink import SinkDispatcher
 
 logger = logging.getLogger(__name__)
@@ -38,7 +40,7 @@ class BaseHuntCategory:
     def __init__(
         self,
         config: object | None = None,
-        backend: object | None = None,
+        backend: anthropic.AsyncAnthropic | None = None,
         *,
         static_tool: object | None = ...,
     ) -> None:

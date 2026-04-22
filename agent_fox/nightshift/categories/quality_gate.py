@@ -16,7 +16,7 @@ import logging
 import re
 import subprocess
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from agent_fox.fix.checks import CheckCategory, CheckDescriptor, detect_checks
 from agent_fox.nightshift.categories.base import BaseHuntCategory
@@ -128,7 +128,7 @@ class QualityGateCategory(BaseHuntCategory):
     _prompt_template = QUALITY_GATE_PROMPT
 
     # Track failure records between phases so AI phase has access to raw output
-    def __init__(self, **kwargs: object) -> None:
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self._failures: list[tuple[CheckDescriptor, str, int]] = []
 
@@ -238,10 +238,13 @@ class QualityGateCategory(BaseHuntCategory):
                 from agent_fox.core.client import create_async_anthropic_client
 
                 backend = create_async_anthropic_client()
+            # At this point backend is always non-None: either passed in (not None)
+            # or just created above. Assert narrows the type for mypy.
+            assert backend is not None
 
             try:
                 prompt = QUALITY_GATE_PROMPT.format(static_output=static_output)
-                response = await backend.messages.create(  # type: ignore[attr-defined]
+                response = await backend.messages.create(
                     model=_model_id,
                     max_tokens=4096,
                     messages=[{"role": "user", "content": prompt}],
@@ -253,14 +256,14 @@ class QualityGateCategory(BaseHuntCategory):
 
                 emit_auxiliary_cost(sink, run_id, "quality_gate", response, _model_id, PricingConfig())
 
-                response_text = response.content[0].text  # type: ignore[attr-defined]
+                response_text = response.content[0].text  # type: ignore[union-attr]
 
                 items = extract_json_array(response_text)
                 if items is None:
                     raise ValueError("AI returned unparseable JSON")
             finally:
                 if owns_backend:
-                    await backend.close()  # type: ignore[union-attr]
+                    await backend.close()
 
             findings: list[Finding] = []
             for item in items:
