@@ -6,15 +6,17 @@ Requirements: 115-REQ-5.1, 115-REQ-5.2, 115-REQ-5.3, 115-REQ-5.4
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock
+
 import duckdb
 import pytest
+
 from agent_fox.knowledge.errata_store import (
     ErrataEntry,
     query_errata,
     register_errata,
     unregister_errata,
 )
-
 from agent_fox.knowledge.migrations import apply_pending_migrations
 from tests.unit.knowledge.conftest import SCHEMA_DDL
 
@@ -177,10 +179,10 @@ class TestRegisterUnregister:
 
     def test_register_idempotent(self, errata_conn) -> None:
         """Registering the same entry twice should not raise."""
-        register_errata(
+        entry1 = register_errata(
             errata_conn, "spec_28", "docs/errata/28_fix.md"
         )
-        register_errata(
+        entry2 = register_errata(
             errata_conn, "spec_28", "docs/errata/28_fix.md"
         )
 
@@ -188,3 +190,42 @@ class TestRegisterUnregister:
             "SELECT * FROM errata_index WHERE spec_name = 'spec_28'"
         ).fetchall()
         assert len(rows) == 1
+        # created_at must be stable across idempotent re-registration
+        assert entry1.created_at == entry2.created_at
+
+
+# ===========================================================================
+# AC-2: RuntimeError on missing row after INSERT OR IGNORE
+# ===========================================================================
+
+
+class TestRegisterNoneGuard:
+    """Verify RuntimeError is raised when fetchone() returns None after INSERT.
+
+    Guards against None-dereference on line 69 (issue #515).
+    """
+
+    def test_fetchone_none_raises_runtime_error(self, errata_conn) -> None:
+        """When the SELECT after INSERT returns no row, a RuntimeError is raised."""
+        # DuckDB's execute() is read-only on the C extension object, so we
+        # wrap the real connection in a MagicMock that delegates the first
+        # call (INSERT OR IGNORE) to the real connection and returns a fake
+        # cursor whose fetchone() returns None for the second call (SELECT).
+        fake_result = MagicMock()
+        fake_result.fetchone.return_value = None
+
+        call_count = 0
+        original_execute = errata_conn.execute
+
+        def fake_execute(sql, params=None):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return original_execute(sql, params) if params is not None else original_execute(sql)
+            return fake_result
+
+        mock_conn = MagicMock(spec=duckdb.DuckDBPyConnection)
+        mock_conn.execute.side_effect = fake_execute
+
+        with pytest.raises(RuntimeError, match="no row found"):
+            register_errata(mock_conn, "spec_28", "docs/errata/28_fix.md")

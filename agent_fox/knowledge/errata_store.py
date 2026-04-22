@@ -66,6 +66,11 @@ def register_errata(
         [spec_name, file_path],
     ).fetchone()
 
+    if row is None:
+        raise RuntimeError(
+            f"register_errata: no row found for spec_name={spec_name!r}, file_path={file_path!r} after INSERT OR IGNORE"
+        )
+
     return ErrataEntry(spec_name=row[0], file_path=row[1], created_at=row[2])
 
 
