@@ -4,3 +4,10 @@ Provides fact storage, DuckDB knowledge store infrastructure, schema
 management, embedding and search, fact extraction, filtering, rendering,
 compaction, and the in-memory state machine for buffered writes.
 """
+
+from agent_fox.knowledge.provider import KnowledgeProvider, NoOpKnowledgeProvider
+
+__all__ = [
+    "KnowledgeProvider",
+    "NoOpKnowledgeProvider",
+]

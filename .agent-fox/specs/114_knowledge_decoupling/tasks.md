@@ -74,27 +74,27 @@ each group), and group 7 verifies everything end-to-end.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/`
 
-- [ ] 2. Define KnowledgeProvider protocol and NoOpKnowledgeProvider
-  - [ ] 2.1 Create `agent_fox/knowledge/provider.py`
+- [x] 2. Define KnowledgeProvider protocol and NoOpKnowledgeProvider
+  - [x] 2.1 Create `agent_fox/knowledge/provider.py`
     - Define `KnowledgeProvider` as `typing.Protocol` with `@runtime_checkable`
     - `ingest(session_id: str, spec_name: str, context: dict[str, Any]) -> None`
     - `retrieve(spec_name: str, task_description: str) -> list[str]`
     - _Requirements: 1.1, 1.2, 1.3, 1.4_
 
-  - [ ] 2.2 Implement `NoOpKnowledgeProvider` in `provider.py`
+  - [x] 2.2 Implement `NoOpKnowledgeProvider` in `provider.py`
     - `ingest()` returns None immediately
     - `retrieve()` returns empty list
     - _Requirements: 2.1, 2.2, 2.3, 2.E1_
 
-  - [ ] 2.3 Export from `agent_fox/knowledge/__init__.py`
+  - [x] 2.3 Export from `agent_fox/knowledge/__init__.py`
     - Add `KnowledgeProvider` and `NoOpKnowledgeProvider` to package exports
     - _Requirements: 1.1, 2.1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_provider.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/knowledge/provider.py`
-    - [ ] Requirements 1.1, 1.2, 1.3, 1.4, 2.1, 2.2, 2.3, 2.E1 acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_provider.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/knowledge/provider.py`
+    - [x] Requirements 1.1, 1.2, 1.3, 1.4, 2.1, 2.2, 2.3, 2.E1 acceptance criteria met
 
 - [ ] 3. Rewire engine to use KnowledgeProvider protocol
   - [ ] 3.1 Modify `session_lifecycle.py` retrieval path
