@@ -10,7 +10,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import duckdb
 import pytest
@@ -51,71 +51,60 @@ def _insert_session_outcome(
     )
 
 
-class TestQueryPriorTouchedFiles:
-    """TS-3.1, TS-3.2, TS-3.3: _query_prior_touched_files unit tests."""
+class TestSessionOutcomesTouchedPaths:
+    """TS-3.1, TS-3.2, TS-3.3: Touched file data in session_outcomes.
 
-    def test_returns_deduplicated_paths(
+    NOTE: Spec 114 (knowledge decoupling) removed _query_prior_touched_files
+    from NodeSessionRunner. Retrieval of prior touched files is now delegated
+    to the KnowledgeProvider protocol. These tests now verify that the
+    session_outcomes data layer remains intact and queryable.
+    """
+
+    def test_touched_paths_stored_correctly(
         self, knowledge_conn_with_schema: duckdb.DuckDBPyConnection
     ) -> None:
-        """TS-3.1: Returns deduplicated list of touched paths from prior sessions."""
+        """TS-3.1: Session outcomes store and return touched paths."""
 
         conn = knowledge_conn_with_schema
-        # Session 1: touches a.py and b.py (comma-delimited)
         _insert_session_outcome(conn, spec_name="05_foo", touched_path="src/a.py,src/b.py")
-        # Session 2: touches b.py and c.py (b.py is duplicated)
         _insert_session_outcome(conn, spec_name="05_foo", touched_path="src/b.py,src/c.py")
-        # Session 3: NULL touched_path (should be excluded)
         _insert_session_outcome(conn, spec_name="05_foo", touched_path=None)
 
-        runner = _make_runner_with_conn(conn)
-        paths = runner._query_prior_touched_files("05_foo")
+        rows = conn.execute(
+            "SELECT touched_path FROM session_outcomes "
+            "WHERE spec_name = '05_foo' AND touched_path IS NOT NULL"
+        ).fetchall()
 
-        assert set(paths) == {"src/a.py", "src/b.py", "src/c.py"}
-        # No duplicates
-        assert len(paths) == len(set(paths))
+        all_paths: set[str] = set()
+        for (tp,) in rows:
+            for p in tp.split(","):
+                p = p.strip()
+                if p:
+                    all_paths.add(p)
 
-    def test_excludes_null_touched_paths(
+        assert all_paths == {"src/a.py", "src/b.py", "src/c.py"}
+
+    def test_null_touched_paths_excluded(
         self, knowledge_conn_with_schema: duckdb.DuckDBPyConnection
     ) -> None:
-        """TS-3.1: Sessions with NULL touched_path are excluded."""
+        """TS-3.1: Sessions with NULL touched_path are excluded from queries."""
 
         conn = knowledge_conn_with_schema
         _insert_session_outcome(conn, spec_name="05_foo", touched_path=None)
         _insert_session_outcome(conn, spec_name="05_foo", touched_path="src/real.py")
 
-        runner = _make_runner_with_conn(conn)
-        paths = runner._query_prior_touched_files("05_foo")
+        rows = conn.execute(
+            "SELECT touched_path FROM session_outcomes "
+            "WHERE spec_name = '05_foo' AND touched_path IS NOT NULL"
+        ).fetchall()
 
+        paths = [tp for (tp,) in rows]
         assert "src/real.py" in paths
-        assert None not in paths
 
-    def test_limits_to_50_most_recent(
+    def test_session_outcomes_support_many_paths(
         self, knowledge_conn_with_schema: duckdb.DuckDBPyConnection
     ) -> None:
-        """TS-3.2: Limits result to 50 most recently touched paths."""
-
-        conn = knowledge_conn_with_schema
-        base_time = datetime(2026, 1, 1, tzinfo=UTC)
-
-        # Insert 60 sessions with unique file paths and sequential timestamps
-        for i in range(60):
-            ts = (base_time + timedelta(hours=i)).isoformat()
-            _insert_session_outcome(
-                conn,
-                spec_name="05_foo",
-                touched_path=f"src/file_{i:03d}.py",
-                created_at=ts,
-            )
-
-        runner = _make_runner_with_conn(conn)
-        paths = runner._query_prior_touched_files("05_foo")
-
-        assert len(paths) == 50, f"Expected 50 paths, got {len(paths)}"
-
-    def test_most_recent_50_paths_returned(
-        self, knowledge_conn_with_schema: duckdb.DuckDBPyConnection
-    ) -> None:
-        """TS-3.2: The 50 paths correspond to the 50 most recently created sessions."""
+        """TS-3.2: Session outcomes table supports storing many touched paths."""
 
         conn = knowledge_conn_with_schema
         base_time = datetime(2026, 1, 1, tzinfo=UTC)
@@ -129,82 +118,100 @@ class TestQueryPriorTouchedFiles:
                 created_at=ts,
             )
 
-        runner = _make_runner_with_conn(conn)
-        paths = runner._query_prior_touched_files("05_foo")
+        rows = conn.execute(
+            "SELECT touched_path FROM session_outcomes "
+            "WHERE spec_name = '05_foo' AND touched_path IS NOT NULL "
+            "ORDER BY created_at DESC"
+        ).fetchall()
 
-        # The 50 most recent are files 10-59 (indices 10..59)
-        returned_set = set(paths)
-        for i in range(10, 60):
-            assert f"src/file_{i:03d}.py" in returned_set, (
-                f"Expected recent file src/file_{i:03d}.py in result"
-            )
-        # The 10 oldest (0..9) should NOT be in the result
-        for i in range(10):
-            assert f"src/file_{i:03d}.py" not in returned_set, (
-                f"Old file src/file_{i:03d}.py should not be in result"
-            )
+        assert len(rows) == 60
 
-    def test_empty_when_no_prior_sessions(
+    def test_recent_paths_ordered_by_timestamp(
         self, knowledge_conn_with_schema: duckdb.DuckDBPyConnection
     ) -> None:
-        """TS-3.3: Returns empty list when no prior sessions exist.
+        """TS-3.2: Paths are ordered by creation time (most recent first)."""
+
+        conn = knowledge_conn_with_schema
+        base_time = datetime(2026, 1, 1, tzinfo=UTC)
+
+        for i in range(5):
+            ts = (base_time + timedelta(hours=i)).isoformat()
+            _insert_session_outcome(
+                conn,
+                spec_name="05_foo",
+                touched_path=f"src/file_{i:03d}.py",
+                created_at=ts,
+            )
+
+        rows = conn.execute(
+            "SELECT touched_path FROM session_outcomes "
+            "WHERE spec_name = '05_foo' AND touched_path IS NOT NULL "
+            "ORDER BY created_at DESC"
+        ).fetchall()
+
+        paths = [tp for (tp,) in rows]
+        assert paths[0] == "src/file_004.py"  # most recent
+        assert paths[-1] == "src/file_000.py"  # oldest
+
+    def test_empty_when_no_sessions(
+        self, knowledge_conn_with_schema: duckdb.DuckDBPyConnection
+    ) -> None:
+        """TS-3.3: No rows returned when no prior sessions exist.
 
         Requirements: 113-REQ-3.E1
         """
 
         conn = knowledge_conn_with_schema
-        runner = _make_runner_with_conn(conn)
-        paths = runner._query_prior_touched_files("05_foo")
+        rows = conn.execute(
+            "SELECT touched_path FROM session_outcomes "
+            "WHERE spec_name = '05_foo' AND touched_path IS NOT NULL"
+        ).fetchall()
 
-        assert paths == []
+        assert rows == []
 
 
-class TestBuildPromptsPassesTouchedFiles:
-    """TS-3.4: Integration — _build_prompts passes touched files to retriever."""
+class TestBuildPromptsUsesKnowledgeProvider:
+    """TS-3.4: Integration — _build_prompts calls KnowledgeProvider.retrieve().
 
-    def test_retriever_receives_touched_files(
+    NOTE: Spec 114 (knowledge decoupling) replaced AdaptiveRetriever with
+    the KnowledgeProvider protocol. _build_prompts now calls
+    knowledge_provider.retrieve() instead of AdaptiveRetriever.retrieve().
+    """
+
+    def test_knowledge_provider_retrieve_called(
         self,
         tmp_path: Path,
         knowledge_conn_with_schema: duckdb.DuckDBPyConnection,
     ) -> None:
-        """TS-3.4: AdaptiveRetriever.retrieve is called with non-empty touched_files."""
+        """TS-3.4: KnowledgeProvider.retrieve() is called during prompt assembly."""
 
         conn = knowledge_conn_with_schema
-        # Seed prior sessions for spec "05_foo"
         _insert_session_outcome(conn, spec_name="05_foo", touched_path="src/main.py,src/utils.py")
-
-        retrieved_touched_files: list[list[str]] = []
-
-        def capture_retrieve(*args, **kwargs):
-            retrieved_touched_files.append(kwargs.get("touched_files", []))
-            from agent_fox.knowledge.retrieval import IntentProfile, RetrievalResult
-
-            return RetrievalResult(
-                context="## Knowledge Context\n",
-                intent_profile=IntentProfile(),
-                anchor_count=0,
-                signal_counts={},
-            )
 
         runner = _make_runner_with_conn(conn)
         runner._spec_name = "05_foo"
         runner._node_id = "05_foo:1"
 
-        with patch(
-            "agent_fox.knowledge.retrieval.AdaptiveRetriever.retrieve",
-            side_effect=capture_retrieve,
-        ):
-            try:
-                runner._build_prompts(tmp_path, 1, None)
-            except Exception:
-                # _build_prompts may fail for unrelated reasons (spec dir missing, etc.)
-                # but we care that retrieve() was called with touched_files
-                pass
+        # Track whether retrieve was called
+        retrieve_called = False
+        original_retrieve = runner._knowledge_provider.retrieve
 
-        assert len(retrieved_touched_files) > 0, "AdaptiveRetriever.retrieve was never called"
-        assert any(len(tf) > 0 for tf in retrieved_touched_files), (
-            "touched_files was always empty; expected non-empty list from prior sessions"
-        )
+        def tracking_retrieve(spec_name, task_description):
+            nonlocal retrieve_called
+            retrieve_called = True
+            return original_retrieve(spec_name, task_description)
+
+        runner._knowledge_provider.retrieve = tracking_retrieve
+
+        with (
+            patch("agent_fox.engine.session_lifecycle.assemble_context", return_value=MagicMock()),
+            patch("agent_fox.engine.session_lifecycle.build_system_prompt", return_value="sys"),
+            patch("agent_fox.engine.session_lifecycle.build_task_prompt", return_value="task"),
+            patch("agent_fox.core.config.resolve_spec_root", return_value=MagicMock()),
+        ):
+            runner._build_prompts(tmp_path, 1, None)
+
+        assert retrieve_called, "KnowledgeProvider.retrieve() was never called"
 
 
 # ---------------------------------------------------------------------------
@@ -230,7 +237,9 @@ def _make_runner_with_conn(conn: duckdb.DuckDBPyConnection):
     runner._config = config
     runner._knowledge_db = db
     runner._sink_dispatcher = None
-    runner._embedder = None
+    from agent_fox.knowledge.provider import NoOpKnowledgeProvider
+
+    runner._knowledge_provider = NoOpKnowledgeProvider()
     runner._archetype = "coder"
     runner._mode = None
     runner._task_group = 2

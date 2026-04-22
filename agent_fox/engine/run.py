@@ -21,7 +21,7 @@ from agent_fox.engine.engine import Orchestrator
 from agent_fox.engine.state import ExecutionState
 from agent_fox.knowledge.db import open_knowledge_store
 from agent_fox.knowledge.duckdb_sink import DuckDBSink
-from agent_fox.knowledge.ingest import run_background_ingestion
+from agent_fox.knowledge.provider import NoOpKnowledgeProvider
 
 if TYPE_CHECKING:
     from agent_fox.core.config import AgentFoxConfig, OrchestratorConfig
@@ -89,7 +89,6 @@ def _setup_infrastructure(
     """
     from agent_fox.core.paths import AUDIT_DIR
     from agent_fox.engine.session_lifecycle import NodeSessionRunner
-    from agent_fox.knowledge.embeddings import EmbeddingGenerator
     from agent_fox.knowledge.sink import SinkDispatcher
     from agent_fox.nightshift.platform_factory import create_platform_safe
 
@@ -104,27 +103,8 @@ def _setup_infrastructure(
 
     sink_dispatcher.add(AgentTraceSink(AUDIT_DIR, ""))
 
-    # Ingest at startup
-    try:
-        run_background_ingestion(
-            knowledge_db.connection,
-            config.knowledge,
-            Path.cwd(),
-        )
-    except Exception:
-        logger.warning("Background ingestion failed", exc_info=True)
-
-    # 94-REQ-6.1: Create a shared EmbeddingGenerator for vector retrieval.
-    # A single model instance is shared across all sessions in the run to avoid
-    # repeated model loading (~1-2s per load on Apple Silicon).
-    embedder: EmbeddingGenerator | None = None
-    try:
-        embedder = EmbeddingGenerator(config.knowledge)
-    except Exception:
-        logger.debug(
-            "Failed to create EmbeddingGenerator; vector retrieval disabled",
-            exc_info=True,
-        )
+    # 114-REQ-2.4: Create NoOpKnowledgeProvider as default
+    knowledge_provider = NoOpKnowledgeProvider()
 
     def session_runner_factory(
         node_id: str,
@@ -146,12 +126,12 @@ def _setup_infrastructure(
             instances=instances,
             sink_dispatcher=sink_dispatcher,
             knowledge_db=knowledge_db,
+            knowledge_provider=knowledge_provider,
             activity_callback=activity_callback,
             assessed_tier=assessed_tier,
             run_id=run_id,
             timeout_override=timeout_override,
             max_turns_override=max_turns_override,
-            embedder=embedder,
             trace_enabled=True,
         )
 
@@ -165,6 +145,7 @@ def _setup_infrastructure(
     return {
         "sink_dispatcher": sink_dispatcher,
         "knowledge_db": knowledge_db,
+        "knowledge_provider": knowledge_provider,
         "session_runner_factory": session_runner_factory,
         "audit_dir": AUDIT_DIR,
         "platform": platform,
@@ -278,33 +259,13 @@ async def run_code(
 
 
 def _barrier_sync(infra: dict[str, Any], config: Any) -> None:
-    """Run ingestion at sync barrier."""
-    knowledge_db = infra["knowledge_db"]
-    try:
-        run_background_ingestion(
-            knowledge_db.connection,
-            config.knowledge,
-            Path.cwd(),
-        )
-    except Exception:
-        logger.warning("Barrier ingestion failed", exc_info=True)
-    finally:
-        infra["_barrier_ingestion_ran"] = True
+    """Run barrier callback (no-op after knowledge decoupling)."""
+    infra["_barrier_ingestion_ran"] = True
 
 
 def _cleanup_infrastructure(infra: dict[str, Any], config: Any) -> None:
     """Clean up infrastructure resources."""
     knowledge_db = infra["knowledge_db"]
-
-    if not infra.get("_barrier_ingestion_ran", False):
-        try:
-            run_background_ingestion(
-                knowledge_db.connection,
-                config.knowledge,
-                Path.cwd(),
-            )
-        except Exception:
-            logger.warning("Final ingestion failed", exc_info=True)
 
     # Close sinks and DB
     try:

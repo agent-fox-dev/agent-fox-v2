@@ -18,19 +18,11 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from agent_fox.core.models import TIER_DEFAULTS, ModelTier
 from agent_fox.workspace.develop import _sync_develop_with_remote
 from agent_fox.workspace.git import run_git
 from agent_fox.workspace.merge_lock import MergeLock
 
 logger = logging.getLogger(__name__)
-
-# Module-level import so tests can patch agent_fox.engine.barrier.run_consolidation.
-# Falls back to None if the consolidation module is unavailable.
-try:
-    from agent_fox.knowledge.consolidation import run_consolidation
-except ImportError:  # pragma: no cover
-    run_consolidation = None  # type: ignore[assignment]
 
 
 def verify_worktrees(repo_root: Path) -> list[Path]:
@@ -120,29 +112,28 @@ async def run_sync_barrier_sequence(
     hot_load_fn: Callable[..., Any],
     sync_plan_fn: Callable[..., None],
     barrier_callback: Callable[[], None] | None,
-    knowledge_db_conn: Any | None,
+    knowledge_db_conn: Any | None = None,
     reload_config_fn: Callable[[], None] | None = None,
-    knowledge_config: Any | None = None,
-    sink_dispatcher: Any | None = None,
-    completed_specs_fn: Callable[[], set[str]] | None = None,
-    consolidated_specs: set[str] | None = None,
 ) -> None:
     """Execute the sync barrier sequence.
 
     Called when the completed task count crosses a sync_interval boundary.
 
-    Steps:
+    Retained operational steps:
     1. Verify worktrees (51-REQ-2.*)
     2. Bidirectional develop sync (51-REQ-3.*)
     3. Hot-load new specs (with gated discovery)
-    4. Barrier callback (knowledge ingestion)
-    5. Regenerate memory summary
+    4. Barrier callback
+    5. Config reload
 
-    Requirements: 06-REQ-6.1, 06-REQ-6.2, 06-REQ-6.3, 05-REQ-6.3,
-                  51-REQ-2.*, 51-REQ-3.*
+    Knowledge-related steps (fact consolidation, deduplication, lifecycle
+    cleanup, sleep pre-computation, summary rendering) were removed by
+    spec 114 (knowledge decoupling).
+
+    Requirements: 06-REQ-6.1, 06-REQ-6.2, 06-REQ-6.3,
+                  51-REQ-2.*, 51-REQ-3.*, 114-REQ-5.1, 114-REQ-5.2
     """
     from agent_fox.knowledge.audit import AuditEventType
-    from agent_fox.knowledge.rendering import render_summary
 
     completed_count = _count_node_status(state.node_states, "completed")
     barrier_number = completed_count // sync_interval
@@ -191,115 +182,12 @@ async def run_sync_barrier_sequence(
         except Exception:
             logger.warning("Hot-loading specs failed at barrier", exc_info=True)
 
-    # 12-REQ-4.1, 12-REQ-4.2: Run barrier callback (knowledge ingestion)
+    # 12-REQ-4.1, 12-REQ-4.2: Run barrier callback
     if barrier_callback is not None:
         try:
             barrier_callback()
         except Exception:
             logger.warning("Barrier callback failed", exc_info=True)
-
-    # 90-REQ-4.1, 90-REQ-4.2: Run fact lifecycle cleanup (decay + audit)
-    if knowledge_db_conn is not None and knowledge_config is not None:
-        try:
-            from agent_fox.knowledge.lifecycle import run_cleanup
-
-            cleanup_result = run_cleanup(
-                knowledge_db_conn,
-                knowledge_config,
-                sink_dispatcher=sink_dispatcher,
-            )
-            logger.info(
-                "Fact lifecycle cleanup: expired=%d deduped=%d contradicted=%d remaining=%d",
-                cleanup_result.facts_expired,
-                cleanup_result.facts_deduped,
-                cleanup_result.facts_contradicted,
-                cleanup_result.active_facts_remaining,
-            )
-        except Exception:
-            logger.warning("Fact lifecycle cleanup failed at barrier", exc_info=True)
-
-    # 96-REQ-7.1, 96-REQ-7.3: Run consolidation pipeline for newly completed specs.
-    # Runs after lifecycle cleanup and before compaction so that consolidation sees
-    # the full set of active facts. Compaction then cleans up any redundancies
-    # introduced by consolidation (merged/superseded facts).
-    # The exclusive barrier window provides write isolation.
-    if (
-        run_consolidation is not None
-        and knowledge_db_conn is not None
-        and completed_specs_fn is not None
-        and consolidated_specs is not None
-    ):
-        try:
-            all_completed = completed_specs_fn()
-            new_completed = all_completed - consolidated_specs
-            if new_completed:
-                consolidation_result = await run_consolidation(
-                    knowledge_db_conn,
-                    repo_root,
-                    new_completed,
-                    model=TIER_DEFAULTS[ModelTier.SIMPLE],
-                    sink_dispatcher=sink_dispatcher,
-                )
-                consolidated_specs.update(new_completed)
-                logger.info(
-                    "Consolidation complete at barrier: linked=%d errors=%s",
-                    consolidation_result.facts_linked,
-                    consolidation_result.errors,
-                )
-        except Exception:
-            logger.warning("Consolidation pipeline failed at barrier", exc_info=True)
-
-    # Compact knowledge base: deduplicate and resolve supersession (fixes #211).
-    # Runs after consolidation so that consolidation sees the full active fact set,
-    # and compaction then cleans up any superseded or duplicate facts introduced
-    # by the consolidation pipeline.
-    if knowledge_db_conn is not None:
-        try:
-            from agent_fox.knowledge.compaction import compact
-
-            compact(knowledge_db_conn)
-        except Exception:
-            logger.warning("Knowledge compaction failed at barrier", exc_info=True)
-
-    # 112-REQ-6.1: Run sleep-time compute pipeline after compaction.
-    if knowledge_db_conn is not None and knowledge_config is not None:
-        sleep_cfg = getattr(knowledge_config, "sleep", None)
-        if sleep_cfg is not None and getattr(sleep_cfg, "enabled", True):
-            try:
-                from agent_fox.knowledge.sleep_compute import SleepComputer, SleepContext
-                from agent_fox.knowledge.sleep_tasks import BundleBuilder, ContextRewriter
-
-                tasks = []
-                if getattr(sleep_cfg, "context_rewriter_enabled", True):
-                    tasks.append(ContextRewriter())
-                if getattr(sleep_cfg, "bundle_builder_enabled", True):
-                    tasks.append(BundleBuilder())
-
-                sleep_ctx = SleepContext(
-                    conn=knowledge_db_conn,
-                    repo_root=repo_root,
-                    model=getattr(sleep_cfg, "model", "standard"),
-                    embedder=None,
-                    budget_remaining=float(getattr(sleep_cfg, "max_cost", 1.0)),
-                    sink_dispatcher=sink_dispatcher,
-                )
-                sleep_computer = SleepComputer(tasks, sleep_cfg)
-                sleep_result = await sleep_computer.run(sleep_ctx)
-                logger.info(
-                    "Sleep compute at barrier: created=%d refreshed=%d cost=%.4f errors=%d",
-                    sum(r.created for r in sleep_result.task_results.values()),
-                    sum(r.refreshed for r in sleep_result.task_results.values()),
-                    sleep_result.total_llm_cost,
-                    len(sleep_result.errors),
-                )
-            except Exception:
-                logger.warning("Sleep compute failed at barrier", exc_info=True)
-
-    # 06-REQ-6.2 / 05-REQ-6.3: Regenerate memory summary
-    try:
-        render_summary(conn=knowledge_db_conn)
-    except Exception:
-        logger.warning("Memory summary regeneration failed", exc_info=True)
 
     # 66-REQ-1.1: Reload configuration after barrier completes
     if reload_config_fn is not None:

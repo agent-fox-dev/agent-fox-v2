@@ -11,7 +11,21 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
 from agent_fox.knowledge.provider import NoOpKnowledgeProvider
+
+
+def _make_mock_config() -> MagicMock:
+    """Create a mock AgentFoxConfig that passes model tier resolution."""
+    mock_config = MagicMock()
+    mock_config.knowledge = MagicMock()
+    mock_config.models = MagicMock()
+    mock_config.orchestrator = MagicMock()
+    mock_config.archetypes.overrides.get.return_value = None
+    mock_config.archetypes.models = {}
+    mock_config.models.coding = None
+    mock_config.models.review = None
+    return mock_config
 
 # ---------------------------------------------------------------------------
 # TS-114-SMOKE-1: Pre-Session Retrieval Path
@@ -29,16 +43,11 @@ class TestPreSessionRetrievalSmoke:
         from agent_fox.engine.session_lifecycle import NodeSessionRunner
 
         provider = NoOpKnowledgeProvider()  # real, not mocked
-
-        mock_config = MagicMock()
-        mock_config.knowledge = MagicMock()
-        mock_config.models = MagicMock()
-        mock_config.orchestrator = MagicMock()
         mock_db = MagicMock()
 
         runner = NodeSessionRunner(
             "spec_01:1",
-            mock_config,
+            _make_mock_config(),
             knowledge_db=mock_db,
             knowledge_provider=provider,  # real provider
             sink_dispatcher=MagicMock(),
@@ -72,16 +81,11 @@ class TestPostSessionIngestionSmoke:
         from agent_fox.engine.session_lifecycle import NodeSessionRunner
 
         provider = NoOpKnowledgeProvider()  # real, not mocked
-
-        mock_config = MagicMock()
-        mock_config.knowledge = MagicMock()
-        mock_config.models = MagicMock()
-        mock_config.orchestrator = MagicMock()
         mock_db = MagicMock()
 
         runner = NodeSessionRunner(
             "spec_01:1",
-            mock_config,
+            _make_mock_config(),
             knowledge_db=mock_db,
             knowledge_provider=provider,
             sink_dispatcher=MagicMock(),
@@ -143,7 +147,7 @@ class TestEngineInitSmoke:
         with (
             patch("agent_fox.engine.run.open_knowledge_store") as mock_store,
             patch("agent_fox.engine.run.DuckDBSink"),
-            patch("agent_fox.engine.run.SinkDispatcher") as mock_sink_cls,
+            patch("agent_fox.knowledge.sink.SinkDispatcher") as mock_sink_cls,
             patch("agent_fox.knowledge.agent_trace.AgentTraceSink"),
         ):
             mock_db = MagicMock()
@@ -178,18 +182,11 @@ class TestReviewFindingsSmoke:
         from agent_fox.engine.session_lifecycle import NodeSessionRunner
 
         provider = NoOpKnowledgeProvider()
-
-        mock_config = MagicMock()
-        mock_config.knowledge = MagicMock()
-        mock_config.models = MagicMock()
-        mock_config.models.memory_extraction = "STANDARD"
-        mock_config.orchestrator = MagicMock()
-        mock_config.orchestrator.causal_context_limit = 5
         mock_db = MagicMock()
 
         runner = NodeSessionRunner(
             "spec_01:1",
-            mock_config,
+            _make_mock_config(),
             archetype="reviewer",
             knowledge_db=mock_db,
             knowledge_provider=provider,

@@ -871,9 +871,6 @@ class TestSyncBarrierTriggering:
         )
 
         with (
-            patch(
-                "agent_fox.knowledge.rendering.render_summary",
-            ) as mock_render,
             patch("agent_fox.engine.barrier.sync_develop_bidirectional", new_callable=AsyncMock),
             patch("agent_fox.engine.barrier.verify_worktrees", return_value=[]),
         ):
@@ -887,8 +884,6 @@ class TestSyncBarrierTriggering:
             state = await orchestrator.run()
 
         assert state.total_sessions == 5
-        # 1 sync-barrier render + 1 final render
-        assert mock_render.call_count == 2
 
     @pytest.mark.asyncio
     async def test_sync_barrier_fires_multiple_times(
@@ -914,9 +909,6 @@ class TestSyncBarrierTriggering:
         )
 
         with (
-            patch(
-                "agent_fox.knowledge.rendering.render_summary",
-            ) as mock_render,
             patch("agent_fox.engine.barrier.sync_develop_bidirectional", new_callable=AsyncMock),
             patch("agent_fox.engine.barrier.verify_worktrees", return_value=[]),
         ):
@@ -930,8 +922,6 @@ class TestSyncBarrierTriggering:
             state = await orchestrator.run()
 
         assert state.total_sessions == 6
-        # 2 sync-barrier renders + 1 final render
-        assert mock_render.call_count == 3
 
     @pytest.mark.asyncio
     async def test_sync_barrier_disabled_when_interval_zero(
@@ -959,29 +949,22 @@ class TestSyncBarrierTriggering:
             hot_load=False,
         )
 
-        with (
-            patch(
-                "agent_fox.knowledge.rendering.render_summary",
-            ) as mock_render,
-        ):
-            orchestrator = Orchestrator(
-                config=config,
-                session_runner_factory=lambda nid, **kw: mock_runner,
-                knowledge_db_conn=db_conn,
-            )
+        orchestrator = Orchestrator(
+            config=config,
+            session_runner_factory=lambda nid, **kw: mock_runner,
+            knowledge_db_conn=db_conn,
+        )
 
-            state = await orchestrator.run()
+        state = await orchestrator.run()
 
         assert state.total_sessions == 3
-        # No sync-barrier renders, but one final render in the finally block.
-        assert mock_render.call_count == 1
 
     @pytest.mark.asyncio
     async def test_sync_barrier_without_specs_dir(
         self,
         mock_runner: MockSessionRunner,
     ) -> None:
-        """Barrier still renders summary when no specs_dir provided."""
+        """Barrier still works without specs_dir provided."""
         db_conn = write_plan_to_db(
             nodes={
                 "spec:1": {"title": "Task 1"},
@@ -1003,9 +986,6 @@ class TestSyncBarrierTriggering:
         )
 
         with (
-            patch(
-                "agent_fox.knowledge.rendering.render_summary",
-            ) as mock_render,
             patch("agent_fox.engine.barrier.sync_develop_bidirectional", new_callable=AsyncMock),
             patch("agent_fox.engine.barrier.verify_worktrees", return_value=[]),
         ):
@@ -1016,9 +996,6 @@ class TestSyncBarrierTriggering:
             )
 
             await orchestrator.run()
-
-        # 1 sync-barrier render + 1 final render
-        assert mock_render.call_count == 2
 
 
 class TestParallelDispatchWithDependencies:

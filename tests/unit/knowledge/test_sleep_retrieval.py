@@ -298,57 +298,30 @@ def test_sleep_fields() -> None:
 
 
 async def test_barrier_runs_sleep_compute() -> None:
-    """TS-112-26: sleep compute step appears in call order between compact and render_summary."""
+    """TS-112-26: sleep compute step was removed from barrier by spec 114.
+
+    NOTE: Spec 114 (knowledge decoupling) removed sleep compute, consolidation,
+    and rendering from the sync barrier. The barrier now only runs operational
+    steps (worktree verification, develop sync, hot-load, callback, config reload).
+    This test verifies the barrier completes without these knowledge steps.
+    """
     from agent_fox.engine.barrier import run_sync_barrier_sequence
 
-    call_order: list[str] = []
-
-    # Track compact (consolidation) calls
-    async def mock_consolidation(*args: object, **kwargs: object) -> None:
-        call_order.append("compact")
-
-    async def mock_sleep_computer_run(*args: object, **kwargs: object) -> object:
-        call_order.append("sleep_compute")
-        from agent_fox.knowledge.sleep_compute import SleepComputeResult
-
-        return SleepComputeResult(task_results={}, total_llm_cost=0.0, errors=[])
-
-    def mock_render_summary(*args: object, **kwargs: object) -> str:
-        call_order.append("render_summary")
-        return ""
-
-    # Build a minimal fake state object
     state = MagicMock()
     state.node_states = {}
 
-    conn = _make_conn()
-    config = KnowledgeConfig()
-
-    with (
-        patch("agent_fox.engine.barrier.run_consolidation", mock_consolidation),
-        patch("agent_fox.knowledge.sleep_compute.SleepComputer.run", mock_sleep_computer_run),
-        patch("agent_fox.knowledge.rendering.render_summary", mock_render_summary),
-    ):
-        await run_sync_barrier_sequence(
-            state=state,
-            sync_interval=1,
-            repo_root=Path("."),
-            emit_audit=lambda *a, **kw: None,
-            specs_dir=None,
-            hot_load_enabled=False,
-            hot_load_fn=AsyncMock(),
-            sync_plan_fn=lambda s: None,
-            barrier_callback=None,
-            knowledge_db_conn=conn,
-            knowledge_config=config,
-            sink_dispatcher=None,
-        )
-
-    if "sleep_compute" in call_order:
-        if "compact" in call_order:
-            assert call_order.index("compact") < call_order.index("sleep_compute")
-        if "render_summary" in call_order:
-            assert call_order.index("sleep_compute") < call_order.index("render_summary")
+    await run_sync_barrier_sequence(
+        state=state,
+        sync_interval=1,
+        repo_root=Path("."),
+        emit_audit=lambda *a, **kw: None,
+        specs_dir=None,
+        hot_load_enabled=False,
+        hot_load_fn=AsyncMock(),
+        sync_plan_fn=lambda s: None,
+        barrier_callback=None,
+    )
+    # Barrier completes without sleep compute, consolidation, or rendering.
 
 
 # ---------------------------------------------------------------------------

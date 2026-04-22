@@ -22,7 +22,6 @@ from agent_fox.core.models import ModelTier, calculate_cost, resolve_model
 from agent_fox.core.node_id import parse_node_id
 from agent_fox.core.prompt_safety import sanitize_prompt_content
 from agent_fox.engine.audit_helpers import emit_audit_event
-from agent_fox.engine.knowledge_harvest import extract_and_store_knowledge
 from agent_fox.engine.review_persistence import persist_review_findings
 from agent_fox.engine.sdk_params import (
     clamp_instances,
@@ -36,8 +35,7 @@ from agent_fox.engine.sdk_params import (
 from agent_fox.engine.state import SessionRecord
 from agent_fox.knowledge.audit import AuditEventType, AuditSeverity
 from agent_fox.knowledge.db import KnowledgeDB
-from agent_fox.knowledge.embeddings import EmbeddingGenerator
-from agent_fox.knowledge.retrieval import AdaptiveRetriever, RetrievalConfig
+from agent_fox.knowledge.provider import KnowledgeProvider
 from agent_fox.knowledge.sink import SessionOutcome, SinkDispatcher
 from agent_fox.session.prompt import (
     assemble_context,
@@ -199,12 +197,12 @@ class NodeSessionRunner:
         instances: int = 1,
         sink_dispatcher: SinkDispatcher | None = None,
         knowledge_db: KnowledgeDB,
+        knowledge_provider: KnowledgeProvider | None = None,
         activity_callback: ActivityCallback | None = None,
         assessed_tier: ModelTier | None = None,
         run_id: str = "",
         timeout_override: int | None = None,
         max_turns_override: int | None = None,
-        embedder: EmbeddingGenerator | None = None,
         trace_enabled: bool = True,
     ) -> None:
         self._node_id = node_id
@@ -221,8 +219,13 @@ class NodeSessionRunner:
         # 75-REQ-3.5: Per-node timeout/turns overrides from timeout-aware escalation
         self._timeout_override = timeout_override
         self._max_turns_override = max_turns_override
-        # 94-REQ-6.1, 94-REQ-6.2: Optional shared embedding generator for cross-spec retrieval
-        self._embedder = embedder
+        # 114-REQ-2.4: Use provided KnowledgeProvider or default to NoOp
+        if knowledge_provider is not None:
+            self._knowledge_provider = knowledge_provider
+        else:
+            from agent_fox.knowledge.provider import NoOpKnowledgeProvider
+
+            self._knowledge_provider = NoOpKnowledgeProvider()
         parsed = parse_node_id(node_id)
         self._spec_name = parsed.spec_name
         self._task_group = parsed.group_number
@@ -236,8 +239,6 @@ class NodeSessionRunner:
                 resolve_model_tier(self._config, self._archetype, mode=self._mode)
             ).model_id
         self._resolved_security = resolve_security_config(self._config, self._archetype, mode=self._mode)
-        # 113-REQ-7.2: Retrieval summary populated by _build_prompts for session outcome recording
-        self._retrieval_summary: str | None = None
 
     def _build_prompts(
         self,
@@ -247,63 +248,30 @@ class NodeSessionRunner:
     ) -> tuple[str, str]:
         """Assemble context and build system/task prompts.
 
-        Uses AdaptiveRetriever (spec 104) to produce knowledge context via
-        multi-signal RRF fusion, then passes it to assemble_context.
+        Uses KnowledgeProvider.retrieve() to produce knowledge context,
+        then passes it to assemble_context.
 
-        Requirements: 05-REQ-4.1, 05-REQ-4.2, 104-REQ-5.1
+        Requirements: 05-REQ-4.1, 05-REQ-4.2, 114-REQ-3.1, 114-REQ-3.3
         """
         from agent_fox.core.config import resolve_spec_root
 
         spec_dir = resolve_spec_root(self._config, repo_root) / self._spec_name
 
-        # 104-REQ-5.1: Use AdaptiveRetriever for knowledge context
-        knowledge_context: str = ""
+        # 114-REQ-3.1: Use KnowledgeProvider for knowledge context retrieval
+        memory_facts: list[str] | None = None
         try:
-            retrieval_config = getattr(self._config.knowledge, "retrieval", RetrievalConfig())
-            retriever = AdaptiveRetriever(
-                self._knowledge_db.connection,
-                retrieval_config,
-                embedder=self._embedder,
-            )
-            # Wire sink dispatcher and node_id for audit event emission
-            retriever._sink_dispatcher = self._sink_dispatcher
-            retriever._node_id = self._node_id
-            # Build task description from subtask descriptions
             descriptions = extract_subtask_descriptions(spec_dir, self._task_group)
             task_description = "\n".join(descriptions) if descriptions else self._spec_name
-
-            node_status = "retry" if attempt > 1 else "fresh"
-            # 113-REQ-3.1: Query prior touched files for entity signal
-            prior_touched = self._query_prior_touched_files(self._spec_name)
-            result = retriever.retrieve(
-                spec_name=self._spec_name,
-                archetype=self._archetype,
-                node_status=node_status,
-                touched_files=prior_touched,
-                task_description=task_description,
-                confidence_threshold=self._config.knowledge.confidence_threshold,
-            )
-            knowledge_context = result.context
-
-            # 113-REQ-7.2: Store retrieval summary for session outcome recording
-            self._retrieval_summary = json.dumps(
-                {
-                    "facts_injected": result.anchor_count,
-                    "signals_active": [name for name, count in result.signal_counts.items() if count > 0],
-                    "cold_start": result.cold_start,
-                }
-            )
+            retrieved = self._knowledge_provider.retrieve(self._spec_name, task_description)
+            if retrieved:
+                memory_facts = retrieved
         except Exception:
+            # 114-REQ-3.E1: Log WARNING and proceed with empty knowledge context
             logger.warning(
-                "AdaptiveRetriever failed for %s, continuing without knowledge context",
+                "KnowledgeProvider.retrieve() failed for %s, continuing without knowledge context",
                 self._spec_name,
                 exc_info=True,
             )
-
-        # Convert knowledge context to memory_facts format for assemble_context
-        memory_facts: list[str] | None = None
-        if knowledge_context:
-            memory_facts = [knowledge_context]
 
         context = assemble_context(
             spec_dir,
@@ -577,6 +545,35 @@ class NodeSessionRunner:
 
         return status, error_message, touched_files
 
+    def _ingest_knowledge(
+        self,
+        node_id: str,
+        touched_files: list[str],
+        commit_sha: str,
+        session_status: str,
+    ) -> None:
+        """Ingest knowledge from a completed session via the KnowledgeProvider.
+
+        Builds a context dict with session metadata and delegates to the
+        provider's ingest() method.
+
+        Requirements: 114-REQ-4.1, 114-REQ-4.E1
+        """
+        context: dict[str, object] = {
+            "touched_files": touched_files,
+            "commit_sha": commit_sha,
+            "session_status": session_status,
+        }
+        try:
+            self._knowledge_provider.ingest(node_id, self._spec_name, context)
+        except Exception:
+            # 114-REQ-4.E1: Log WARNING and continue without retrying
+            logger.warning(
+                "KnowledgeProvider.ingest() failed for %s, continuing",
+                node_id,
+                exc_info=True,
+            )
+
     async def _extract_knowledge_and_findings(
         self,
         node_id: str,
@@ -584,7 +581,7 @@ class NodeSessionRunner:
         workspace: WorkspaceInfo,
         outcome_response: str = "",
     ) -> None:
-        """Extract knowledge facts and review findings from session output.
+        """Extract review findings from session output.
 
         113-REQ-1.1: Reconstructs the full conversation transcript from the
         agent trace JSONL events for the session's node_id and uses it as the
@@ -593,9 +590,10 @@ class NodeSessionRunner:
         113-REQ-1.E1: Falls back to _build_fallback_input when trace is
         unavailable.
 
-        Requirements: 05-REQ-1.1, 27-REQ-3.1, 52-REQ-1.1, 52-REQ-1.2,
-                      113-REQ-1.1, 113-REQ-1.2, 113-REQ-1.3, 113-REQ-1.E1,
-                      113-REQ-1.E2
+        Knowledge ingestion is now handled by _ingest_knowledge() via the
+        KnowledgeProvider protocol (114-REQ-4.1).
+
+        Requirements: 27-REQ-3.1, 113-REQ-1.1, 113-REQ-1.E1, 113-REQ-1.E2
         """
         # 113-REQ-1.1: Reconstruct full transcript from agent trace JSONL
         from agent_fox.core.paths import AUDIT_DIR
@@ -610,35 +608,6 @@ class NodeSessionRunner:
             transcript = self._build_fallback_input(workspace, node_id)
         if not transcript:
             return
-
-        # Short-circuit: reviewer archetypes produce structured findings that are
-        # persisted by _persist_review_findings below. They do not yield factual
-        # knowledge entries worth indexing, so skip the expensive LLM call.
-        if self._archetype in _REVIEW_ARCHETYPES:
-            logger.debug(
-                "Skipping LLM knowledge extraction for reviewer archetype %s (node %s)",
-                self._archetype,
-                node_id,
-            )
-        else:
-            try:
-                await extract_and_store_knowledge(
-                    transcript=transcript,
-                    spec_name=self._spec_name,
-                    node_id=node_id,
-                    memory_extraction_model=self._config.models.memory_extraction,
-                    knowledge_db=self._knowledge_db,
-                    sink_dispatcher=self._sink,
-                    run_id=self._run_id,
-                    embedder=self._embedder,
-                    causal_context_limit=self._config.orchestrator.causal_context_limit,
-                )
-            except Exception:
-                logger.warning(
-                    "Knowledge extraction failed for %s, continuing",
-                    node_id,
-                    exc_info=True,
-                )
 
         # 27-REQ-3.1: Parse and persist structured findings from
         # review archetypes (skeptic, verifier, oracle).
@@ -757,10 +726,7 @@ class NodeSessionRunner:
                 },
             )
 
-        # 05-REQ-1.1, 52-REQ-1.1: Extract knowledge on success
-        # NOTE: harvest.complete is emitted by extract_and_store_knowledge
-        # (knowledge_harvest.py) with real fact metadata. Do NOT emit it here
-        # — the stale direct emission caused duplicate events (issue #482).
+        # Extract review findings and ingest knowledge on success.
         if status == "completed":
             await self._extract_knowledge_and_findings(
                 node_id,
@@ -768,6 +734,8 @@ class NodeSessionRunner:
                 workspace,
                 outcome_response=outcome.response,
             )
+            # 114-REQ-4.1: Ingest knowledge via KnowledgeProvider
+            self._ingest_knowledge(node_id, touched_files, commit_sha, status)
 
         return SessionRecord(
             node_id=node_id,
@@ -785,7 +753,6 @@ class NodeSessionRunner:
             commit_sha=commit_sha,
             is_transport_error=getattr(outcome, "is_transport_error", False),
             is_budget_exhausted=is_budget_exhausted,
-            retrieval_summary=self._retrieval_summary,  # 113-REQ-7.2
         )
 
     def _persist_review_findings(
@@ -822,56 +789,6 @@ class NodeSessionRunner:
             mode=self._mode,
             specs_dir=resolve_spec_root(self._config, Path.cwd()),
         )
-
-    def _query_prior_touched_files(self, spec_name: str) -> list[str]:
-        """Query session_outcomes for touched_path values from prior completed
-        sessions with the same spec_name.
-
-        Returns a deduplicated list of file paths, limited to the 50 most
-        recently touched (by session created_at). Returns empty list if no
-        prior sessions exist.
-
-        Requirements: 113-REQ-3.1, 113-REQ-3.2, 113-REQ-3.E1
-        """
-        try:
-            conn = self._knowledge_db.connection
-            rows = conn.execute(
-                """
-                SELECT touched_path, created_at
-                FROM session_outcomes
-                WHERE spec_name = ?
-                  AND status = 'completed'
-                  AND touched_path IS NOT NULL
-                ORDER BY created_at DESC
-                """,
-                [spec_name],
-            ).fetchall()
-        except Exception:
-            logger.warning(
-                "Failed to query prior touched files for %s",
-                spec_name,
-                exc_info=True,
-            )
-            return []
-
-        if not rows:
-            return []
-
-        # Collect paths in order of most-recently-touched sessions,
-        # deduplicating as we go, up to 50 paths.
-        seen: set[str] = set()
-        result: list[str] = []
-        for touched_path, _created_at in rows:
-            if not touched_path:
-                continue
-            for path in touched_path.split(","):
-                path = path.strip()
-                if path and path not in seen:
-                    seen.add(path)
-                    result.append(path)
-                    if len(result) >= 50:
-                        return result
-        return result
 
     def _build_retry_context(self, spec_name: str) -> str:
         """Query active critical/major findings for the spec and format them.

@@ -16,12 +16,11 @@ from __future__ import annotations
 
 import uuid
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import duckdb
 import pytest
 
-from agent_fox.engine.barrier import run_sync_barrier_sequence
 from agent_fox.knowledge.consolidation import (
     ConsolidationResult,
     run_consolidation,
@@ -193,22 +192,14 @@ class TestBarrierPipeline:
             mock_consolidation_result = result
             return result
 
-        with patch("agent_fox.engine.barrier.run_consolidation", _capture_consolidation):
-            await run_sync_barrier_sequence(
-                state=state,
-                sync_interval=1,
-                repo_root=tmp_path,
-                emit_audit=MagicMock(),
-                specs_dir=None,
-                hot_load_enabled=False,
-                hot_load_fn=AsyncMock(),
-                sync_plan_fn=MagicMock(),
-                barrier_callback=None,
-                knowledge_db_conn=conn,
-                sink_dispatcher=None,
-                completed_specs_fn=MagicMock(return_value={"spec_a"}),
-                consolidated_specs=set(),
-            )
+        # NOTE: Spec 114 (knowledge decoupling) removed consolidation from
+        # the sync barrier. Call run_consolidation directly instead.
+        mock_consolidation_result = await _capture_consolidation(
+            conn,
+            tmp_path,
+            {"spec_a"},
+            "claude-3-5-haiku-20241022",
+        )
 
         # Verify: analyze_codebase was called
         assert mock_analyze.called

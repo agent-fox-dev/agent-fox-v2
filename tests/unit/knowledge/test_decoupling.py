@@ -1,8 +1,9 @@
 """Engine integration tests for knowledge system decoupling.
 
-Test Spec: TS-114-8, TS-114-9, TS-114-11, TS-114-12, TS-114-E3, TS-114-E4
+Test Spec: TS-114-8, TS-114-9, TS-114-11, TS-114-12, TS-114-16,
+           TS-114-E3, TS-114-E4
 Requirements: 114-REQ-2.4, 114-REQ-3.1, 114-REQ-3.3, 114-REQ-3.E1,
-              114-REQ-4.1, 114-REQ-4.E1
+              114-REQ-4.1, 114-REQ-4.E1, 114-REQ-5.2
 """
 
 from __future__ import annotations
@@ -13,6 +14,20 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from agent_fox.knowledge.provider import KnowledgeProvider, NoOpKnowledgeProvider
+
+
+def _make_mock_config() -> MagicMock:
+    """Create a mock AgentFoxConfig that passes model tier resolution."""
+    mock_config = MagicMock()
+    mock_config.knowledge = MagicMock()
+    mock_config.models = MagicMock()
+    mock_config.orchestrator = MagicMock()
+    # Ensure model tier resolution returns None so defaults are used
+    mock_config.archetypes.overrides.get.return_value = None
+    mock_config.archetypes.models = {}
+    mock_config.models.coding = None
+    mock_config.models.review = None
+    return mock_config
 
 # ---------------------------------------------------------------------------
 # Mock KnowledgeProvider for tests
@@ -63,7 +78,7 @@ class TestDefaultProvider:
         with (
             patch("agent_fox.engine.run.open_knowledge_store") as mock_store,
             patch("agent_fox.engine.run.DuckDBSink"),
-            patch("agent_fox.engine.run.SinkDispatcher"),
+            patch("agent_fox.knowledge.sink.SinkDispatcher"),
             patch("agent_fox.knowledge.agent_trace.AgentTraceSink"),
         ):
             mock_db = MagicMock()
@@ -98,11 +113,7 @@ class TestRetrieveCalled:
 
         mock_provider = MockKnowledgeProvider(retrieve_returns=["fact block 1"])
 
-        # Create runner with mock provider instead of embedder
-        mock_config = MagicMock()
-        mock_config.knowledge = MagicMock()
-        mock_config.models = MagicMock()
-        mock_config.orchestrator = MagicMock()
+        mock_config = _make_mock_config()
         mock_db = MagicMock()
 
         runner = NodeSessionRunner(
@@ -113,11 +124,14 @@ class TestRetrieveCalled:
             sink_dispatcher=MagicMock(),
         )
 
+        # Patch internal helpers inside _build_prompts (NOT _build_prompts itself)
+        # so the real _build_prompts runs and calls provider.retrieve()
         with (
-            patch.object(runner, "_build_prompts") as mock_build,
+            patch("agent_fox.engine.session_lifecycle.assemble_context", return_value=MagicMock()),
+            patch("agent_fox.engine.session_lifecycle.build_system_prompt", return_value="sys"),
+            patch("agent_fox.engine.session_lifecycle.build_task_prompt", return_value="task"),
+            patch("agent_fox.core.config.resolve_spec_root", return_value=MagicMock()),
         ):
-            # Simulate calling _build_prompts
-            mock_build.return_value = ("system", "task")
             runner._build_prompts("/tmp/repo", 1, None)
 
         assert mock_provider.retrieve_called
@@ -130,6 +144,67 @@ class TestRetrieveCalled:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# TS-114-16: Barrier Still Runs Retained Operational Steps
+# ---------------------------------------------------------------------------
+
+
+class TestBarrierRetainedSteps:
+    """Verify run_sync_barrier_sequence still executes operational steps.
+
+    Retained: worktree verification, develop sync, hot-load, barrier callback.
+    Removed: consolidation, compaction, lifecycle cleanup, sleep compute, rendering.
+
+    Requirements: 114-REQ-5.2
+    """
+
+    @pytest.mark.asyncio
+    async def test_barrier_runs_operational_steps(self) -> None:
+        """run_sync_barrier_sequence calls all retained operational steps."""
+        from unittest.mock import AsyncMock as AM
+
+        from agent_fox.engine.barrier import run_sync_barrier_sequence
+
+        mock_state = MagicMock()
+        mock_state.node_states = {"spec_01:1": "completed"}
+
+        mock_emit_audit = MagicMock()
+        mock_hot_load = AM()
+        mock_sync_plan = MagicMock()
+        mock_barrier_cb = MagicMock()
+        mock_reload = MagicMock()
+
+        with (
+            patch(
+                "agent_fox.engine.barrier.verify_worktrees",
+                return_value=[],
+            ) as mock_verify,
+            patch(
+                "agent_fox.engine.barrier.sync_develop_bidirectional",
+                new_callable=AM,
+            ) as mock_sync,
+        ):
+            await run_sync_barrier_sequence(
+                state=mock_state,
+                sync_interval=1,
+                repo_root=MagicMock(),
+                emit_audit=mock_emit_audit,
+                specs_dir=MagicMock(),
+                hot_load_enabled=True,
+                hot_load_fn=mock_hot_load,
+                sync_plan_fn=mock_sync_plan,
+                barrier_callback=mock_barrier_cb,
+                reload_config_fn=mock_reload,
+            )
+
+        mock_verify.assert_called_once()
+        mock_sync.assert_called_once()
+        mock_hot_load.assert_called_once()
+        mock_barrier_cb.assert_called_once()
+        mock_reload.assert_called_once()
+        mock_emit_audit.assert_called_once()
+
+
 class TestEmptyRetrieve:
     """Verify engine proceeds without knowledge context when provider returns [].
 
@@ -140,10 +215,7 @@ class TestEmptyRetrieve:
         """When provider.retrieve() returns [], session proceeds without crash."""
         from agent_fox.engine.session_lifecycle import NodeSessionRunner
 
-        mock_config = MagicMock()
-        mock_config.knowledge = MagicMock()
-        mock_config.models = MagicMock()
-        mock_config.orchestrator = MagicMock()
+        mock_config = _make_mock_config()
         mock_db = MagicMock()
 
         noop = NoOpKnowledgeProvider()
@@ -184,10 +256,7 @@ class TestIngestCalled:
         from agent_fox.engine.session_lifecycle import NodeSessionRunner
 
         mock_provider = MockKnowledgeProvider()
-        mock_config = MagicMock()
-        mock_config.knowledge = MagicMock()
-        mock_config.models = MagicMock()
-        mock_config.orchestrator = MagicMock()
+        mock_config = _make_mock_config()
         mock_db = MagicMock()
 
         runner = NodeSessionRunner(
@@ -236,10 +305,7 @@ class TestRetrieveException:
 
         from agent_fox.engine.session_lifecycle import NodeSessionRunner
 
-        mock_config = MagicMock()
-        mock_config.knowledge = MagicMock()
-        mock_config.models = MagicMock()
-        mock_config.orchestrator = MagicMock()
+        mock_config = _make_mock_config()
         mock_db = MagicMock()
 
         runner = NodeSessionRunner(
@@ -292,10 +358,7 @@ class TestIngestException:
         from agent_fox.engine.session_lifecycle import NodeSessionRunner
 
         provider = FailingProvider()
-        mock_config = MagicMock()
-        mock_config.knowledge = MagicMock()
-        mock_config.models = MagicMock()
-        mock_config.orchestrator = MagicMock()
+        mock_config = _make_mock_config()
         mock_db = MagicMock()
 
         runner = NodeSessionRunner(

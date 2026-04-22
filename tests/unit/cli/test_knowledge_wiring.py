@@ -1,15 +1,16 @@
 """Tests for knowledge pipeline integration in the session runner.
 
-Verifies that fact extraction, knowledge injection, and DuckDB sink
+Verifies that knowledge ingestion via KnowledgeProvider and DuckDB sink
 recording are wired into the session lifecycle.
 
-Requirements: 05-REQ-1.1, 05-REQ-4.1, 11-REQ-4.2, 12-REQ-1.1
+Requirements: 114-REQ-3.1, 114-REQ-4.1, 114-REQ-4.E1
 """
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -17,10 +18,26 @@ import pytest
 from agent_fox.core.config import AgentFoxConfig
 from agent_fox.engine.session_lifecycle import NodeSessionRunner
 from agent_fox.knowledge.db import KnowledgeDB
+from agent_fox.knowledge.provider import NoOpKnowledgeProvider
 from agent_fox.knowledge.sink import SessionOutcome
 from agent_fox.workspace import WorkspaceInfo
 
 _MOCK_KB = MagicMock(spec=KnowledgeDB)
+
+
+class _TrackingProvider:
+    """KnowledgeProvider that records ingest calls."""
+
+    def __init__(self) -> None:
+        self.ingest_called = False
+        self.ingest_kwargs: dict[str, Any] = {}
+
+    def ingest(self, session_id: str, spec_name: str, context: dict[str, Any]) -> None:
+        self.ingest_called = True
+        self.ingest_kwargs = {"session_id": session_id, "spec_name": spec_name, "context": context}
+
+    def retrieve(self, spec_name: str, task_description: str) -> list[str]:
+        return []
 
 
 def _make_workspace(tmp_path: Path) -> WorkspaceInfo:
@@ -44,12 +61,12 @@ def _make_outcome(*, status: str = "completed") -> SessionOutcome:
     )
 
 
-class TestFactExtractionAfterSession:
-    """Verify extract_facts is called after a successful session."""
+class TestKnowledgeIngestionAfterSession:
+    """Verify KnowledgeProvider.ingest() is called after a successful session."""
 
     @pytest.mark.asyncio
-    async def test_extract_called_on_completed_session(self, tmp_path: Path) -> None:
-        """extract_facts is invoked when the session completes successfully."""
+    async def test_ingest_called_on_completed_session(self, tmp_path: Path) -> None:
+        """KnowledgeProvider.ingest() is invoked when the session completes."""
         workspace = _make_workspace(tmp_path)
         outcome = _make_outcome(status="completed")
 
@@ -63,9 +80,12 @@ class TestFactExtractionAfterSession:
         spec_dir.mkdir(parents=True, exist_ok=True)
 
         config = AgentFoxConfig()
-        runner = NodeSessionRunner("test_spec:1", config, knowledge_db=_MOCK_KB)
-
-        mock_extract = AsyncMock()
+        provider = _TrackingProvider()
+        runner = NodeSessionRunner(
+            "test_spec:1", config,
+            knowledge_db=_MOCK_KB,
+            knowledge_provider=provider,
+        )
 
         with (
             patch(
@@ -83,21 +103,16 @@ class TestFactExtractionAfterSession:
                 "agent_fox.engine.session_lifecycle.destroy_worktree",
                 new_callable=AsyncMock,
             ),
-            patch(
-                "agent_fox.engine.session_lifecycle.extract_and_store_knowledge",
-                mock_extract,
-            ),
         ):
             record = await runner.execute("test_spec:1", 1)
 
         assert record.status == "completed"
-        mock_extract.assert_called_once()
-        call_args = mock_extract.call_args
-        assert call_args.kwargs["spec_name"] == "test_spec"
+        assert provider.ingest_called
+        assert provider.ingest_kwargs["spec_name"] == "test_spec"
 
     @pytest.mark.asyncio
-    async def test_embedder_passed_to_extract(self, tmp_path: Path) -> None:
-        """Regression: embedder must be forwarded to extract_and_store_knowledge (fixes #453)."""
+    async def test_provider_ingest_receives_context(self, tmp_path: Path) -> None:
+        """KnowledgeProvider.ingest() receives touched_files, commit_sha, session_status."""
         workspace = _make_workspace(tmp_path)
         outcome = _make_outcome(status="completed")
 
@@ -109,10 +124,12 @@ class TestFactExtractionAfterSession:
         spec_dir.mkdir(parents=True, exist_ok=True)
 
         config = AgentFoxConfig()
-        mock_embedder = MagicMock()
-        runner = NodeSessionRunner("test_spec:1", config, knowledge_db=_MOCK_KB, embedder=mock_embedder)
-
-        mock_extract = AsyncMock()
+        provider = _TrackingProvider()
+        runner = NodeSessionRunner(
+            "test_spec:1", config,
+            knowledge_db=_MOCK_KB,
+            knowledge_provider=provider,
+        )
 
         with (
             patch(
@@ -130,19 +147,18 @@ class TestFactExtractionAfterSession:
                 "agent_fox.engine.session_lifecycle.destroy_worktree",
                 new_callable=AsyncMock,
             ),
-            patch(
-                "agent_fox.engine.session_lifecycle.extract_and_store_knowledge",
-                mock_extract,
-            ),
         ):
             await runner.execute("test_spec:1", 1)
 
-        mock_extract.assert_called_once()
-        assert mock_extract.call_args.kwargs["embedder"] is mock_embedder
+        assert provider.ingest_called
+        ctx = provider.ingest_kwargs["context"]
+        assert "touched_files" in ctx
+        assert "commit_sha" in ctx
+        assert "session_status" in ctx
 
     @pytest.mark.asyncio
-    async def test_extract_not_called_on_failed_session(self, tmp_path: Path) -> None:
-        """extract_and_store_knowledge is NOT invoked when the session fails."""
+    async def test_ingest_not_called_on_failed_session(self, tmp_path: Path) -> None:
+        """KnowledgeProvider.ingest() is NOT invoked when the session fails."""
         workspace = _make_workspace(tmp_path)
         outcome = _make_outcome(status="failed")
 
@@ -150,9 +166,12 @@ class TestFactExtractionAfterSession:
         spec_dir.mkdir(parents=True, exist_ok=True)
 
         config = AgentFoxConfig()
-        runner = NodeSessionRunner("test_spec:1", config, knowledge_db=_MOCK_KB)
-
-        mock_extract = AsyncMock()
+        provider = _TrackingProvider()
+        runner = NodeSessionRunner(
+            "test_spec:1", config,
+            knowledge_db=_MOCK_KB,
+            knowledge_provider=provider,
+        )
 
         with (
             patch(
@@ -169,19 +188,15 @@ class TestFactExtractionAfterSession:
                 "agent_fox.engine.session_lifecycle.destroy_worktree",
                 new_callable=AsyncMock,
             ),
-            patch(
-                "agent_fox.engine.session_lifecycle.extract_and_store_knowledge",
-                mock_extract,
-            ),
         ):
             record = await runner.execute("test_spec:1", 1)
 
         assert record.status == "failed"
-        mock_extract.assert_not_called()
+        assert not provider.ingest_called
 
     @pytest.mark.asyncio
-    async def test_extract_failure_does_not_block_session(self, tmp_path: Path) -> None:
-        """Extract failure does not block the session."""
+    async def test_ingest_failure_does_not_block_session(self, tmp_path: Path) -> None:
+        """KnowledgeProvider.ingest() failure does not block the session."""
         workspace = _make_workspace(tmp_path)
         outcome = _make_outcome(status="completed")
 
@@ -193,9 +208,19 @@ class TestFactExtractionAfterSession:
         spec_dir.mkdir(parents=True, exist_ok=True)
 
         config = AgentFoxConfig()
-        runner = NodeSessionRunner("test_spec:1", config, knowledge_db=_MOCK_KB)
 
-        mock_extract = AsyncMock(side_effect=RuntimeError("API error"))
+        class _FailingProvider:
+            def ingest(self, session_id: str, spec_name: str, context: dict[str, Any]) -> None:
+                raise RuntimeError("API error")
+
+            def retrieve(self, spec_name: str, task_description: str) -> list[str]:
+                return []
+
+        runner = NodeSessionRunner(
+            "test_spec:1", config,
+            knowledge_db=_MOCK_KB,
+            knowledge_provider=_FailingProvider(),
+        )
 
         with (
             patch(
@@ -213,12 +238,8 @@ class TestFactExtractionAfterSession:
                 "agent_fox.engine.session_lifecycle.destroy_worktree",
                 new_callable=AsyncMock,
             ),
-            patch(
-                "agent_fox.engine.session_lifecycle.extract_and_store_knowledge",
-                mock_extract,
-            ),
         ):
             record = await runner.execute("test_spec:1", 1)
 
-        # Session is still completed despite extraction failure
+        # Session is still completed despite ingestion failure
         assert record.status == "completed"

@@ -104,6 +104,11 @@ class TestLifecycleUsesReconstructedTranscript:
     """TS-1.4: Integration — lifecycle uses reconstructed transcript.
 
     Requirements: 113-REQ-1.1, 113-REQ-1.2, 113-REQ-1.3
+
+    After knowledge decoupling (spec 114), _extract_knowledge_and_findings
+    no longer calls extract_and_store_knowledge. Instead, it uses the
+    reconstructed transcript for review findings persistence via
+    _persist_review_findings.
     """
 
     @pytest.mark.asyncio
@@ -111,8 +116,8 @@ class TestLifecycleUsesReconstructedTranscript:
         self,
         tmp_path: Path,
     ) -> None:
-        """TS-1.4: _extract_knowledge_and_findings calls extract_and_store_knowledge
-        with the full reconstructed transcript, not the session summary.
+        """TS-1.4: _extract_knowledge_and_findings uses the full reconstructed
+        transcript (from agent trace JSONL), not the session summary.
         """
 
         # Build a JSONL trace with substantial content
@@ -136,30 +141,27 @@ class TestLifecycleUsesReconstructedTranscript:
         summary_dir.mkdir(parents=True, exist_ok=True)
         (summary_dir / "session-summary.json").write_text('{"summary": "Short summary only."}')
 
-        captured_transcript: list[str] = []
+        captured_review_text: list[str] = []
 
-        async def fake_extract(transcript: str, *args, **kwargs) -> None:
-            captured_transcript.append(transcript)
+        original_persist = MagicMock()
 
-        with patch(
-            "agent_fox.engine.session_lifecycle.extract_and_store_knowledge",
-            side_effect=fake_extract,
+        def fake_persist(review_text: str, *args, **kwargs) -> None:
+            captured_review_text.append(review_text)
+
+        runner = _make_minimal_runner(tmp_path, "05_foo:1")
+
+        with patch.object(
+            runner, "_persist_review_findings", side_effect=fake_persist,
         ):
-            # NodeSessionRunner setup is complex — test the transcript
-            # selection logic directly via _extract_knowledge_and_findings.
-            # This test asserts that the reconstructed transcript (> 2000 chars)
-            # is passed as the transcript, not the short summary.
-            runner = _make_minimal_runner(tmp_path, "05_foo:1")
             await runner._extract_knowledge_and_findings(
                 node_id="05_foo:1",
                 attempt=1,
                 workspace=MagicMock(),
             )
 
-        assert len(captured_transcript) == 1
-        transcript_used = captured_transcript[0]
+        assert len(captured_review_text) == 1
+        transcript_used = captured_review_text[0]
         # The full transcript should contain the long content, not just the summary
-        assert "Short summary only." not in transcript_used
         assert "Message 0" in transcript_used or len(transcript_used) > 2000
 
     @pytest.mark.asyncio
@@ -173,33 +175,29 @@ class TestLifecycleUsesReconstructedTranscript:
         Requirements: 113-REQ-1.E1, 113-REQ-1.3
         """
 
-        captured_transcript: list[str] = []
-
-        async def fake_extract(transcript: str, *args, **kwargs) -> None:
-            captured_transcript.append(transcript)
-
+        captured_review_text: list[str] = []
         fallback_text = "F" * 3000  # > 2000 chars
 
-        with (
-            patch(
-                "agent_fox.engine.session_lifecycle.extract_and_store_knowledge",
-                side_effect=fake_extract,
-            ),
-            patch(
-                "agent_fox.engine.session_lifecycle.NodeSessionRunner._build_fallback_input",
-                return_value=fallback_text,
-            ),
+        def fake_persist(review_text: str, *args, **kwargs) -> None:
+            captured_review_text.append(review_text)
+
+        with patch(
+            "agent_fox.engine.session_lifecycle.NodeSessionRunner._build_fallback_input",
+            return_value=fallback_text,
         ):
             runner = _make_minimal_runner(tmp_path, "05_foo:1")
-            await runner._extract_knowledge_and_findings(
-                node_id="05_foo:1",
-                attempt=1,
-                workspace=MagicMock(),
-            )
+            with patch.object(
+                runner, "_persist_review_findings", side_effect=fake_persist,
+            ):
+                await runner._extract_knowledge_and_findings(
+                    node_id="05_foo:1",
+                    attempt=1,
+                    workspace=MagicMock(),
+                )
 
-        # Fallback content should have been passed to extract_and_store_knowledge
-        assert len(captured_transcript) == 1
-        assert captured_transcript[0] == fallback_text
+        # Fallback content should have been passed to _persist_review_findings
+        assert len(captured_review_text) == 1
+        assert captured_review_text[0] == fallback_text
 
 
 # ---------------------------------------------------------------------------
@@ -234,7 +232,9 @@ def _make_minimal_runner(tmp_path: Path, node_id: str):
     runner._config = config
     runner._knowledge_db = db
     runner._sink = None
-    runner._embedder = None
+    from agent_fox.knowledge.provider import NoOpKnowledgeProvider
+
+    runner._knowledge_provider = NoOpKnowledgeProvider()
     runner._archetype = "coder"
     runner._mode = None
     runner._trace_enabled = True

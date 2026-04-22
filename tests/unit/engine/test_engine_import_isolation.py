@@ -688,4 +688,4 @@ class TestRemovedCliFeedback:
         result = runner.invoke(main, ["onboard"])
         assert result.exit_code != 0
         # Click reports "No such command" for unregistered commands
-        assert "no such command" in result.output.lower() or "error" in result.output.lower()
+        assert "no such command" in result.output.lower()

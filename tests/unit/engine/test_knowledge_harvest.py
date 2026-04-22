@@ -347,10 +347,15 @@ class TestReviewerArchetypeSkip:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("archetype", ["reviewer", "skeptic", "verifier", "oracle", "auditor"])
-    async def test_reviewer_archetype_skips_extract_and_store_knowledge(
+    async def test_reviewer_archetype_persists_review_findings(
         self, archetype: str
     ) -> None:
-        """extract_and_store_knowledge must NOT be called for reviewer archetypes."""
+        """_persist_review_findings must be called for reviewer archetypes.
+
+        Note: extract_and_store_knowledge was removed by spec 114 (knowledge
+        decoupling). Knowledge ingestion is now handled by KnowledgeProvider.ingest()
+        in _ingest_knowledge, not in _extract_knowledge_and_findings.
+        """
         from agent_fox.core.config import AgentFoxConfig
         from agent_fox.engine.session_lifecycle import NodeSessionRunner
 
@@ -362,32 +367,34 @@ class TestReviewerArchetypeSkip:
             knowledge_db=mock_kb,
         )
 
-        # Build a transcript longer than the minimum threshold so the only skip
-        # reason is the archetype guard, not the length guard.
-        long_transcript = "A " * 1500  # 3000 chars > _MIN_TRANSCRIPT_CHARS
-
         mock_workspace = MagicMock()
         mock_workspace.path = Path("/tmp/nonexistent")
 
-        # Inject a pre-built summary so _read_session_artifacts returns it
-        runner._read_session_artifacts = MagicMock(return_value={"summary": long_transcript})
         runner._persist_review_findings = MagicMock()
 
+        # Provide a transcript via reconstruct_transcript mock
         with patch(
-            "agent_fox.engine.session_lifecycle.extract_and_store_knowledge",
-            new_callable=AsyncMock,
-        ) as mock_extract:
+            "agent_fox.knowledge.agent_trace.reconstruct_transcript",
+            return_value="A " * 1500,  # 3000 chars
+        ):
             await runner._extract_knowledge_and_findings(
                 node_id=f"{archetype}_spec_1",
                 attempt=1,
                 workspace=mock_workspace,
-                outcome_response="{}",
+                outcome_response='{"issues": []}',
             )
-            mock_extract.assert_not_called()
+
+        runner._persist_review_findings.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_coder_archetype_calls_extract_and_store_knowledge(self) -> None:
-        """extract_and_store_knowledge IS called for non-reviewer archetypes."""
+    async def test_coder_archetype_persists_review_findings(self) -> None:
+        """_persist_review_findings IS called for non-reviewer archetypes.
+
+        Note: extract_and_store_knowledge was removed by spec 114 (knowledge
+        decoupling). _extract_knowledge_and_findings now only does review
+        findings persistence. Knowledge ingestion is handled separately
+        by _ingest_knowledge via KnowledgeProvider.
+        """
         from agent_fox.core.config import AgentFoxConfig
         from agent_fox.engine.session_lifecycle import NodeSessionRunner
 
@@ -399,29 +406,27 @@ class TestReviewerArchetypeSkip:
             knowledge_db=mock_kb,
         )
 
-        long_transcript = "A " * 1500  # 3000 chars > _MIN_TRANSCRIPT_CHARS
-
         mock_workspace = MagicMock()
         mock_workspace.path = Path("/tmp/nonexistent")
 
-        runner._read_session_artifacts = MagicMock(return_value={"summary": long_transcript})
         runner._persist_review_findings = MagicMock()
 
         with patch(
-            "agent_fox.engine.session_lifecycle.extract_and_store_knowledge",
-            new_callable=AsyncMock,
-        ) as mock_extract:
+            "agent_fox.knowledge.agent_trace.reconstruct_transcript",
+            return_value="A " * 1500,
+        ):
             await runner._extract_knowledge_and_findings(
                 node_id="coder_spec_1",
                 attempt=1,
                 workspace=mock_workspace,
                 outcome_response="",
             )
-            mock_extract.assert_called_once()
+
+        runner._persist_review_findings.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_reviewer_archetype_still_persists_review_findings(self) -> None:
-        """Even when LLM extraction is skipped, _persist_review_findings must run."""
+        """Even for review archetypes, _persist_review_findings must run."""
         from agent_fox.core.config import AgentFoxConfig
         from agent_fox.engine.session_lifecycle import NodeSessionRunner
 
@@ -433,17 +438,14 @@ class TestReviewerArchetypeSkip:
             knowledge_db=mock_kb,
         )
 
-        long_transcript = "A " * 1500
-
         mock_workspace = MagicMock()
         mock_workspace.path = Path("/tmp/nonexistent")
 
-        runner._read_session_artifacts = MagicMock(return_value={"summary": long_transcript})
         runner._persist_review_findings = MagicMock()
 
         with patch(
-            "agent_fox.engine.session_lifecycle.extract_and_store_knowledge",
-            new_callable=AsyncMock,
+            "agent_fox.knowledge.agent_trace.reconstruct_transcript",
+            return_value="A " * 1500,
         ):
             await runner._extract_knowledge_and_findings(
                 node_id="reviewer_spec_1",

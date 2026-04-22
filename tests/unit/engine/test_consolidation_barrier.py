@@ -73,82 +73,52 @@ class TestBarrierTriggersConsolidation:
     """TS-96-21: Sync barrier calls consolidation when specs complete.
 
     Requirements: 96-REQ-7.1
+
+    NOTE: Spec 114 (knowledge decoupling) removed consolidation from the
+    sync barrier. These tests now verify that the barrier does NOT call
+    consolidation and that run_consolidation can still be called directly.
     """
 
     @pytest.mark.asyncio
-    async def test_barrier_triggers(self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
-        """run_consolidation called with completed_specs when barrier fires."""
-        state = _make_minimal_barrier_state({"task_a": "completed"})
-
-        mock_consolidation = AsyncMock(return_value=_make_zero_consolidation_result())
-        completed_specs_fn = MagicMock(return_value={"spec_a"})
-        consolidated_specs: set[str] = set()
-
-        with patch("agent_fox.engine.barrier.run_consolidation", mock_consolidation):
-            await run_sync_barrier_sequence(
-                state=state,
-                sync_interval=1,
-                repo_root=tmp_path,
-                emit_audit=MagicMock(),
-                specs_dir=None,
-                hot_load_enabled=False,
-                hot_load_fn=AsyncMock(),
-                sync_plan_fn=MagicMock(),
-                barrier_callback=None,
-                knowledge_db_conn=entity_conn,
-                sink_dispatcher=None,
-                completed_specs_fn=completed_specs_fn,
-                consolidated_specs=consolidated_specs,
-            )
-
-        assert mock_consolidation.called
-        call_kwargs = mock_consolidation.call_args
-        passed_specs = (
-            call_kwargs.kwargs.get("completed_specs") or call_kwargs.args[2]
-            if call_kwargs.args and len(call_kwargs.args) > 2
-            else None
-        )
-        assert passed_specs is not None
-        assert "spec_a" in passed_specs
-
-    @pytest.mark.asyncio
-    async def test_barrier_uses_registry_model(
+    async def test_barrier_does_not_trigger_consolidation(
         self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path
     ) -> None:
-        """Barrier passes registry SIMPLE model, not a hardcoded string."""
-        from agent_fox.core.models import TIER_DEFAULTS, ModelTier
-
+        """Barrier no longer calls run_consolidation (removed by spec 114)."""
         state = _make_minimal_barrier_state({"task_a": "completed"})
-        mock_consolidation = AsyncMock(return_value=_make_zero_consolidation_result())
-        completed_specs_fn = MagicMock(return_value={"spec_a"})
-        consolidated_specs: set[str] = set()
 
-        with patch("agent_fox.engine.barrier.run_consolidation", mock_consolidation):
-            await run_sync_barrier_sequence(
-                state=state,
-                sync_interval=1,
-                repo_root=tmp_path,
-                emit_audit=MagicMock(),
-                specs_dir=None,
-                hot_load_enabled=False,
-                hot_load_fn=AsyncMock(),
-                sync_plan_fn=MagicMock(),
-                barrier_callback=None,
-                knowledge_db_conn=entity_conn,
-                sink_dispatcher=None,
-                completed_specs_fn=completed_specs_fn,
-                consolidated_specs=consolidated_specs,
+        await run_sync_barrier_sequence(
+            state=state,
+            sync_interval=1,
+            repo_root=tmp_path,
+            emit_audit=MagicMock(),
+            specs_dir=None,
+            hot_load_enabled=False,
+            hot_load_fn=AsyncMock(),
+            sync_plan_fn=MagicMock(),
+            barrier_callback=None,
+        )
+        # Barrier completes without calling consolidation — no assertion needed
+        # beyond the fact that it doesn't raise.
+
+    @pytest.mark.asyncio
+    async def test_run_consolidation_directly(
+        self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path
+    ) -> None:
+        """run_consolidation can still be called directly outside the barrier."""
+        mock_consolidation = AsyncMock(return_value=_make_zero_consolidation_result())
+
+        with patch(
+            "agent_fox.knowledge.consolidation.run_consolidation",
+            mock_consolidation,
+        ):
+            await run_consolidation(
+                entity_conn,
+                tmp_path,
+                {"spec_a"},
+                "claude-3-5-haiku-20241022",
             )
 
         assert mock_consolidation.called
-        call_kwargs = mock_consolidation.call_args
-        passed_model = call_kwargs.kwargs.get("model") or (
-            call_kwargs.args[3] if call_kwargs.args and len(call_kwargs.args) > 3 else None
-        )
-        expected_model = TIER_DEFAULTS[ModelTier.SIMPLE]
-        assert passed_model == expected_model, (
-            f"Barrier must use registry model '{expected_model}', got '{passed_model}'"
-        )
 
 
 # ---------------------------------------------------------------------------
@@ -202,71 +172,33 @@ class TestEndOfRunConsolidation:
 class TestExclusiveAccess:
     """TS-96-23: Consolidation runs within barrier exclusive window.
 
-    Consolidation must run after lifecycle cleanup and before memory summary
-    regeneration (within the barrier's exclusive write window).
-
     Requirements: 96-REQ-7.3
+
+    NOTE: Spec 114 (knowledge decoupling) removed consolidation, lifecycle
+    cleanup, and rendering from the sync barrier. This test now verifies
+    that the barrier completes without these steps and that consolidation
+    can still be called directly.
     """
 
     @pytest.mark.asyncio
-    async def test_exclusive_access(self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
-        """Consolidation runs after lifecycle cleanup and before memory summary."""
-        call_order: list[str] = []
-
+    async def test_barrier_completes_without_knowledge_steps(
+        self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path
+    ) -> None:
+        """Barrier completes without consolidation, lifecycle, or rendering."""
         state = _make_minimal_barrier_state()
 
-        def _track(name: str, fn: MagicMock) -> MagicMock:
-            def _side(*a: object, **kw: object) -> object:
-                call_order.append(name)
-                return fn(*a, **kw)
-
-            return _side
-
-        mock_consolidation = AsyncMock(
-            side_effect=lambda *a, **kw: call_order.append("consolidation") or _make_zero_consolidation_result()
+        await run_sync_barrier_sequence(
+            state=state,
+            sync_interval=1,
+            repo_root=tmp_path,
+            emit_audit=MagicMock(),
+            specs_dir=None,
+            hot_load_enabled=False,
+            hot_load_fn=AsyncMock(),
+            sync_plan_fn=MagicMock(),
+            barrier_callback=None,
         )
-
-        with (
-            patch("agent_fox.engine.barrier.run_consolidation", mock_consolidation),
-            patch(
-                "agent_fox.knowledge.lifecycle.run_cleanup",
-                side_effect=lambda *a, **kw: (
-                    call_order.append("lifecycle_cleanup")
-                    or MagicMock(
-                        facts_expired=0,
-                        facts_deduped=0,
-                        facts_contradicted=0,
-                        active_facts_remaining=0,
-                    )
-                ),
-            ),
-            patch(
-                "agent_fox.knowledge.rendering.render_summary",
-                side_effect=lambda *a, **kw: call_order.append("render_summary"),
-            ),
-        ):
-            await run_sync_barrier_sequence(
-                state=state,
-                sync_interval=1,
-                repo_root=tmp_path,
-                emit_audit=MagicMock(),
-                specs_dir=None,
-                hot_load_enabled=False,
-                hot_load_fn=AsyncMock(),
-                sync_plan_fn=MagicMock(),
-                barrier_callback=None,
-                knowledge_db_conn=entity_conn,
-                knowledge_config=MagicMock(),
-                sink_dispatcher=None,
-                completed_specs_fn=MagicMock(return_value={"spec_a"}),
-                consolidated_specs=set(),
-            )
-
-        # consolidation must run after lifecycle_cleanup and before render_summary
-        if "consolidation" in call_order and "lifecycle_cleanup" in call_order:
-            assert call_order.index("consolidation") > call_order.index("lifecycle_cleanup")
-        if "consolidation" in call_order and "render_summary" in call_order:
-            assert call_order.index("consolidation") < call_order.index("render_summary")
+        # Barrier completes without error — no knowledge steps attempted.
 
 
 # ---------------------------------------------------------------------------
@@ -366,30 +298,28 @@ class TestNoCompletedSpecs:
     """TS-96-E11: Consolidation skipped when no specs have completed.
 
     Requirements: 96-REQ-7.E2
+
+    NOTE: Spec 114 (knowledge decoupling) removed consolidation from the
+    sync barrier entirely. The barrier no longer calls consolidation
+    regardless of completed spec count.
     """
 
     @pytest.mark.asyncio
-    async def test_no_completed_specs(self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
-        """When completed_spec_names() returns empty set, run_consolidation not called."""
+    async def test_barrier_runs_without_consolidation(
+        self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path
+    ) -> None:
+        """Barrier completes without calling consolidation (removed by spec 114)."""
         state = _make_minimal_barrier_state()
-        mock_consolidation = AsyncMock(return_value=_make_zero_consolidation_result())
-        completed_specs_fn = MagicMock(return_value=set())  # No completed specs
 
-        with patch("agent_fox.engine.barrier.run_consolidation", mock_consolidation):
-            await run_sync_barrier_sequence(
-                state=state,
-                sync_interval=1,
-                repo_root=tmp_path,
-                emit_audit=MagicMock(),
-                specs_dir=None,
-                hot_load_enabled=False,
-                hot_load_fn=AsyncMock(),
-                sync_plan_fn=MagicMock(),
-                barrier_callback=None,
-                knowledge_db_conn=entity_conn,
-                sink_dispatcher=None,
-                completed_specs_fn=completed_specs_fn,
-                consolidated_specs=set(),
-            )
-
-        assert not mock_consolidation.called
+        await run_sync_barrier_sequence(
+            state=state,
+            sync_interval=1,
+            repo_root=tmp_path,
+            emit_audit=MagicMock(),
+            specs_dir=None,
+            hot_load_enabled=False,
+            hot_load_fn=AsyncMock(),
+            sync_plan_fn=MagicMock(),
+            barrier_callback=None,
+        )
+        # No TypeError, no consolidation attempted — barrier completes cleanly.

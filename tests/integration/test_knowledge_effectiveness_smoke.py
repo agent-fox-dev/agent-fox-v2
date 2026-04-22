@@ -198,24 +198,23 @@ def test_smoke_path3_entity_signal_activation(
     db = KnowledgeDB.__new__(KnowledgeDB)
     db._conn = knowledge_conn
 
-    runner = NodeSessionRunner.__new__(NodeSessionRunner)
-    runner._node_id = "05_foo:3"
-    runner._spec_name = "05_foo"
-    runner._run_id = "test-run"
-    runner._config = KnowledgeConfig()
-    runner._knowledge_db = db
-    runner._sink_dispatcher = None
-    runner._embedder = None
-    runner._archetype = "coder"
+    # _query_prior_touched_files was removed by spec 114 (knowledge decoupling).
+    # Entity signal activation is now handled through KnowledgeProvider.retrieve().
+    # Verify the prior touched files exist in session_outcomes for future providers.
+    result = knowledge_conn.execute(
+        "SELECT touched_path FROM session_outcomes WHERE spec_name = '05_foo' ORDER BY created_at"
+    ).fetchall()
 
-    paths = runner._query_prior_touched_files("05_foo")
+    all_paths: list[str] = []
+    for row in result:
+        if row[0]:
+            all_paths.extend(row[0].split(","))
+    unique_paths = list(set(all_paths))
 
-    assert len(paths) > 0, "Should return prior touched files"
-    assert "src/main.py" in paths
-    assert "src/utils.py" in paths
-    assert "src/api.py" in paths
-    # No duplicates
-    assert len(paths) == len(set(paths))
+    assert len(unique_paths) > 0, "Should have prior touched files in session_outcomes"
+    assert "src/main.py" in unique_paths
+    assert "src/utils.py" in unique_paths
+    assert "src/api.py" in unique_paths
 
 
 # ---------------------------------------------------------------------------

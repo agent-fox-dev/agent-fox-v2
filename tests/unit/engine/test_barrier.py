@@ -294,21 +294,22 @@ def _make_barrier_state() -> ExecutionState:
 
 
 class TestCompactionCalledDuringBarrier:
-    """compact() is invoked during run_sync_barrier_sequence when a DB conn is provided."""
+    """Spec 114 removed compaction from sync barrier.
+
+    NOTE: Knowledge compaction, consolidation, and rendering were removed
+    from run_sync_barrier_sequence by spec 114 (knowledge decoupling).
+    These tests now verify the barrier completes without those steps.
+    """
 
     @pytest.mark.asyncio
-    async def test_compact_called_with_db_conn(self, tmp_path: Path) -> None:
-        """compact() is called with the knowledge_db_conn during barrier."""
-        mock_conn = MagicMock()
-
+    async def test_barrier_completes_with_db_conn(self, tmp_path: Path) -> None:
+        """Barrier completes with knowledge_db_conn (no compaction)."""
         with (
             patch("agent_fox.engine.barrier.verify_worktrees", return_value=[]),
             patch(
                 "agent_fox.engine.barrier.sync_develop_bidirectional",
                 new_callable=AsyncMock,
             ),
-            patch("agent_fox.knowledge.rendering.render_summary"),
-            patch("agent_fox.knowledge.compaction.compact", return_value=(10, 8)) as mock_compact,
         ):
             await run_sync_barrier_sequence(
                 state=_make_barrier_state(),
@@ -320,22 +321,18 @@ class TestCompactionCalledDuringBarrier:
                 hot_load_fn=AsyncMock(),
                 sync_plan_fn=MagicMock(),
                 barrier_callback=None,
-                knowledge_db_conn=mock_conn,
+                knowledge_db_conn=MagicMock(),
             )
 
-        mock_compact.assert_called_once_with(mock_conn)
-
     @pytest.mark.asyncio
-    async def test_compact_skipped_when_no_db_conn(self, tmp_path: Path) -> None:
-        """compact() is NOT called when knowledge_db_conn is None."""
+    async def test_barrier_completes_without_db_conn(self, tmp_path: Path) -> None:
+        """Barrier completes when knowledge_db_conn is None."""
         with (
             patch("agent_fox.engine.barrier.verify_worktrees", return_value=[]),
             patch(
                 "agent_fox.engine.barrier.sync_develop_bidirectional",
                 new_callable=AsyncMock,
             ),
-            patch("agent_fox.knowledge.rendering.render_summary"),
-            patch("agent_fox.knowledge.compaction.compact") as mock_compact,
         ):
             await run_sync_barrier_sequence(
                 state=_make_barrier_state(),
@@ -350,25 +347,15 @@ class TestCompactionCalledDuringBarrier:
                 knowledge_db_conn=None,
             )
 
-        mock_compact.assert_not_called()
-
     @pytest.mark.asyncio
-    async def test_compact_failure_is_non_blocking(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """compact() failure logs a warning but does not raise."""
-        mock_conn = MagicMock()
-
+    async def test_barrier_completes_without_knowledge_steps(self, tmp_path: Path) -> None:
+        """Barrier completes without compaction, rendering, or other knowledge steps."""
         with (
             patch("agent_fox.engine.barrier.verify_worktrees", return_value=[]),
             patch(
                 "agent_fox.engine.barrier.sync_develop_bidirectional",
                 new_callable=AsyncMock,
             ),
-            patch("agent_fox.knowledge.rendering.render_summary") as mock_render,
-            patch(
-                "agent_fox.knowledge.compaction.compact",
-                side_effect=RuntimeError("compaction boom"),
-            ),
-            caplog.at_level(logging.WARNING, logger="agent_fox.engine.barrier"),
         ):
             # Must not raise
             await run_sync_barrier_sequence(
@@ -381,9 +368,4 @@ class TestCompactionCalledDuringBarrier:
                 hot_load_fn=AsyncMock(),
                 sync_plan_fn=MagicMock(),
                 barrier_callback=None,
-                knowledge_db_conn=mock_conn,
             )
-
-        assert "Knowledge compaction failed" in caplog.text
-        # render_summary should still run after compaction failure
-        mock_render.assert_called_once()

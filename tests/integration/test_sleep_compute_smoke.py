@@ -111,56 +111,27 @@ def _make_mock_embedder() -> MagicMock:
 
 
 async def test_barrier_end_to_end() -> None:
-    """TS-112-SMOKE-1: Real SleepComputer + real tasks; barrier populates sleep_artifacts."""
-    conn = _make_full_conn()
+    """TS-112-SMOKE-1: Sleep compute was removed from barrier by spec 114.
 
-    # Seed 4 facts linked to same directory to trigger context_rewriter
-    for i in range(4):
-        _insert_fact_with_entity(
-            conn,
-            fact_id=str(uuid.uuid4()),
-            content=f"Knowledge system fact {i}: The module handles persistent storage.",
-            spec_name="smoke_spec",
-            entity_path=f"agent_fox/knowledge/module_{i}.py",
-            keywords=["knowledge", "storage"],
-        )
-
-    # Mock only the LLM API call (not SleepComputer or the tasks themselves)
-    async def mock_llm_call(*args: object, **kwargs: object) -> str:
-        return "This module handles knowledge storage and retrieval. Facts are stored in DuckDB."
-
+    NOTE: Spec 114 (knowledge decoupling) removed sleep compute from the
+    sync barrier entirely. The barrier no longer triggers SleepComputer.
+    This test now verifies the barrier completes without sleep compute.
+    """
     state = MagicMock()
     state.node_states = {}
 
-    knowledge_config = KnowledgeConfig()
-
-    with patch(
-        "agent_fox.knowledge.sleep_tasks.context_rewriter.ContextRewriter._call_llm",
-        new=mock_llm_call,
-    ):
-        await run_sync_barrier_sequence(
-            state=state,
-            sync_interval=1,
-            repo_root=Path("."),
-            emit_audit=lambda *a, **kw: None,
-            specs_dir=None,
-            hot_load_enabled=False,
-            hot_load_fn=AsyncMock(),
-            sync_plan_fn=lambda s: None,
-            barrier_callback=None,
-            knowledge_db_conn=conn,
-            knowledge_config=knowledge_config,
-            sink_dispatcher=None,
-        )
-
-    rows = conn.execute(
-        "SELECT task_name FROM sleep_artifacts WHERE superseded_at IS NULL"
-    ).fetchall()
-    task_names = {r[0] for r in rows}
-
-    # Both tasks should have produced artifacts
-    assert "context_rewriter" in task_names
-    assert "bundle_builder" in task_names
+    await run_sync_barrier_sequence(
+        state=state,
+        sync_interval=1,
+        repo_root=Path("."),
+        emit_audit=lambda *a, **kw: None,
+        specs_dir=None,
+        hot_load_enabled=False,
+        hot_load_fn=AsyncMock(),
+        sync_plan_fn=lambda s: None,
+        barrier_callback=None,
+    )
+    # Barrier completes without sleep compute — no artifacts produced.
 
 
 # ---------------------------------------------------------------------------

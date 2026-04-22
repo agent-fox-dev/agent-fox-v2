@@ -96,8 +96,8 @@ each group), and group 7 verifies everything end-to-end.
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/knowledge/provider.py`
     - [x] Requirements 1.1, 1.2, 1.3, 1.4, 2.1, 2.2, 2.3, 2.E1 acceptance criteria met
 
-- [ ] 3. Rewire engine to use KnowledgeProvider protocol
-  - [ ] 3.1 Modify `session_lifecycle.py` retrieval path
+- [x] 3. Rewire engine to use KnowledgeProvider protocol
+  - [x] 3.1 Modify `session_lifecycle.py` retrieval path
     - Replace `AdaptiveRetriever`/`RetrievalConfig`/`EmbeddingGenerator` imports with `KnowledgeProvider` import
     - Replace `_build_prompts` retrieval assembly with `self._knowledge_provider.retrieve()` call
     - Wrap `retrieve()` in try/except, log WARNING on failure, use empty context
@@ -105,21 +105,21 @@ each group), and group 7 verifies everything end-to-end.
     - Remove `_retrieval_summary`, `_query_prior_touched_files`, and related retrieval logic
     - _Requirements: 3.1, 3.2, 3.3, 3.E1_
 
-  - [ ] 3.2 Replace knowledge harvest with provider ingest
+  - [x] 3.2 Replace knowledge harvest with provider ingest
     - Replace `extract_and_store_knowledge` call in `_extract_knowledge_and_findings` with `self._knowledge_provider.ingest()` call
     - Remove import of `knowledge_harvest.extract_and_store_knowledge`
     - Build context dict with `touched_files`, `commit_sha`, `session_status`
     - Wrap `ingest()` in try/except, log WARNING on failure, no retry
     - _Requirements: 4.1, 4.2, 4.E1_
 
-  - [ ] 3.3 Modify `run.py` infrastructure setup
+  - [x] 3.3 Modify `run.py` infrastructure setup
     - Remove `EmbeddingGenerator` creation and `run_background_ingestion` call
     - Remove imports: `EmbeddingGenerator`, `run_background_ingestion`, `ingest`
     - Create `NoOpKnowledgeProvider()` and add to infrastructure dict
     - Update `session_runner_factory` to pass `knowledge_provider` instead of `embedder`
     - _Requirements: 2.4, 3.2_
 
-  - [ ] 3.4 Clean up barrier.py
+  - [x] 3.4 Clean up barrier.py
     - Remove `run_consolidation` import (top-level try/except block)
     - Remove lifecycle cleanup block (`run_cleanup` call)
     - Remove consolidation pipeline block
@@ -129,22 +129,22 @@ each group), and group 7 verifies everything end-to-end.
     - Keep worktree verification, develop sync, hot-load, barrier callback, config reload
     - _Requirements: 5.1, 5.2_
 
-  - [ ] 3.5 Clean up engine.py
+  - [x] 3.5 Clean up engine.py
     - Remove end-of-run consolidation block (deferred import of `run_consolidation`)
     - Remove final `render_summary` call
     - Remove `consolidated_specs` tracking set
     - _Requirements: 5.1_
 
-  - [ ] 3.6 Clean up reset.py
+  - [x] 3.6 Clean up reset.py
     - Remove `from agent_fox.knowledge.compaction import compact` import
     - Remove or update any code that calls `compact()`
     - _Requirements: 5.1_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_decoupling.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/engine/`
-    - [ ] Requirements 2.4, 3.1, 3.2, 3.3, 3.E1, 4.1, 4.2, 4.E1, 5.1, 5.2 acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_decoupling.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/engine/`
+    - [x] Requirements 2.4, 3.1, 3.2, 3.3, 3.E1, 4.1, 4.2, 4.E1, 5.1, 5.2 acceptance criteria met
 
 - [ ] 4. Checkpoint - Engine rewiring complete
   - Ensure all tests pass after engine rewiring.
