@@ -127,14 +127,19 @@ def _insert_review_finding(
     *,
     category: str | None = None,
 ) -> None:
-    """Insert a review finding via the existing review_store API."""
+    """Insert a review finding via the existing review_store API.
+
+    Uses a unique task_group per finding to prevent supersession
+    between independent findings in the same test.
+    """
+    finding_id = str(uuid.uuid4())
     finding = ReviewFinding(
-        id=str(uuid.uuid4()),
+        id=finding_id,
         severity=severity,
         description=description,
         requirement_ref=None,
         spec_name=spec_name,
-        task_group="1",
+        task_group=finding_id,
         session_id="s1",
         category=category,
     )

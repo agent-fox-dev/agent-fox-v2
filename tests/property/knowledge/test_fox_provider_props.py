@@ -87,13 +87,14 @@ def _insert_gotcha_raw(conn, spec_name, text, *, days_ago=0):
 def _insert_review_finding(conn, spec_name, severity, description):
     from agent_fox.knowledge.review_store import ReviewFinding, insert_findings
 
+    finding_id = str(uuid.uuid4())
     finding = ReviewFinding(
-        id=str(uuid.uuid4()),
+        id=finding_id,
         severity=severity,
         description=description,
         requirement_ref=None,
         spec_name=spec_name,
-        task_group="1",
+        task_group=finding_id,
         session_id="s1",
     )
     insert_findings(conn, [finding])

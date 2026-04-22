@@ -128,32 +128,32 @@ Each group produces testable artifacts that accumulate into the full provider.
   - Gotcha store, errata store, and gotcha extraction are individually tested.
   - Config and migration are in place.
 
-- [ ] 6. FoxKnowledgeProvider implementation
-  - [ ] 6.1 Create `agent_fox/knowledge/fox_provider.py`
+- [x] 6. FoxKnowledgeProvider implementation
+  - [x] 6.1 Create `agent_fox/knowledge/fox_provider.py`
     - Implement `FoxKnowledgeProvider` class implementing `KnowledgeProvider` protocol
     - Constructor: accepts `KnowledgeDB` and `KnowledgeProviderConfig`
     - `retrieve()`: queries errata, review findings, gotchas; composes with priority ordering and cap
     - `ingest()`: checks session_status, calls `extract_gotchas`, calls `store_gotchas`
     - _Requirements: 1.1, 1.2, 1.3, 1.E1_
 
-  - [ ] 6.2 Implement `_compose_results` method
+  - [x] 6.2 Implement `_compose_results` method
     - Merge errata (first), review findings (second), gotchas (last)
     - Apply max_items cap: trim gotchas first
     - Handle reviews+errata exceeding cap (include all, omit gotchas)
     - _Requirements: 6.1, 6.2, 6.3, 6.E1, 6.E2_
 
-  - [ ] 6.3 Implement review carry-forward in `retrieve()`
+  - [x] 6.3 Implement review carry-forward in `retrieve()`
     - Query `review_store.query_active_findings()` for spec
     - Filter to critical/major severity
     - Format with `[REVIEW] ` prefix including severity, category, description
     - Handle missing `review_findings` table gracefully
     - _Requirements: 4.1, 4.2, 4.3, 4.E1, 4.E2_
 
-  - [ ] 6.V Verify task group 6
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_fox_provider.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/knowledge/fox_provider.py`
-    - [ ] Requirements 1.1, 1.2, 1.3, 1.E1, 4.1, 4.2, 4.3, 4.E1, 4.E2, 6.1, 6.2, 6.3, 6.E1, 6.E2 acceptance criteria met
+  - [x] 6.V Verify task group 6
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_fox_provider.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/knowledge/fox_provider.py`
+    - [x] Requirements 1.1, 1.2, 1.3, 1.E1, 4.1, 4.2, 4.3, 4.E1, 4.E2, 6.1, 6.2, 6.3, 6.E1, 6.E2 acceptance criteria met
 
 - [ ] 7. Engine wiring
   - [ ] 7.1 Update `engine/run.py` to construct `FoxKnowledgeProvider`
