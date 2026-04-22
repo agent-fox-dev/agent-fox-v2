@@ -30,6 +30,7 @@ def _make_mock_config() -> MagicMock:
     mock_config.models.review = None
     return mock_config
 
+
 # ---------------------------------------------------------------------------
 # Mock KnowledgeProvider for tests
 # ---------------------------------------------------------------------------
@@ -65,21 +66,22 @@ class MockKnowledgeProvider:
 
 
 class TestDefaultProvider:
-    """Verify engine infrastructure setup creates a NoOpKnowledgeProvider.
+    """Verify engine infrastructure setup creates a KnowledgeProvider.
 
-    Requirements: 114-REQ-2.4
+    Requirements: 114-REQ-2.4, 115-REQ-10.1, 115-REQ-10.2
     """
 
-    def test_setup_infrastructure_returns_noop_provider(self) -> None:
-        """_setup_infrastructure creates a NoOpKnowledgeProvider when no
-        other provider is configured."""
+    def test_setup_infrastructure_returns_knowledge_provider(self) -> None:
+        """_setup_infrastructure creates a FoxKnowledgeProvider (115-REQ-10.2
+        supersedes the NoOpKnowledgeProvider default from 114-REQ-2.4)."""
         from agent_fox.engine.run import _setup_infrastructure
+        from agent_fox.knowledge.fox_provider import FoxKnowledgeProvider
 
         # Patch heavy dependencies to avoid real DB/sink creation
         with (
             patch("agent_fox.engine.run.open_knowledge_store") as mock_store,
             patch("agent_fox.engine.run.DuckDBSink"),
-            patch("agent_fox.knowledge.sink.SinkDispatcher"),
+            patch("agent_fox.engine.run.SinkDispatcher"),
             patch("agent_fox.knowledge.agent_trace.AgentTraceSink"),
         ):
             mock_db = MagicMock()
@@ -94,7 +96,7 @@ class TestDefaultProvider:
 
         assert "knowledge_provider" in infra
         assert isinstance(infra["knowledge_provider"], KnowledgeProvider)
-        assert isinstance(infra["knowledge_provider"], NoOpKnowledgeProvider)
+        assert isinstance(infra["knowledge_provider"], FoxKnowledgeProvider)
 
 
 # ---------------------------------------------------------------------------

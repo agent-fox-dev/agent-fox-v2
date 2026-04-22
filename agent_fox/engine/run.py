@@ -21,7 +21,8 @@ from agent_fox.engine.engine import Orchestrator
 from agent_fox.engine.state import ExecutionState
 from agent_fox.knowledge.db import open_knowledge_store
 from agent_fox.knowledge.duckdb_sink import DuckDBSink
-from agent_fox.knowledge.provider import NoOpKnowledgeProvider
+from agent_fox.knowledge.fox_provider import FoxKnowledgeProvider
+from agent_fox.knowledge.sink import SinkDispatcher
 
 if TYPE_CHECKING:
     from agent_fox.core.config import AgentFoxConfig, OrchestratorConfig
@@ -89,7 +90,6 @@ def _setup_infrastructure(
     """
     from agent_fox.core.paths import AUDIT_DIR
     from agent_fox.engine.session_lifecycle import NodeSessionRunner
-    from agent_fox.knowledge.sink import SinkDispatcher
     from agent_fox.nightshift.platform_factory import create_platform_safe
 
     # Create DuckDB sink for session outcome recording
@@ -103,8 +103,8 @@ def _setup_infrastructure(
 
     sink_dispatcher.add(AgentTraceSink(AUDIT_DIR, ""))
 
-    # 114-REQ-2.4: Create NoOpKnowledgeProvider as default
-    knowledge_provider = NoOpKnowledgeProvider()
+    # 115-REQ-10.1: Construct FoxKnowledgeProvider with config
+    knowledge_provider = FoxKnowledgeProvider(knowledge_db, config.knowledge.provider)
 
     def session_runner_factory(
         node_id: str,

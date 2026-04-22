@@ -27,6 +27,7 @@ def _make_mock_config() -> MagicMock:
     mock_config.models.review = None
     return mock_config
 
+
 # ---------------------------------------------------------------------------
 # TS-114-SMOKE-1: Pre-Session Retrieval Path
 # ---------------------------------------------------------------------------
@@ -135,19 +136,23 @@ class TestSimplifiedBarrierSmoke:
 
 
 class TestEngineInitSmoke:
-    """Verify _setup_infrastructure creates NoOpKnowledgeProvider.
+    """Verify _setup_infrastructure creates FoxKnowledgeProvider.
 
     Must use real _setup_infrastructure, not a mock.
+
+    115-REQ-10.1 supersedes 114-REQ-2.4: FoxKnowledgeProvider replaces
+    NoOpKnowledgeProvider as the default provider.
     """
 
-    def test_infra_contains_noop_provider(self) -> None:
-        """_setup_infrastructure returns NoOpKnowledgeProvider."""
+    def test_infra_contains_fox_provider(self) -> None:
+        """_setup_infrastructure returns FoxKnowledgeProvider."""
         from agent_fox.engine.run import _setup_infrastructure
+        from agent_fox.knowledge.fox_provider import FoxKnowledgeProvider
 
         with (
             patch("agent_fox.engine.run.open_knowledge_store") as mock_store,
             patch("agent_fox.engine.run.DuckDBSink"),
-            patch("agent_fox.knowledge.sink.SinkDispatcher") as mock_sink_cls,
+            patch("agent_fox.engine.run.SinkDispatcher") as mock_sink_cls,
             patch("agent_fox.knowledge.agent_trace.AgentTraceSink"),
         ):
             mock_db = MagicMock()
@@ -162,7 +167,7 @@ class TestEngineInitSmoke:
             infra = _setup_infrastructure(mock_config)
 
         assert "knowledge_provider" in infra
-        assert isinstance(infra["knowledge_provider"], NoOpKnowledgeProvider)
+        assert isinstance(infra["knowledge_provider"], FoxKnowledgeProvider)
 
 
 # ---------------------------------------------------------------------------
@@ -200,7 +205,5 @@ class TestReviewFindingsSmoke:
             patch("agent_fox.knowledge.agent_trace.reconstruct_transcript", return_value="test transcript"),
             patch.object(runner, "_persist_review_findings"),
         ):
-            await runner._extract_knowledge_and_findings(
-                "spec_01:1", 1, workspace
-            )
+            await runner._extract_knowledge_and_findings("spec_01:1", 1, workspace)
         # No error raised = review findings path still works

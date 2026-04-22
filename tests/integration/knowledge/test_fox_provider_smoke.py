@@ -14,11 +14,11 @@ from unittest.mock import MagicMock, patch
 
 import duckdb
 import pytest
+
+from agent_fox.core.config import KnowledgeProviderConfig
 from agent_fox.knowledge.errata_store import register_errata
 from agent_fox.knowledge.fox_provider import FoxKnowledgeProvider
 from agent_fox.knowledge.gotcha_extraction import GotchaCandidate
-
-from agent_fox.core.config import KnowledgeProviderConfig
 from agent_fox.knowledge.migrations import apply_pending_migrations
 from agent_fox.knowledge.review_store import ReviewFinding, insert_findings
 from tests.unit.knowledge.conftest import SCHEMA_DDL
@@ -125,18 +125,12 @@ class TestPreSessionRetrievalSmoke:
 
     def test_retrieval_path(self, smoke_db, smoke_conn) -> None:
         # Seed: 1 errata, 1 critical finding, 2 gotchas
-        register_errata(
-            smoke_conn, "spec_01", "docs/errata/01_fix.md"
-        )
-        _insert_review_finding(
-            smoke_conn, "spec_01", "critical", "SQL injection"
-        )
+        register_errata(smoke_conn, "spec_01", "docs/errata/01_fix.md")
+        _insert_review_finding(smoke_conn, "spec_01", "critical", "SQL injection")
         _insert_gotcha(smoke_conn, "spec_01", "DuckDB gotcha A")
         _insert_gotcha(smoke_conn, "spec_01", "DuckDB gotcha B")
 
-        provider = FoxKnowledgeProvider(
-            smoke_db, KnowledgeProviderConfig()
-        )
+        provider = FoxKnowledgeProvider(smoke_db, KnowledgeProviderConfig())
         result = provider.retrieve("spec_01", "implement feature X")
 
         assert len(result) == 4
@@ -167,9 +161,7 @@ class TestPostSessionIngestionSmoke:
             _make_candidate("Hypothesis deadline must be disabled"),
         ]
 
-        provider = FoxKnowledgeProvider(
-            smoke_db, KnowledgeProviderConfig()
-        )
+        provider = FoxKnowledgeProvider(smoke_db, KnowledgeProviderConfig())
 
         with patch(
             "agent_fox.knowledge.gotcha_extraction.extract_gotchas",
@@ -185,9 +177,7 @@ class TestPostSessionIngestionSmoke:
                 },
             )
 
-        rows = smoke_conn.execute(
-            "SELECT * FROM gotchas WHERE spec_name = 'spec_01'"
-        ).fetchall()
+        rows = smoke_conn.execute("SELECT * FROM gotchas WHERE spec_name = 'spec_01'").fetchall()
         assert len(rows) == 2
 
 
@@ -205,14 +195,10 @@ class TestErrataRegistrationSmoke:
     """
 
     def test_errata_registration_path(self, smoke_db, smoke_conn) -> None:
-        entry = register_errata(
-            smoke_conn, "spec_28", "docs/errata/28_fix.md"
-        )
+        entry = register_errata(smoke_conn, "spec_28", "docs/errata/28_fix.md")
         assert entry.spec_name == "spec_28"
 
-        provider = FoxKnowledgeProvider(
-            smoke_db, KnowledgeProviderConfig()
-        )
+        provider = FoxKnowledgeProvider(smoke_db, KnowledgeProviderConfig())
         result = provider.retrieve("spec_28", "task")
         errata = [r for r in result if r.startswith("[ERRATA]")]
 

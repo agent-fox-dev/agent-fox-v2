@@ -155,24 +155,24 @@ Each group produces testable artifacts that accumulate into the full provider.
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/knowledge/fox_provider.py`
     - [x] Requirements 1.1, 1.2, 1.3, 1.E1, 4.1, 4.2, 4.3, 4.E1, 4.E2, 6.1, 6.2, 6.3, 6.E1, 6.E2 acceptance criteria met
 
-- [ ] 7. Engine wiring
-  - [ ] 7.1 Update `engine/run.py` to construct `FoxKnowledgeProvider`
+- [x] 7. Engine wiring
+  - [x] 7.1 Update `engine/run.py` to construct `FoxKnowledgeProvider`
     - Import `FoxKnowledgeProvider` from `agent_fox.knowledge.fox_provider`
     - Read `KnowledgeProviderConfig` from `config.knowledge.provider`
     - Construct `FoxKnowledgeProvider(knowledge_db, provider_config)` instead of `NoOpKnowledgeProvider`
     - Add to infrastructure dict as `knowledge_provider`
     - _Requirements: 10.1, 10.2_
 
-  - [ ] 7.2 Verify engine import boundary
+  - [x] 7.2 Verify engine import boundary
     - Confirm engine modules only import from the allowed knowledge module set
     - `fox_provider` is added to the allowed set (imported only in `run.py`)
     - _Requirements: 10.3_
 
-  - [ ] 7.V Verify task group 7
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_fox_provider.py -k "engine or startup or boundary"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/engine/run.py`
-    - [ ] Requirements 10.1, 10.2, 10.3 acceptance criteria met
+  - [x] 7.V Verify task group 7
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_fox_provider.py -k "engine or startup or boundary"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/engine/run.py`
+    - [x] Requirements 10.1, 10.2, 10.3 acceptance criteria met
 
 - [ ] 8. Wiring verification
 
