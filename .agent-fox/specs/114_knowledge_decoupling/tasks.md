@@ -222,24 +222,24 @@ each group), and group 7 verifies everything end-to-end.
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
     - [x] Requirements 8.1, 8.2, 8.3, 8.4, 8.5, 9.1, 9.4, 10.1, 10.2, 10.3, 10.4 acceptance criteria met
 
-- [ ] 7. Supersede specs 112 and 113
-  - [ ] 7.1 Add deprecation banners to spec 112
+- [x] 7. Supersede specs 112 and 113
+  - [x] 7.1 Add deprecation banners to spec 112
     - Add `⚠️ **SUPERSEDED** by spec 114_knowledge_decoupling` to top of each file in `112_sleep_time_compute/`
     - _Requirements: PRD Supersedes section_
 
-  - [ ] 7.2 Add deprecation banners to spec 113
+  - [x] 7.2 Add deprecation banners to spec 113
     - Add `⚠️ **SUPERSEDED** by spec 114_knowledge_decoupling` to top of each file in `113_knowledge_effectiveness/`
     - _Requirements: PRD Supersedes section_
 
-  - [ ] 7.3 Move superseded specs to archive
+  - [x] 7.3 Move superseded specs to archive
     - `git mv .agent-fox/specs/112_sleep_time_compute .agent-fox/specs/archive/112_sleep_time_compute`
     - `git mv .agent-fox/specs/113_knowledge_effectiveness .agent-fox/specs/archive/113_knowledge_effectiveness`
     - _Requirements: PRD Supersedes section_
 
-  - [ ] 7.V Verify task group 7
-    - [ ] Deprecation banners present in all archived spec files
-    - [ ] Specs 112 and 113 are in `.agent-fox/specs/archive/`
-    - [ ] No lint or test regressions: `make check`
+  - [x] 7.V Verify task group 7
+    - [x] Deprecation banners present in all archived spec files
+    - [x] Specs 112 and 113 are in `.agent-fox/specs/archive/`
+    - [x] No lint or test regressions: `make check`
 
 - [ ] 8. Wiring verification
 

@@ -1,3 +1,5 @@
+> **SUPERSEDED** by spec 114_knowledge_decoupling
+
 # Implementation Plan: Knowledge System Effectiveness
 
 <!-- AGENT INSTRUCTIONS

@@ -1,3 +1,5 @@
+> **SUPERSEDED** by spec 114_knowledge_decoupling
+
 # Design Document: Sleep-Time Compute
 
 ## Overview

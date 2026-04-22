@@ -1,3 +1,5 @@
+> **SUPERSEDED** by spec 114_knowledge_decoupling
+
 # Test Specification: Knowledge System Effectiveness
 
 ## Test Environment

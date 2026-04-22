@@ -1,3 +1,5 @@
+> **SUPERSEDED** by spec 114_knowledge_decoupling
+
 # PRD: Sleep-Time Compute
 
 ## Problem Statement
