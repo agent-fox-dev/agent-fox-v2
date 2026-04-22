@@ -39,10 +39,9 @@ allowlists. Review modes cannot modify code. Implementation agents cannot
 skip quality checks.
 
 **Graceful degradation everywhere.** Every component handles failure
-non-fatally. If embedding generation fails, facts are stored without
-embeddings. If contradiction detection fails, facts are ingested unchecked.
-If the database is locked, the system falls back to JSONL. The knowledge
-system never blocks the coding session lifecycle.
+non-fatally. If knowledge retrieval fails, the session proceeds without
+knowledge context. If gotcha extraction fails, the session outcome is
+unaffected. The knowledge system never blocks the coding session lifecycle.
 
 ## Document Map
 
@@ -82,12 +81,11 @@ staleness detection.
 
 ### [Part 5: Knowledge System Architecture](05-knowledge-system-architecture.md)
 
-How the system remembers. Covers fact extraction from session transcripts,
-causal link discovery, external knowledge ingestion (ADRs, git history),
-the DuckDB-backed knowledge store, the supersession model, lifecycle
-management (deduplication, contradiction detection, confidence decay),
-retrieval and context injection, the RAG query pipeline, temporal queries,
-and the audit trail.
+How the system remembers. Covers the `KnowledgeProvider` protocol, gotcha
+extraction from session transcripts, the DuckDB-backed knowledge store
+(`gotchas`, `errata_index`, `review_findings`), TTL-based staleness, spec-scoped
+retrieval, context injection, the quality assurance layer (review findings,
+drift findings, verification results), and the audit trail.
 
 ## Reading Order
 
