@@ -25,8 +25,8 @@ Each group produces testable artifacts that accumulate into the full provider.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create provider unit tests
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create provider unit tests
     - Create `tests/unit/knowledge/test_fox_provider.py`
     - Tests for protocol conformance (TS-115-1, TS-115-2, TS-115-3)
     - Tests for retrieval composition, caps, ordering (TS-115-20, TS-115-21, TS-115-22)
@@ -34,7 +34,7 @@ Each group produces testable artifacts that accumulate into the full provider.
     - Edge case tests (TS-115-E1, TS-115-E5 through TS-115-E12)
     - _Test Spec: TS-115-1, TS-115-2, TS-115-3, TS-115-13, TS-115-14, TS-115-15, TS-115-20, TS-115-21, TS-115-22, TS-115-E1, TS-115-E5, TS-115-E6, TS-115-E7, TS-115-E8, TS-115-E9, TS-115-E10, TS-115-E11, TS-115-E12_
 
-  - [ ] 1.2 Create gotcha store and extraction tests
+  - [x] 1.2 Create gotcha store and extraction tests
     - Create `tests/unit/knowledge/test_gotcha_store.py`
     - Tests for gotcha CRUD (TS-115-7, TS-115-9, TS-115-10, TS-115-11, TS-115-12)
     - Tests for deduplication (TS-115-E2)
@@ -44,29 +44,29 @@ Each group produces testable artifacts that accumulate into the full provider.
     - Tests for extraction edge cases (TS-115-E3, TS-115-E4)
     - _Test Spec: TS-115-4, TS-115-5, TS-115-6, TS-115-7, TS-115-8, TS-115-9, TS-115-10, TS-115-11, TS-115-12, TS-115-23, TS-115-24, TS-115-E2, TS-115-E3, TS-115-E4_
 
-  - [ ] 1.3 Create errata store tests
+  - [x] 1.3 Create errata store tests
     - Create `tests/unit/knowledge/test_errata_store.py`
     - Tests for errata CRUD (TS-115-16, TS-115-17, TS-115-18, TS-115-19)
     - _Test Spec: TS-115-16, TS-115-17, TS-115-18, TS-115-19_
 
-  - [ ] 1.4 Create config and migration tests
+  - [x] 1.4 Create config and migration tests
     - Add to `tests/unit/knowledge/test_fox_provider.py` or create separate file
     - Tests for KnowledgeProviderConfig (TS-115-25, TS-115-26, TS-115-27)
     - Tests for schema migration (TS-115-28, TS-115-29, TS-115-30, TS-115-31)
     - Tests for engine integration (TS-115-32, TS-115-33, TS-115-34)
     - _Test Spec: TS-115-25, TS-115-26, TS-115-27, TS-115-28, TS-115-29, TS-115-30, TS-115-31, TS-115-32, TS-115-33, TS-115-34_
 
-  - [ ] 1.5 Create property tests and smoke tests
+  - [x] 1.5 Create property tests and smoke tests
     - Create `tests/property/knowledge/test_fox_provider_props.py`
     - Property tests (TS-115-P1 through TS-115-P9)
     - Create `tests/integration/knowledge/test_fox_provider_smoke.py`
     - Smoke tests (TS-115-SMOKE-1 through TS-115-SMOKE-4)
     - _Test Spec: TS-115-P1 through TS-115-P9, TS-115-SMOKE-1 through TS-115-SMOKE-4_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/`
 
 - [ ] 2. Schema migration and configuration
   - [ ] 2.1 Add `KnowledgeProviderConfig` to `agent_fox/core/config.py`
