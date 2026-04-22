@@ -254,7 +254,7 @@ class TestMigrationAlreadyAppliedSkips:
         # Verify version is recorded
         version = conn.execute("SELECT MAX(version) FROM schema_version").fetchone()
         assert version is not None
-        assert version[0] == 16
+        assert version[0] == 17
         conn.close()
 
 

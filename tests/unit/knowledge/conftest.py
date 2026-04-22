@@ -131,6 +131,23 @@ CREATE TABLE IF NOT EXISTS drift_findings (
     created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS gotchas (
+    id           VARCHAR PRIMARY KEY,
+    spec_name    VARCHAR NOT NULL,
+    category     VARCHAR NOT NULL DEFAULT 'gotcha',
+    text         VARCHAR NOT NULL,
+    content_hash VARCHAR NOT NULL,
+    session_id   VARCHAR NOT NULL,
+    created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS errata_index (
+    spec_name  VARCHAR NOT NULL,
+    file_path  VARCHAR NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (spec_name, file_path)
+);
+
 INSERT INTO schema_version (version, description)
     SELECT 1, 'initial schema'
     WHERE NOT EXISTS (SELECT 1 FROM schema_version WHERE version = 1);

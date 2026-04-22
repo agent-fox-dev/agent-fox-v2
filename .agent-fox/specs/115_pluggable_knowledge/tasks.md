@@ -68,25 +68,25 @@ Each group produces testable artifacts that accumulate into the full provider.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/`
 
-- [ ] 2. Schema migration and configuration
-  - [ ] 2.1 Add `KnowledgeProviderConfig` to `agent_fox/core/config.py`
+- [x] 2. Schema migration and configuration
+  - [x] 2.1 Add `KnowledgeProviderConfig` to `agent_fox/core/config.py`
     - Define `KnowledgeProviderConfig` with `max_items`, `gotcha_ttl_days`, `model_tier`
     - Add `provider: KnowledgeProviderConfig` field to `KnowledgeConfig`
     - Set `ConfigDict(extra="ignore")`
     - _Requirements: 8.1, 8.2, 8.3_
 
-  - [ ] 2.2 Add migration v17 to `agent_fox/knowledge/migrations.py`
+  - [x] 2.2 Add migration v17 to `agent_fox/knowledge/migrations.py`
     - Create `gotchas` table with: id, spec_name, category, text, content_hash, session_id, created_at
     - Create `errata_index` table with: spec_name, file_path, created_at, PK(spec_name, file_path)
     - Use `CREATE TABLE IF NOT EXISTS` for idempotency
     - Register in `MIGRATIONS` list
     - _Requirements: 9.1, 9.2, 9.3, 9.4_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_fox_provider.py -k "config or migration"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/core/config.py agent_fox/knowledge/migrations.py`
-    - [ ] Requirements 8.1, 8.2, 8.3, 9.1, 9.2, 9.3, 9.4 acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_fox_provider.py -k "config or migration"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/core/config.py agent_fox/knowledge/migrations.py`
+    - [x] Requirements 8.1, 8.2, 8.3, 9.1, 9.2, 9.3, 9.4 acceptance criteria met
 
 - [ ] 3. Gotcha store and errata store modules
   - [ ] 3.1 Create `agent_fox/knowledge/gotcha_store.py`

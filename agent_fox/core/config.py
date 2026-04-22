@@ -291,6 +291,22 @@ class SleepConfig(BaseModel):
     )
 
 
+class KnowledgeProviderConfig(BaseModel):
+    """Configuration for the pluggable knowledge provider.
+
+    Controls retrieval limits, gotcha TTL, and the LLM model tier used for
+    gotcha extraction.
+
+    Requirements: 115-REQ-8.1, 115-REQ-8.3
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    max_items: int = Field(default=10, description="Max total retrieval items")
+    gotcha_ttl_days: int = Field(default=90, description="Days before gotcha expiry")
+    model_tier: str = Field(default="SIMPLE", description="LLM tier for gotcha extraction")
+
+
 class KnowledgeConfig(BaseModel):
     """Knowledge store and fact selection configuration.
 
@@ -347,6 +363,10 @@ class KnowledgeConfig(BaseModel):
     sleep: SleepConfig = Field(
         default_factory=SleepConfig,
         description="Sleep-time compute configuration (pre-computation during idle periods)",
+    )
+    provider: KnowledgeProviderConfig = Field(
+        default_factory=KnowledgeProviderConfig,
+        description="Pluggable knowledge provider configuration (gotcha TTL, retrieval caps, etc.)",
     )
 
     _auto_clamp = _auto_clamp_validator()
