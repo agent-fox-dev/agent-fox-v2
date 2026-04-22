@@ -1,8 +1,9 @@
 """Agent conversation trace sink: writes JSONL event log per orchestrator run.
 
-Each debug run produces a file at audit_dir/agent_{run_id}.jsonl containing
-one JSON object per line, recording the full agent–model conversation:
-session.init, assistant.message, tool.use, tool.error, and session.result.
+Each orchestrator run produces a file at audit_dir/agent_{run_id}.jsonl
+containing one JSON object per line, recording the full agent–model
+conversation: session.init, assistant.message, tool.use, tool.error, and
+session.result.
 
 Requirements: 103-REQ-1.1 through 103-REQ-8.2
 """
@@ -56,10 +57,7 @@ def reconstruct_transcript(
                     event = json.loads(line)
                 except json.JSONDecodeError:
                     continue
-                if (
-                    event.get("event_type") == "assistant.message"
-                    and event.get("node_id") == node_id
-                ):
+                if event.get("event_type") == "assistant.message" and event.get("node_id") == node_id:
                     content = event.get("content", "")
                     if content:
                         messages.append(content)
