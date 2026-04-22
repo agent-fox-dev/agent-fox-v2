@@ -2,37 +2,164 @@
 
 ## Overview
 
-This spec removes the low-value knowledge pipeline from agent-fox and
-introduces a `KnowledgeProvider` protocol as the clean boundary between the
-engine and any knowledge implementation. A `NoOpKnowledgeProvider` serves as
-the default until spec 115 provides a real implementation.
+This spec removes 35+ low-value knowledge modules (embedding pipeline, vector
+search, 4-signal retrieval, fact extraction, causal chains, contradiction
+detection, entity graph, sleep compute, static analysis, onboarding, compaction,
+consolidation, language analyzers) and replaces them with a two-method
+`KnowledgeProvider` protocol. The engine calls `retrieve()` pre-session and
+`ingest()` post-session through the protocol — never importing knowledge
+internals directly. A `NoOpKnowledgeProvider` ships as the default
+implementation so the engine runs immediately after removal with zero knowledge
+overhead.
+
+High-value operational modules are retained in `knowledge/`: audit, sink,
+DuckDB sink, DB connection, migrations, review store, blocking history, and
+agent trace. These are operational infrastructure, not the knowledge pipeline.
 
 ## Architecture
 
-The current architecture has 35+ knowledge modules imported at 63+ call sites
-across engine, nightshift, session, and CLI. After this spec:
+```mermaid
+flowchart TB
+    subgraph Engine
+        SL[session_lifecycle.py]
+        KH[knowledge_harvest.py ❌ deleted]
+        BA[barrier.py]
+        EN[engine.py]
+        RU[run.py]
+        RE[reset.py]
+    end
 
+    subgraph "knowledge/ (retained)"
+        PR[provider.py ✨ new]
+        AU[audit.py]
+        SK[sink.py]
+        DS[duckdb_sink.py]
+        DB[db.py]
+        MG[migrations.py]
+        RS[review_store.py]
+        BH[blocking_history.py]
+        AT[agent_trace.py]
+    end
+
+    subgraph "knowledge/ (deleted)"
+        EM[embeddings.py ❌]
+        RT[retrieval.py ❌]
+        EX[extraction.py ❌]
+        ST[store.py ❌]
+        FA[facts.py ❌]
+        CA[causal.py ❌]
+        CO[consolidation.py ❌]
+        CP[compaction.py ❌]
+        SC[sleep_compute.py ❌]
+        LC[lifecycle.py ❌]
+        CT[contradiction.py ❌]
+        RN[rendering.py ❌]
+        OB[onboard.py ❌]
+        LANG[lang/ ❌]
+        SLEEP[sleep_tasks/ ❌]
+    end
+
+    SL -->|retrieve| PR
+    SL -->|ingest| PR
+    SL --> RS
+    SL --> AU
+    SL --> SK
+    SL --> AT
+
+    BA --> AU
+    EN --> AU
+    EN --> SK
+    RU --> DB
+    RU --> DS
+    RE --> DB
+
+    PR -.->|implements| NOP[NoOpKnowledgeProvider]
 ```
-Engine / Nightshift / Session / CLI
-         │
-         ├── KnowledgeProvider protocol  (new boundary)
-         │        │
-         │        └── NoOpKnowledgeProvider  (default)
-         │
-         ├── review_store.py  (direct, retained)
-         ├── audit.py  (direct, retained)
-         ├── sink.py + duckdb_sink.py  (direct, retained)
-         ├── db.py + migrations.py  (direct, retained)
-         ├── blocking_history.py  (direct, retained)
-         └── agent_trace.py  (direct, retained)
-```
+
+### Module Responsibilities
+
+1. **`provider.py`** (new) — Defines `KnowledgeProvider` protocol and
+   `NoOpKnowledgeProvider` implementation.
+2. **`audit.py`** (retained) — Structured audit event data model, event types,
+   severity enums, run ID generation.
+3. **`sink.py`** (retained) — `SessionSink` protocol, `SinkDispatcher`,
+   event dataclasses.
+4. **`duckdb_sink.py`** (retained) — DuckDB implementation of `SessionSink`.
+5. **`db.py`** (retained) — DuckDB connection lifecycle, schema init,
+   `open_knowledge_store`.
+6. **`migrations.py`** (retained) — Schema versioning, forward-only migration
+   runner.
+7. **`review_store.py`** (retained) — CRUD for `review_findings` and
+   `verification_results`.
+8. **`blocking_history.py`** (retained) — Blocking decision tracking and
+   threshold learning.
+9. **`agent_trace.py`** (retained) — JSONL event sink for transcript
+   reconstruction.
+10. **`session_lifecycle.py`** (modified) — Retrieval assembly replaced with
+    `KnowledgeProvider.retrieve()` call. Knowledge harvest replaced with
+    `KnowledgeProvider.ingest()` call.
+11. **`barrier.py`** (modified) — Consolidation, compaction, lifecycle cleanup
+    (`run_cleanup`), sleep compute, and rendering (`render_summary`) calls
+    removed.
+12. **`engine.py`** (modified) — End-of-run consolidation and rendering removed.
+13. **`run.py`** (modified) — `EmbeddingGenerator` and `run_background_ingestion`
+    imports removed. Provider injected via factory.
+14. **`reset.py`** (modified) — `compact` import removed.
+
+## Execution Paths
+
+### Path 1: Pre-session knowledge retrieval
+
+1. `engine/run.py: _setup_infrastructure` — creates `NoOpKnowledgeProvider`,
+   passes to `NodeSessionRunner` via factory
+2. `engine/session_lifecycle.py: NodeSessionRunner.__init__` — stores
+   `knowledge_provider` reference
+3. `engine/session_lifecycle.py: NodeSessionRunner._build_prompts` — calls
+   `self._knowledge_provider.retrieve(spec_name, task_description)` →
+   `list[str]`
+4. `session/prompt.py: assemble_context` — receives returned strings as
+   `memory_facts` parameter
+
+### Path 2: Post-session knowledge ingestion
+
+1. `engine/session_lifecycle.py: NodeSessionRunner._run_and_harvest` — after
+   successful harvest, calls `_ingest_knowledge`
+2. `engine/session_lifecycle.py: NodeSessionRunner._ingest_knowledge` — builds
+   context dict with `touched_files`, `commit_sha`, `session_status`, calls
+   `self._knowledge_provider.ingest(session_id, spec_name, context)` → `None`
+
+### Path 3: Sync barrier (simplified)
+
+1. `engine/engine.py: Orchestrator._run_loop` — detects barrier threshold
+2. `engine/barrier.py: run_sync_barrier_sequence` — runs worktree verification,
+   develop sync, hot-load, barrier callback, config reload
+3. No consolidation, compaction, lifecycle cleanup, sleep compute, or rendering
+   steps remain
+
+### Path 4: Engine initialization
+
+1. `engine/run.py: _setup_infrastructure` — opens `KnowledgeDB` via
+   `open_knowledge_store`, creates `DuckDBSink`, creates `AgentTraceSink`,
+   creates `NoOpKnowledgeProvider`
+2. `engine/run.py: _setup_infrastructure` — no `EmbeddingGenerator` creation,
+   no `run_background_ingestion` call
+3. Returns infrastructure dict including `knowledge_provider`
+
+### Path 5: Review findings persistence (unchanged)
+
+1. `engine/session_lifecycle.py: NodeSessionRunner._extract_knowledge_and_findings`
+   — calls `_persist_review_findings` (retained, unmodified)
+2. `engine/review_persistence.py: persist_review_findings` — writes to
+   `review_store` (retained, unmodified)
+
+## Components and Interfaces
 
 ### KnowledgeProvider Protocol
 
 ```python
 # agent_fox/knowledge/provider.py
 
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 @runtime_checkable
 class KnowledgeProvider(Protocol):
@@ -40,24 +167,49 @@ class KnowledgeProvider(Protocol):
         self,
         session_id: str,
         spec_name: str,
-        context: dict,
-    ) -> None: ...
+        context: dict[str, Any],
+    ) -> None:
+        """Ingest knowledge from a completed session.
+
+        Args:
+            session_id: Node ID of the completed session.
+            spec_name: Name of the spec the session belongs to.
+            context: Dict with at minimum 'touched_files' (list[str]),
+                     'commit_sha' (str), 'session_status' (str).
+        """
+        ...
 
     def retrieve(
         self,
         spec_name: str,
         task_description: str,
-    ) -> list[str]: ...
+    ) -> list[str]:
+        """Retrieve knowledge context for an upcoming session.
+
+        Args:
+            spec_name: Name of the spec being worked on.
+            task_description: Human-readable description of the task.
+
+        Returns:
+            List of formatted text blocks ready for prompt injection.
+            Empty list means no knowledge context.
+        """
+        ...
 
 
 class NoOpKnowledgeProvider:
+    """Knowledge provider that does nothing.
+
+    Default implementation used when no knowledge system is configured.
+    """
+
     def ingest(
         self,
         session_id: str,
         spec_name: str,
-        context: dict,
+        context: dict[str, Any],
     ) -> None:
-        pass
+        return None
 
     def retrieve(
         self,
@@ -67,240 +219,182 @@ class NoOpKnowledgeProvider:
         return []
 ```
 
-### Integration Points
+### Modified NodeSessionRunner Interface
 
-#### Pre-Session (Retrieval)
-
-**Current** (`session_lifecycle.py` lines 262-285):
 ```python
-retriever = AdaptiveRetriever(db, embedder, config.retrieval)
-context = retriever.retrieve(spec_name, task_description, touched_files)
+class NodeSessionRunner:
+    def __init__(
+        self,
+        node_id: str,
+        config: AgentFoxConfig,
+        *,
+        archetype: str = "coder",
+        mode: str | None = None,
+        instances: int = 1,
+        sink_dispatcher: SinkDispatcher | None = None,
+        knowledge_db: KnowledgeDB,
+        knowledge_provider: KnowledgeProvider,  # NEW — replaces embedder
+        activity_callback: ActivityCallback | None = None,
+        assessed_tier: ModelTier | None = None,
+        run_id: str = "",
+        timeout_override: int | None = None,
+        max_turns_override: int | None = None,
+        trace_enabled: bool = True,
+    ) -> None: ...
 ```
 
-**After:**
-```python
-knowledge_items = provider.retrieve(spec_name, task_description)
-```
+### Modified KnowledgeConfig
 
-The `provider` is passed to the session lifecycle from the engine, which
-receives it at construction time.
-
-#### Post-Session (Ingestion)
-
-**Current** (`knowledge_harvest.py` lines 65-211):
-```python
-facts = extract_session_facts(transcript, ...)
-tool_facts = extract_tool_calls(tool_log, ...)
-sync_facts_to_duckdb(db, facts + tool_facts)
-embedder.generate_batch(new_facts)
-dedup_new_facts(db, new_facts, ...)
-detect_contradictions(db, new_facts, ...)
-store_causal_links(db, session_id, facts)
-```
-
-**After:**
-```python
-provider.ingest(session_id, spec_name, {
-    "touched_files": touched_files,
-    "commit_sha": commit_sha,
-    "session_status": outcome.status,
-})
-```
-
-#### Sync Barrier
-
-**Current** (`barrier.py` lines 144-302):
-```python
-run_cleanup(db, config)
-run_consolidation(db, embedder, config)
-compact(db, config)
-SleepComputer(db).run(context)
-render_summary(db)
-```
-
-**After:**
-```python
-# Only rendering remains (summary of session outcomes, not knowledge)
-render_summary(db)
-```
-
-#### Engine Construction
-
-**Current** (`run.py` / `engine.py`):
-```python
-embedder = EmbeddingGenerator(config.knowledge)
-# embedder threaded through engine, session_lifecycle, barrier
-```
-
-**After:**
-```python
-provider = NoOpKnowledgeProvider()  # or configured provider
-# provider threaded through engine to session_lifecycle
-```
-
-### Files Deleted
-
-#### `agent_fox/knowledge/` — Modules Removed
-
-| File | Reason |
-|------|--------|
-| `extraction.py` | Fact extraction via LLM — never fired during sessions |
-| `embeddings.py` | Sentence-transformer embedding generation |
-| `search.py` | Vector similarity search |
-| `retrieval.py` | 4-signal AdaptiveRetriever + RetrievalConfig re-export |
-| `causal.py` | Causal chain storage and traversal |
-| `lifecycle.py` | Fact dedup, contradiction detection, decay cleanup |
-| `contradiction.py` | LLM contradiction classification |
-| `consolidation.py` | Knowledge consolidation pipeline |
-| `compaction.py` | Knowledge compaction |
-| `entity_linker.py` | Fact-entity linking via git diff |
-| `entity_query.py` | Entity graph traversal |
-| `entity_store.py` | Entity graph CRUD |
-| `entities.py` | Entity data models |
-| `static_analysis.py` | Tree-sitter static analysis dispatcher |
-| `git_mining.py` | Git pattern mining |
-| `doc_mining.py` | Documentation mining |
-| `sleep_compute.py` | Sleep-time compute pipeline |
-| `code_analysis.py` | LLM code analysis for onboarding |
-| `onboard.py` | Onboarding orchestrator |
-| `project_model.py` | Project model aggregation |
-| `query_oracle.py` | Oracle RAG pipeline |
-| `query_patterns.py` | Pattern detection |
-| `query_temporal.py` | Temporal query construction |
-| `rendering.py` | Markdown summary rendering |
-| `store.py` | Fact store with JSONL export |
-| `ingest.py` | Background ingestion orchestrator |
-| `facts.py` | Fact dataclass and related types |
-
-#### `agent_fox/knowledge/lang/` — Entire Directory
-
-All 17 language analyzers for tree-sitter static analysis.
-
-#### `agent_fox/knowledge/sleep_tasks/` — Entire Directory
-
-BundleBuilder, ContextRewriter, and related sleep task implementations.
-
-#### `agent_fox/engine/knowledge_harvest.py`
-
-Entire file deleted — extraction/lifecycle/causal orchestration.
-
-### Files Modified
-
-| File | Change |
-|------|--------|
-| `engine/session_lifecycle.py` | Remove AdaptiveRetriever, EmbeddingGenerator, RetrievalConfig imports. Replace retrieval block with `provider.retrieve()` call. |
-| `engine/engine.py` | Remove end-of-run consolidation call. Accept KnowledgeProvider in constructor. Remove EmbeddingGenerator threading. |
-| `engine/barrier.py` | Remove consolidation, compaction, sleep compute imports and calls. Keep rendering and session outcome cleanup. |
-| `engine/run.py` | Remove EmbeddingGenerator construction, background ingestion. Construct KnowledgeProvider. |
-| `engine/reset.py` | Remove compaction import. |
-| `nightshift/engine.py` | Remove EmbeddingGenerator import and construction. |
-| `nightshift/streams.py` | Remove sleep compute work stream. |
-| `nightshift/ignore_ingest.py` | Remove Fact, git_mining, EmbeddingGenerator imports. |
-| `nightshift/dedup.py` | Remove EmbeddingGenerator import. |
-| `nightshift/ignore_filter.py` | Remove EmbeddingGenerator import. |
-| `core/config.py` | Remove RetrievalConfig, SleepConfig. Simplify KnowledgeConfig to retain only `store_path`. |
-| `cli/onboard.py` | Remove or disable onboard command. |
-| `cli/nightshift.py` | Remove EmbeddingGenerator import. |
-| `cli/status.py` | Remove project_model import. |
-| `session/context.py` | Remove causal imports. Keep review_store imports (retained). |
-| `fix/analyzer.py` | Remove EmbeddingGenerator, VectorSearch, Oracle, facts imports. |
-| `reporting/status.py` | Remove store import. |
-| `knowledge/__init__.py` | Update to reflect retained modules only. |
-
-### Files Retained (No Changes)
-
-| File | Reason |
-|------|--------|
-| `knowledge/review_store.py` | High-value: review findings influence coder behavior |
-| `knowledge/duckdb_sink.py` | Operational: session outcome recording |
-| `knowledge/audit.py` | Operational: structured event log |
-| `knowledge/sink.py` | Operational: SessionSink protocol, SinkDispatcher |
-| `knowledge/db.py` | Operational: DuckDB connection management |
-| `knowledge/migrations.py` | Operational: schema migration runner |
-| `knowledge/blocking_history.py` | Operational: blocking decision tracking |
-| `knowledge/agent_trace.py` | Operational: JSONL trace logs |
-
-### Configuration Changes
-
-**Before:**
-```python
-class KnowledgeConfig(BaseModel):
-    store_path: str = ".agent-fox/knowledge.duckdb"
-    embedding_model: str = "all-MiniLM-L6-v2"
-    embedding_dimensions: int = 384
-    ask_top_k: int = 15
-    ask_synthesis_model: str = "..."
-    confidence_threshold: float = 0.6
-    fact_cache_enabled: bool = True
-    dedup_similarity_threshold: float = 0.92
-    contradiction_similarity_threshold: float = 0.85
-    contradiction_model: str = "..."
-    decay_half_life_days: float = 30.0
-    decay_floor: float = 0.3
-    cleanup_fact_threshold: float = 0.2
-    cleanup_enabled: bool = True
-    retrieval: RetrievalConfig
-    sleep: SleepConfig
-```
-
-**After:**
 ```python
 class KnowledgeConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
-    store_path: str = ".agent-fox/knowledge.duckdb"
+    store_path: str = Field(
+        default=".agent-fox/knowledge.duckdb",
+        description="Path to knowledge store",
+    )
 ```
 
-The `extra="ignore"` ensures existing config files with old fields still parse
-without errors.
+## Data Models
+
+### Context Dictionary (ingest)
+
+```python
+{
+    "touched_files": ["src/foo.py", "tests/test_foo.py"],
+    "commit_sha": "abc123def456",
+    "session_status": "completed",  # | "failed"
+}
+```
+
+### Retrieve Return Value
+
+```python
+["Formatted fact block 1\n...", "Formatted fact block 2\n..."]
+# Or empty list [] when no knowledge is available
+```
+
+## Operational Readiness
+
+### Observability
+
+- Audit events (`AuditEventType`) are retained and continue to fire for session
+  lifecycle events.
+- `HARVEST_COMPLETE` audit events will no longer be emitted (the harvest module
+  is deleted).
+- `SLEEP_COMPUTE_COMPLETE` audit events will no longer be emitted.
+- Session outcome recording via `DuckDBSink` is unaffected.
+
+### Rollout / Rollback
+
+- This is a destructive removal. Rollback requires reverting the commit.
+- Old DuckDB tables (`memory_facts`, `memory_embeddings`, `entity_graph`, etc.)
+  are left in place — no migration needed.
+- Configuration files with old fields are handled by Pydantic `extra="ignore"`.
+
+### Migration / Compatibility
+
+- No schema migration required. Tables for removed features stop being read/written.
+- Configuration files with removed fields (e.g., `embedding_model`,
+  `dedup_similarity_threshold`) are silently ignored.
 
 ## Correctness Properties
 
-### CP-1: No Dead Imports
+### Property 1: Protocol Structural Conformance
 
-**Property:** After all changes, `python -c "import agent_fox"` succeeds with
-zero `ImportError` exceptions.
+*For any* class C that implements both `ingest(session_id: str, spec_name: str, context: dict) -> None` and `retrieve(spec_name: str, task_description: str) -> list[str]`, `isinstance(C(), KnowledgeProvider)` SHALL return True.
 
-**Validation:** [114-REQ-7.5], [114-REQ-10.1]
+**Validates: Requirements 1.1, 1.2, 2.1**
 
-### CP-2: Protocol Satisfaction
+### Property 2: NoOp Retrieve Idempotency
 
-**Property:** `isinstance(NoOpKnowledgeProvider(), KnowledgeProvider)` returns
-`True`.
+*For any* values of `spec_name` and `task_description`, `NoOpKnowledgeProvider().retrieve(spec_name, task_description)` SHALL return an empty list `[]`.
 
-**Validation:** [114-REQ-1.2], [114-REQ-2.1]
+**Validates: Requirements 2.3, 2.E1**
 
-### CP-3: Engine Isolation
+### Property 3: NoOp Ingest Safety
 
-**Property:** No file in `agent_fox/engine/` imports any module listed in the
-"Modules Removed" table above.
+*For any* values of `session_id`, `spec_name`, and `context` dict, `NoOpKnowledgeProvider().ingest(session_id, spec_name, context)` SHALL return `None` without raising an exception.
 
-**Validation:** [114-REQ-3.2], [114-REQ-4.2], [114-REQ-5.1]
+**Validates: Requirements 2.2**
 
-### CP-4: Nightshift Isolation
+### Property 4: Engine Import Isolation
 
-**Property:** No file in `agent_fox/nightshift/` imports `EmbeddingGenerator`,
-`SleepComputer`, `SleepContext`, `BundleBuilder`, or `ContextRewriter`.
+*For any* Python module in `agent_fox/engine/`, the set of names imported from `agent_fox.knowledge.*` SHALL NOT include any name from the deleted module set: `AdaptiveRetriever`, `RetrievalConfig`, `EmbeddingGenerator`, `extract_facts`, `extract_and_store_knowledge`, `run_background_ingestion`, `store_causal_links`, `dedup_new_facts`, `detect_contradictions`, `run_consolidation`, `compact`, `render_summary`, `SleepComputer`, `SleepContext`, `BundleBuilder`, `ContextRewriter`, `run_cleanup`, `load_all_facts`, `Fact`.
 
-**Validation:** [114-REQ-6.1], [114-REQ-6.2], [114-REQ-6.3]
+**Validates: Requirements 3.2, 4.2, 5.1**
 
-### CP-5: Config Backward Compatibility
+### Property 5: Deletion Completeness
 
-**Property:** A config file containing all old KnowledgeConfig fields loads
-without raising `ValidationError`.
+*For any* file path in the deletion manifest (REQ 7.1, 7.2, 7.3, 7.4), that path SHALL NOT exist on disk after the spec is implemented.
 
-**Validation:** [114-REQ-8.5]
+**Validates: Requirements 7.1, 7.2, 7.3, 7.4**
 
-### CP-6: Retrieval Error Isolation
+### Property 6: Import Health
 
-**Property:** If `KnowledgeProvider.retrieve()` raises any exception, the
-session still starts successfully with empty knowledge context.
+*For any* module in the `agent_fox` package, `importlib.import_module(module)` SHALL succeed without `ImportError` after all deletions are applied.
 
-**Validation:** [114-REQ-3.E1]
+**Validates: Requirements 7.5, 10.1**
 
-### CP-7: Review Store Independence
+### Property 7: Configuration Backward Compatibility
 
-**Property:** `review_store.py` functions (`query_active_findings`,
-`insert_findings`) continue to work identically before and after the
-decoupling.
+*For any* configuration dictionary containing fields from the old `KnowledgeConfig` (e.g., `embedding_model`, `dedup_similarity_threshold`, `retrieval`, `sleep`), constructing a new `KnowledgeConfig` from that dictionary SHALL succeed without raising `ValidationError`.
 
-**Validation:** [114-REQ-10.1]
+**Validates: Requirements 8.1, 8.2, 8.3, 8.5**
+
+### Property 8: Retrieve Failure Resilience
+
+*For any* `KnowledgeProvider` implementation whose `retrieve()` raises an arbitrary exception, the engine's `_build_prompts` method SHALL catch the exception, log at WARNING level, and proceed with an empty knowledge context.
+
+**Validates: Requirements 3.E1**
+
+### Property 9: Ingest Failure Resilience
+
+*For any* `KnowledgeProvider` implementation whose `ingest()` raises an arbitrary exception, the engine's `_ingest_knowledge` method SHALL catch the exception, log at WARNING level, and continue without retrying.
+
+**Validates: Requirements 4.E1**
+
+## Error Handling
+
+| Error Condition | Behavior | Requirement |
+|----------------|----------|-------------|
+| `retrieve()` raises exception | Log WARNING, use empty context | 114-REQ-3.E1 |
+| `ingest()` raises exception | Log WARNING, continue without retry | 114-REQ-4.E1 |
+| Old config fields present | Silently ignored via `extra="ignore"` | 114-REQ-8.5 |
+| Import of deleted module | `ImportError` at startup (fails fast) | 114-REQ-7.5 |
+| Old DB tables exist | Not read or written; left in place | 114-REQ-5.E1, 114-REQ-6.E1 |
+| Partial protocol impl | `isinstance()` returns `False` | 114-REQ-1.E1 |
+| Removed CLI command invoked | Command not registered; Click error | 114-REQ-9.E1 |
+
+## Technology Stack
+
+- **Language:** Python 3.12+
+- **Type checking:** `typing.Protocol`, `runtime_checkable`
+- **Configuration:** Pydantic v2 with `extra="ignore"`
+- **Database:** DuckDB (retained for operational tables)
+- **Testing:** pytest, Hypothesis (property tests)
+
+## Definition of Done
+
+A task group is complete when ALL of the following are true:
+
+1. All subtasks within the group are checked off (`[x]`)
+2. All spec tests (`test_spec.md` entries) for the task group pass
+3. All property tests for the task group pass
+4. All previously passing tests still pass (no regressions)
+5. No linter warnings or errors introduced
+6. Code is committed on a feature branch and merged into `develop`
+7. Feature branch is merged back to `develop`
+8. `tasks.md` checkboxes are updated to reflect completion
+
+## Testing Strategy
+
+- **Unit tests:** Verify `KnowledgeProvider` protocol conformance,
+  `NoOpKnowledgeProvider` behavior, `KnowledgeConfig` field removal.
+- **Property tests:** Hypothesis-driven tests for protocol conformance
+  (Property 1), NoOp idempotency (Property 2-3), config backward compatibility
+  (Property 7).
+- **Integration tests:** Import health check across all `agent_fox` modules
+  (Property 6). Engine import isolation scan (Property 4). File deletion
+  verification (Property 5).
+- **Smoke tests:** End-to-end engine run with `NoOpKnowledgeProvider` verifying
+  session preparation and completion without knowledge overhead.

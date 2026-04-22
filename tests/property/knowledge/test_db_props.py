@@ -42,6 +42,9 @@ EXPECTED_TABLES = {
     "blocking_history",
     # Added by migration v15 (spec 112: sleep-time compute)
     "sleep_artifacts",
+    # Added by migration v17 (spec 115: pluggable knowledge provider)
+    "gotchas",
+    "errata_index",
 }
 
 
@@ -76,7 +79,7 @@ class TestSchemaInitializationIdempotency:
 
             version_count = db.connection.execute("SELECT COUNT(*) FROM schema_version").fetchone()
             assert version_count is not None
-            assert version_count[0] == 16
+            assert version_count[0] == 17
 
             tables = {r[0] for r in db.connection.execute("SHOW TABLES").fetchall()}
             assert tables == EXPECTED_TABLES

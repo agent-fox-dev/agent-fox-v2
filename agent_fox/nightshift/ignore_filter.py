@@ -14,7 +14,6 @@ import logging
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from agent_fox.knowledge.embeddings import EmbeddingGenerator
     from agent_fox.nightshift.finding import FindingGroup
     from agent_fox.platform.protocol import PlatformProtocol
 
@@ -33,7 +32,7 @@ async def filter_ignored(
     platform: PlatformProtocol,
     *,
     similarity_threshold: float = 0.85,
-    embedder: EmbeddingGenerator | None = None,
+    embedder: object | None = None,
 ) -> list[FindingGroup]:
     """Fetch af:ignore issues (open + closed), return novel FindingGroups.
 

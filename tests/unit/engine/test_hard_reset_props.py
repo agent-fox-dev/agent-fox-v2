@@ -135,10 +135,6 @@ class TestTotalTaskResetProperty:
                 side_effect=_mock_git_subprocess,
             ),
             patch(
-                "agent_fox.engine.reset.compact",
-                return_value=(0, 0),
-            ),
-            patch(
                 "agent_fox.engine.reset._load_state_or_raise",
                 return_value=state,
             ),
@@ -193,10 +189,6 @@ class TestCounterPreservationProperty:
             patch(
                 "agent_fox.engine.reset.subprocess.run",
                 side_effect=_mock_git_subprocess,
-            ),
-            patch(
-                "agent_fox.engine.reset.compact",
-                return_value=(0, 0),
             ),
             patch(
                 "agent_fox.engine.reset._load_state_or_raise",
@@ -255,10 +247,6 @@ class TestGracefulDegradationProperty:
             patch(
                 "agent_fox.engine.reset.subprocess.run",
                 side_effect=_mock_git_subprocess,
-            ),
-            patch(
-                "agent_fox.engine.reset.compact",
-                return_value=(0, 0),
             ),
             patch(
                 "agent_fox.engine.reset._load_state_or_raise",

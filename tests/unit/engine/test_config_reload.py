@@ -90,7 +90,6 @@ class TestReloadTriggeredAtBarrier:
                 "agent_fox.engine.barrier.sync_develop_bidirectional",
                 new_callable=AsyncMock,
             ),
-            patch("agent_fox.knowledge.rendering.render_summary"),
         ):
             await run_sync_barrier_sequence(
                 state=state,

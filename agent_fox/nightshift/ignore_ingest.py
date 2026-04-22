@@ -5,24 +5,22 @@ pattern that should be persisted into the knowledge store so future scans
 can avoid reporting similar findings.
 
 Requirements: 110-REQ-5.1 through 110-REQ-5.E3
+
+Note: The Fact-based and _write_fact-based storage mechanism has been removed
+as part of the knowledge decoupling (spec 114). This module's
+``ingest_ignore_signals()`` function is now a no-op that returns 0
+immediately. The helper functions are retained for potential future use.
+
+Requirements updated by: 114-REQ-6.5
 """
 
 from __future__ import annotations
 
 import logging
 import re
-import uuid
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-import duckdb
-
-from agent_fox.knowledge.facts import Fact
-from agent_fox.knowledge.git_mining import _write_fact
-from agent_fox.platform.labels import LABEL_IGNORE
-
 if TYPE_CHECKING:
-    from agent_fox.knowledge.embeddings import EmbeddingGenerator
     from agent_fox.knowledge.sink import SinkDispatcher
     from agent_fox.platform.protocol import IssueResult, PlatformProtocol
 
@@ -82,114 +80,28 @@ def _extract_keywords(title: str) -> list[str]:
     return [word.lower() for word in re.split(r"\W+", title) if len(word) >= _MIN_KEYWORD_LEN]
 
 
-def _build_fact_from_issue(issue: IssueResult) -> Fact:
-    """Build an anti_pattern Fact from an af:ignore issue.
-
-    Requirements: 110-REQ-5.2
-    """
-    category = extract_category_from_body(issue.body)
-    keywords = _extract_keywords(issue.title)
-
-    content = f"Hunt false positive: {issue.title}. Category: {category}. User marked as af:ignore."
-
-    return Fact(
-        id=str(uuid.uuid4()),
-        content=content,
-        category="anti_pattern",
-        spec_name="nightshift:ignore",
-        keywords=keywords,
-        confidence=0.9,
-        created_at=datetime.now(UTC).isoformat(),
-        session_id=None,
-        commit_sha=None,
-    )
-
-
 async def ingest_ignore_signals(
     platform: PlatformProtocol,
-    conn: duckdb.DuckDBPyConnection | None,
-    embedder: EmbeddingGenerator | None,
+    conn: object | None,
+    embedder: object | None = None,
     *,
     sink: SinkDispatcher | None = None,
     run_id: str = "",
 ) -> int:
-    """Ingest af:ignore issues into the knowledge store as anti_pattern facts.
+    """No-op: previously ingested af:ignore issues into the knowledge store.
 
-    For each af:ignore issue (open or closed) that has not yet been ingested
-    (i.e. lacks the ``<!-- af:knowledge-ingested -->`` marker in its body),
-    this function:
-
-    1. Creates an ``anti_pattern`` fact in the knowledge store.
-    2. Appends the ingestion marker to the issue body via the platform API.
-
-    Fail-open on all error conditions:
-    - If ``conn`` is None, returns 0 and logs a warning.
-    - If the platform API call to fetch issues fails, returns 0 and logs a
-      warning.
-    - If ``update_issue`` fails for a specific issue, logs a warning and
-      continues (the fact is still stored; re-ingestion on next scan is
-      acceptable per 110-REQ-5.E2).
+    The Fact-based storage mechanism was removed as part of the knowledge
+    decoupling (spec 114, REQ-6.5). This function now returns 0 immediately
+    without performing any action.
 
     Args:
-        platform: Platform API implementation (GitHub, etc.).
-        conn: DuckDB connection to the knowledge store.  If None, ingestion
-              is skipped entirely (110-REQ-5.E3).
-        embedder: EmbeddingGenerator instance (accepted but unused; _write_fact
-                  does not generate embeddings — kept in signature for API
-                  consistency with other pipeline functions).
-        sink: Optional SinkDispatcher for audit events (reserved for future use).
-        run_id: Run identifier string (reserved for future use).
+        platform: Platform API implementation (unused).
+        conn: DuckDB connection (unused).
+        embedder: Embedding generator (unused).
+        sink: Optional SinkDispatcher (unused).
+        run_id: Run identifier string (unused).
 
     Returns:
-        The count of newly ingested facts (0 if none were ingested).
-
-    Requirements: 110-REQ-5.1, 110-REQ-5.2, 110-REQ-5.3, 110-REQ-5.4,
-                  110-REQ-5.E1, 110-REQ-5.E2, 110-REQ-5.E3
+        Always returns 0.
     """
-    # 110-REQ-5.E3: knowledge store unavailable → skip ingestion entirely.
-    if conn is None:
-        logger.warning("Knowledge store unavailable (conn=None); skipping af:ignore ingestion")
-        return 0
-
-    # Fetch all af:ignore issues (open AND closed) in a single API call.
-    try:
-        ignore_issues = await platform.list_issues_by_label(
-            LABEL_IGNORE,
-            state="all",
-        )
-    except Exception:
-        logger.warning(
-            "Failed to fetch af:ignore issues from platform; skipping ingestion",
-            exc_info=True,
-        )
-        return 0
-
-    count = 0
-    for issue in ignore_issues:
-        # 110-REQ-5.E1: skip issues that already carry the ingestion marker.
-        if _is_ingested(issue):
-            continue
-
-        # 110-REQ-5.2: build and persist the anti_pattern fact.
-        fact = _build_fact_from_issue(issue)
-        _write_fact(conn, fact)
-        logger.info(
-            "Ingested af:ignore issue #%d '%s' as anti_pattern fact (spec_name='nightshift:ignore', confidence=0.9)",
-            issue.number,
-            issue.title,
-        )
-        count += 1
-
-        # 110-REQ-5.3: append the ingestion marker to the issue body.
-        new_body = issue.body + f"\n{_KNOWLEDGE_INGESTED_MARKER}"
-        try:
-            await platform.update_issue(issue.number, new_body)
-        except Exception:
-            # 110-REQ-5.E2: marker update failure is non-fatal.
-            logger.warning(
-                "Failed to append ingestion marker to issue #%d; continuing (re-ingestion possible on next scan)",
-                issue.number,
-                exc_info=True,
-            )
-
-    return count
+    return 0

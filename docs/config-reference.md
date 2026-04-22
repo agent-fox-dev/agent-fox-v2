@@ -226,6 +226,28 @@ persists facts learned across sessions for use as context in future sessions.
 | `cleanup_enabled` | bool | `true` | — | Enable/disable end-of-run fact lifecycle cleanup |
 | `retrieval` | table | — | — | Adaptive retrieval tuning parameters (see `[knowledge.retrieval]`) |
 | `sleep` | table | — | — | Sleep-time compute configuration (see `[knowledge.sleep]`) |
+| `provider` | table | — | — | Knowledge provider configuration (see `[knowledge.provider]`) |
+
+### knowledge.provider
+
+Configuration for the pluggable knowledge provider (spec 115). Controls
+retrieval limits, gotcha TTL, and the LLM model tier used for gotcha
+extraction.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `max_items` | int | `10` | Max total retrieval items across all categories |
+| `gotcha_ttl_days` | int | `90` | Days before gotcha expiry |
+| `model_tier` | str | `"SIMPLE"` | LLM tier for gotcha extraction |
+
+**Example:**
+
+```toml
+[knowledge.provider]
+max_items = 10
+gotcha_ttl_days = 90
+model_tier = "SIMPLE"
+```
 
 ### knowledge.sleep
 

@@ -156,30 +156,7 @@ def status_cmd(ctx: click.Context, model: bool) -> None:
         content = formatter.format_status(report)
         write_output(content, console=console)
 
-    # Append project model and critical path when --model is requested
+    # Append critical path when --model is requested
     if model:
-        conn = _get_readonly_conn()
-        if conn is not None:
-            try:
-                from agent_fox.knowledge.project_model import (
-                    build_project_model,
-                    format_project_model,
-                )
-
-                pm = build_project_model(conn)
-                output = format_project_model(pm)
-                if json_mode:
-                    from agent_fox.cli.json_io import emit
-
-                    emit({"project_model": asdict(pm)})
-                else:
-                    console = Console()
-                    console.print()
-                    console.print(output)
-            finally:
-                conn.close()
-        else:
-            logger.info("No DuckDB database found; skipping project model output")
-
         # Critical path computation from task graph
         _display_critical_path(json_mode)

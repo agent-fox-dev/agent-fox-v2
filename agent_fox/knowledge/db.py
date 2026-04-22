@@ -92,7 +92,10 @@ class KnowledgeDB:
         row exists yet.
         """
         assert self._conn is not None
-        dim = self._config.embedding_dimensions
+        # Embedding dimensions hardcoded to 384 for backward compatibility.
+        # The embedding pipeline was removed in spec 114 but the table
+        # schema must remain consistent for existing databases.
+        dim = 384
 
         ddl = f"""
         CREATE TABLE IF NOT EXISTS schema_version (

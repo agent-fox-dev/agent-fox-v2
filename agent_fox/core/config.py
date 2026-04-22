@@ -237,119 +237,38 @@ class PlatformConfig(BaseModel):
     url: str = Field(default="", description="Issue tracker URL (defaults from type)")
 
 
-class RetrievalConfig(BaseModel):
-    """Retrieval tuning parameters. Lives under [knowledge.retrieval].
+class KnowledgeProviderConfig(BaseModel):
+    """Configuration for the pluggable knowledge provider.
 
-    Requirements: 104-REQ-5.3, 104-REQ-5.E1
+    Controls retrieval limits, gotcha TTL, and the LLM model tier used for
+    gotcha extraction.
+
+    Requirements: 115-REQ-8.1, 115-REQ-8.3
     """
 
     model_config = ConfigDict(extra="ignore")
 
-    rrf_k: int = Field(default=60, description="RRF smoothing constant")
-    max_facts: int = Field(default=50, description="Maximum facts in anchor set")
-    token_budget: int = Field(
-        default=30_000,
-        description="Maximum characters for formatted context block",
-    )
-    keyword_top_k: int = Field(default=100, description="Candidate cap for keyword signal")
-    vector_top_k: int = Field(default=50, description="Candidate cap for vector signal")
-    entity_max_depth: int = Field(default=2, description="Max traversal depth for entity signal")
-    entity_max_entities: int = Field(default=50, description="Max entities traversed in entity signal")
-    causal_max_depth: int = Field(default=3, description="Max traversal depth for causal signal")
-
-
-class SleepConfig(BaseModel):
-    """Sleep-time compute configuration.
-
-    Controls when and how the sleep-time pre-computation pipeline runs,
-    including cost limits, scheduling intervals, and per-task enable flags.
-
-    Requirements: 112-REQ-7.1, 112-REQ-7.E1
-    """
-
-    model_config = ConfigDict(extra="ignore")
-
-    enabled: bool = Field(
-        default=True,
-        description="Enable/disable sleep-time compute globally",
-    )
-    max_cost: float = Field(
-        default=1.0,
-        description="Maximum LLM cost (USD) per sleep compute invocation",
-    )
-    nightshift_interval: int = Field(
-        default=1800,
-        description="Seconds between nightshift sleep compute runs (default 30 minutes)",
-    )
-    context_rewriter_enabled: bool = Field(
-        default=True,
-        description="Enable context re-representation task (synthesizes narrative summaries)",
-    )
-    bundle_builder_enabled: bool = Field(
-        default=True,
-        description="Enable retrieval bundle builder task (pre-computes keyword/causal signals)",
-    )
+    max_items: int = Field(default=10, description="Max total retrieval items")
+    gotcha_ttl_days: int = Field(default=90, description="Days before gotcha expiry")
+    model_tier: str = Field(default="SIMPLE", description="LLM tier for gotcha extraction")
 
 
 class KnowledgeConfig(BaseModel):
-    """Knowledge store and fact selection configuration.
+    """Knowledge store configuration.
 
-    Requirements: 39-REQ-4.2
+    Old fields (embedding_model, dedup_similarity_threshold, etc.) are
+    silently ignored via ``extra="ignore"`` for backward compatibility.
+
+    Requirements: 39-REQ-4.2, 114-REQ-8.1, 114-REQ-8.4, 114-REQ-8.5
     """
 
     model_config = ConfigDict(extra="ignore")
 
     store_path: str = Field(default=".agent-fox/knowledge.duckdb", description="Path to knowledge store")
-    embedding_model: str = Field(default="all-MiniLM-L6-v2", description="Embedding model for knowledge")
-    embedding_dimensions: int = Field(default=384, description="Embedding vector dimensions")
-    ask_top_k: Annotated[int, Clamped(ge=1)] = Field(default=20, description="Number of results for knowledge queries")
-    ask_synthesis_model: str = Field(default="STANDARD", description="Model tier for answer synthesis")
-    confidence_threshold: Annotated[float, Clamped(ge=0.0, le=1.0)] = Field(
-        default=0.5,
-        description="Minimum confidence for fact inclusion in session context",
+    provider: KnowledgeProviderConfig = Field(
+        default_factory=KnowledgeProviderConfig,
+        description="Pluggable knowledge provider configuration (gotcha TTL, retrieval caps, etc.)",
     )
-    fact_cache_enabled: bool = Field(
-        default=True,
-        description="Pre-compute fact rankings at plan time",
-    )
-    dedup_similarity_threshold: float = Field(
-        default=0.92,
-        description="Cosine similarity threshold for near-duplicate detection",
-    )
-    contradiction_similarity_threshold: float = Field(
-        default=0.8,
-        description="Cosine similarity threshold for contradiction candidates",
-    )
-    contradiction_model: str = Field(
-        default="SIMPLE",
-        description="Model tier for contradiction classification LLM calls",
-    )
-    decay_half_life_days: float = Field(
-        default=90.0,
-        description="Days for fact confidence to halve",
-    )
-    decay_floor: float = Field(
-        default=0.1,
-        description="Effective confidence below which facts are auto-superseded",
-    )
-    cleanup_fact_threshold: int = Field(
-        default=500,
-        description="Active fact count above which decay cleanup runs",
-    )
-    cleanup_enabled: bool = Field(
-        default=True,
-        description="Enable/disable end-of-run fact lifecycle cleanup",
-    )
-    retrieval: RetrievalConfig = Field(
-        default_factory=RetrievalConfig,
-        description="Adaptive retrieval configuration (rrf_k, max_facts, token_budget, etc.)",
-    )
-    sleep: SleepConfig = Field(
-        default_factory=SleepConfig,
-        description="Sleep-time compute configuration (pre-computation during idle periods)",
-    )
-
-    _auto_clamp = _auto_clamp_validator()
 
 
 class ThinkingConfig(BaseModel):

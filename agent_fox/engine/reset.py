@@ -28,7 +28,6 @@ from agent_fox.engine.state import (
 )
 from agent_fox.graph.persistence import load_plan_or_raise
 from agent_fox.graph.types import TaskGraph
-from agent_fox.knowledge.compaction import compact
 
 logger = logging.getLogger(__name__)
 
@@ -472,8 +471,8 @@ def _perform_hard_reset(
     for tid in affected_ids:
         collect_cleanup(tid, worktrees_dir, repo_path, cleaned_worktrees, cleaned_branches)
 
-    # Compact knowledge base
-    compaction_result = compact(db_conn, memory_path) if db_conn is not None else (0, 0)
+    # Knowledge compaction removed by spec 114 (knowledge decoupling)
+    compaction_result = (0, 0)
 
     # Reset artifact synchronization
     if specs_dir is None:

@@ -45,6 +45,9 @@ EXPECTED_TABLES = {
     "blocking_history",
     # Added by migration v15 (spec 112: sleep-time compute)
     "sleep_artifacts",
+    # Added by migration v17 (spec 115: pluggable knowledge provider)
+    "gotchas",
+    "errata_index",
 }
 
 
@@ -84,11 +87,11 @@ class TestSchemaVersionRecordedOnCreation:
         rows = db.connection.execute(
             "SELECT version, applied_at, description FROM schema_version ORDER BY version"
         ).fetchall()
-        assert len(rows) == 16
+        assert len(rows) == 17
         assert rows[0][0] == 1
         assert rows[0][1] is not None  # applied_at is a valid timestamp
         assert len(rows[0][2]) > 0  # description is non-empty
-        for i, expected_version in enumerate(range(1, 16)):
+        for i, expected_version in enumerate(range(1, 18)):
             assert rows[i][0] == expected_version
         db.close()
 
@@ -145,7 +148,7 @@ class TestSchemaInitializationIdempotent:
         db2.open()
         count = db2.connection.execute("SELECT COUNT(*) FROM schema_version").fetchone()
         assert count is not None
-        assert count[0] == 16
+        assert count[0] == 17
         db2.close()
 
 

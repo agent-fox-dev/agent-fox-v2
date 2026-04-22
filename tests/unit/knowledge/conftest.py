@@ -11,6 +11,8 @@ from __future__ import annotations
 import math
 import uuid
 from collections.abc import Generator
+from dataclasses import dataclass
+from dataclasses import field as dc_field
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -18,9 +20,56 @@ import duckdb
 import pytest
 
 from agent_fox.core.config import KnowledgeConfig
-from agent_fox.knowledge.embeddings import EmbeddingGenerator
-from agent_fox.knowledge.facts import Fact
-from agent_fox.knowledge.search import SearchResult
+
+# --- Stub types replacing deleted knowledge modules --------------------------
+# These stubs are retained so that test fixtures remain importable until the
+# dead test files are cleaned up in task group 6 (spec 114).
+
+
+@dataclass
+class Fact:
+    """Minimal stub for Fact dataclass (original module removed in spec 114)."""
+
+    id: str
+    content: str
+    category: str = "decision"
+    spec_name: str = ""
+    session_id: str | None = None
+    commit_sha: str | None = None
+    keywords: list[str] = dc_field(default_factory=list)
+    confidence: float = 0.6
+    created_at: str = ""
+    supersedes: str | None = None
+    superseded_by: str | None = None
+
+
+@dataclass
+class SearchResult:
+    """Minimal stub for SearchResult dataclass (original module removed in spec 114)."""
+
+    fact_id: str
+    content: str
+    category: str = "decision"
+    spec_name: str = ""
+    session_id: str | None = None
+    commit_sha: str | None = None
+    similarity: float = 0.0
+
+
+class _EmbeddingGeneratorStub:
+    """Stub class for mock spec= usage (replaces EmbeddingGenerator)."""
+
+    embedding_dimensions: int = 384
+
+    def embed_text(self, text: str) -> list[float]:  # noqa: ARG002
+        return []
+
+    def embed_batch(self, texts: list[str]) -> list[list[float]]:  # noqa: ARG002
+        return []
+
+
+# Alias so that MagicMock(spec=EmbeddingGenerator) still works.
+EmbeddingGenerator = _EmbeddingGeneratorStub
 
 # -- Well-known fact UUIDs for Time Vision tests --------------------------------
 # These are full UUIDs used consistently across causal/temporal/pattern tests.
@@ -129,6 +178,23 @@ CREATE TABLE IF NOT EXISTS drift_findings (
     session_id      TEXT NOT NULL,
     superseded_by   TEXT,
     created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS gotchas (
+    id           VARCHAR PRIMARY KEY,
+    spec_name    VARCHAR NOT NULL,
+    category     VARCHAR NOT NULL DEFAULT 'gotcha',
+    text         VARCHAR NOT NULL,
+    content_hash VARCHAR NOT NULL,
+    session_id   VARCHAR NOT NULL,
+    created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS errata_index (
+    spec_name  VARCHAR NOT NULL,
+    file_path  VARCHAR NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (spec_name, file_path)
 );
 
 INSERT INTO schema_version (version, description)

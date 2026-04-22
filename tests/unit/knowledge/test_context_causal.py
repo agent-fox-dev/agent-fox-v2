@@ -2,6 +2,9 @@
 
 Test Spec: TS-13-17, TS-13-18, TS-13-19
 Requirements: 13-REQ-1.1, 13-REQ-1.2, 13-REQ-7.1, 13-REQ-7.2
+
+Note: Causal traversal was removed in spec 114 (knowledge decoupling).
+select_context_with_causal now returns keyword_facts trimmed to max_facts.
 """
 
 from __future__ import annotations
@@ -17,13 +20,13 @@ from tests.unit.knowledge.conftest import (
 
 
 class TestContextEnhancementAddsCausal:
-    """TS-13-17: Context enhancement adds causal facts.
+    """TS-13-17: Context enhancement returns keyword facts (causal removed by spec 114).
 
-    Requirements: 13-REQ-7.1, 13-REQ-7.2
+    Requirements: 13-REQ-7.1, 13-REQ-7.2 (causal portions removed)
     """
 
-    def test_includes_keyword_and_causal_facts(self, causal_db: duckdb.DuckDBPyConnection) -> None:
-        """Context includes keyword fact aaa and causally-linked facts."""
+    def test_returns_keyword_facts(self, causal_db: duckdb.DuckDBPyConnection) -> None:
+        """Context includes keyword fact aaa; causal traversal removed by spec 114."""
         result = select_context_with_causal(
             causal_db,
             "07_oauth",
@@ -34,8 +37,6 @@ class TestContextEnhancementAddsCausal:
         )
         result_ids = {f["id"] for f in result}
         assert FACT_AAA in result_ids
-        # At least one causally-linked fact should be present
-        assert FACT_BBB in result_ids or FACT_EEE in result_ids
         assert len(result) <= 50
 
     def test_total_does_not_exceed_max_facts(self, causal_db: duckdb.DuckDBPyConnection) -> None:

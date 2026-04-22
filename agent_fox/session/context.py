@@ -21,12 +21,6 @@ from typing import Any
 import duckdb
 
 from agent_fox.core.prompt_safety import sanitize_prompt_content
-from agent_fox.knowledge.causal import CausalFact, traverse_with_reviews
-from agent_fox.knowledge.review_store import (
-    DriftFinding,
-    ReviewFinding,
-    VerificationResult,
-)
 from agent_fox.session.steering import load_steering
 
 logger = logging.getLogger(__name__)
@@ -528,49 +522,6 @@ def render_prior_group_findings(findings: list[PriorFinding]) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _traversal_item_to_dict(item: object) -> dict | None:
-    """Convert a traversal result item to a dict for context assembly.
-
-    Handles CausalFact, ReviewFinding, DriftFinding, and VerificationResult
-    objects, tagging non-CausalFact items with a ``type`` key.
-
-    Requirements: 42-REQ-1.2
-    """
-    if isinstance(item, CausalFact):
-        return {
-            "id": item.fact_id,
-            "content": item.content,
-            "spec_name": item.spec_name,
-            "session_id": item.session_id,
-            "commit_sha": item.commit_sha,
-        }
-    if isinstance(item, ReviewFinding):
-        return {
-            "id": item.id,
-            "type": "review",
-            "severity": item.severity,
-            "content": f"[review] [severity: {item.severity}] {item.description}",
-            "spec_name": item.spec_name,
-        }
-    if isinstance(item, DriftFinding):
-        return {
-            "id": item.id,
-            "type": "drift",
-            "severity": item.severity,
-            "content": f"[drift] [severity: {item.severity}] {item.description}",
-            "spec_name": item.spec_name,
-        }
-    if isinstance(item, VerificationResult):
-        return {
-            "id": item.id,
-            "type": "verification",
-            "severity": item.verdict,
-            "content": f"[verification] {item.requirement_id}: {item.verdict}",
-            "spec_name": item.spec_name,
-        }
-    return None
-
-
 def select_context_with_causal(
     conn: duckdb.DuckDBPyConnection,
     spec_name: str,
@@ -582,77 +533,8 @@ def select_context_with_causal(
 ) -> list[dict]:
     """Select session context facts with causal enhancement.
 
-    1. Start with keyword_facts from the existing selection (REQ-061).
-    2. For each keyword fact, query the causal graph for linked facts.
-    3. Also query for facts causally linked to the current spec_name.
-    4. Deduplicate and rank: keyword matches first, then causal links
-       ordered by proximity (depth).
-    5. Trim to max_facts total.
-
-    The causal_budget controls how many of the max_facts slots are
-    reserved for causally-linked facts (default: 10 of 50).
+    Note: The causal graph traversal (CausalFact, traverse_with_reviews) has
+    been removed as part of the knowledge decoupling (spec 114). This function
+    now returns keyword_facts trimmed to max_facts without causal enhancement.
     """
-    # 1. Start with keyword facts, trimmed to fit within max_facts
-    keyword_budget = max_facts - causal_budget
-    if keyword_budget < 0:
-        keyword_budget = 0
-    selected_keywords = keyword_facts[:keyword_budget]
-
-    # Track seen IDs for deduplication
-    seen_ids: set[str] = {f["id"] for f in selected_keywords}
-    result: list[dict] = list(selected_keywords)
-
-    # 2. For each keyword fact, traverse causal graph for linked facts
-    #    using traverse_with_reviews to include review/drift/verification findings.
-    #    Requirements: 42-REQ-1.1, 42-REQ-1.2, 42-REQ-1.3
-    causal_candidates: list[tuple[int, dict]] = []  # (abs_depth, fact_dict)
-    for kw_fact in selected_keywords:
-        fact_id = kw_fact["id"]
-        try:
-            chain = traverse_with_reviews(conn, fact_id, max_depth=3)
-        except Exception:
-            logger.debug("Failed to traverse causal chain for fact %s", fact_id)
-            continue
-        for item in chain:
-            item_dict = _traversal_item_to_dict(item)
-            if item_dict is not None and item_dict["id"] not in seen_ids:
-                depth = abs(item.depth) if isinstance(item, CausalFact) else 0
-                causal_candidates.append((depth, item_dict))
-
-    # 3. Also query for facts linked to the current spec_name
-    try:
-        rows = conn.execute(
-            "SELECT CAST(id AS VARCHAR), content, spec_name, session_id, "
-            "commit_sha FROM memory_facts WHERE spec_name = ?",
-            [spec_name],
-        ).fetchall()
-        for row in rows:
-            fid = row[0]
-            if fid not in seen_ids:
-                try:
-                    chain = traverse_with_reviews(conn, fid, max_depth=2)
-                except Exception:
-                    continue
-                for item in chain:
-                    item_dict = _traversal_item_to_dict(item)
-                    if item_dict is not None and item_dict["id"] not in seen_ids:
-                        depth = abs(item.depth) if isinstance(item, CausalFact) else 0
-                        causal_candidates.append((depth, item_dict))
-    except Exception:
-        logger.debug("Failed to query facts for spec_name %s", spec_name)
-
-    # 4. Deduplicate and rank causal candidates by proximity (depth)
-    causal_candidates.sort(key=lambda x: x[0])
-
-    # 5. Add causal facts up to the budget and max_facts limit
-    remaining_budget = min(causal_budget, max_facts - len(result))
-    for _depth, fact_dict in causal_candidates:
-        if remaining_budget <= 0:
-            break
-        if fact_dict["id"] not in seen_ids:
-            seen_ids.add(fact_dict["id"])
-            result.append(fact_dict)
-            remaining_budget -= 1
-
-    # Final trim to ensure budget compliance
-    return result[:max_facts]
+    return keyword_facts[:max_facts]

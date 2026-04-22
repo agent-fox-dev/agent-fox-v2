@@ -1,59 +1,51 @@
-"""Regression tests for double git ingestion at end-of-run (issue #505).
+"""Tests for simplified barrier/cleanup after knowledge decoupling.
 
-Verifies that _cleanup_infrastructure skips run_background_ingestion when
-a sync barrier already ran ingestion during the same engine run.
+Verifies that _barrier_sync and _cleanup_infrastructure no longer perform
+any knowledge ingestion (run_background_ingestion was removed by spec 114).
 """
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import MagicMock
 
 
-@pytest.fixture
-def _mock_ingestion():
-    """Patch run_background_ingestion and return the mock."""
-    with patch("agent_fox.engine.run.run_background_ingestion") as mock:
-        yield mock
+class TestSimplifiedBarrierAndCleanup:
+    """_barrier_sync is a no-op and _cleanup_infrastructure only closes resources."""
 
-
-class TestCleanupSkipsIngestionAfterBarrier:
-    """_cleanup_infrastructure must not re-ingest when a barrier already did."""
-
-    def test_cleanup_skips_ingestion_after_barrier(self, _mock_ingestion: MagicMock) -> None:
-        from agent_fox.engine.run import _barrier_sync, _cleanup_infrastructure
+    def test_barrier_sync_sets_flag(self) -> None:
+        """_barrier_sync sets the _barrier_ingestion_ran flag on infra dict."""
+        from agent_fox.engine.run import _barrier_sync
 
         config = MagicMock()
-        infra = {"knowledge_db": MagicMock(), "sink_dispatcher": MagicMock()}
+        infra: dict = {"knowledge_db": MagicMock(), "sink_dispatcher": MagicMock()}
 
         _barrier_sync(infra, config)
-        assert _mock_ingestion.call_count == 1
+        assert infra.get("_barrier_ingestion_ran") is True
 
-        _mock_ingestion.reset_mock()
-        _cleanup_infrastructure(infra, config)
-        _mock_ingestion.assert_not_called()
-
-    def test_cleanup_ingests_when_no_barrier_ran(self, _mock_ingestion: MagicMock) -> None:
+    def test_cleanup_closes_sinks_and_db(self) -> None:
+        """_cleanup_infrastructure closes the sink dispatcher and knowledge DB."""
         from agent_fox.engine.run import _cleanup_infrastructure
 
         config = MagicMock()
-        infra = {"knowledge_db": MagicMock(), "sink_dispatcher": MagicMock()}
+        mock_db = MagicMock()
+        mock_sink = MagicMock()
+        infra: dict = {"knowledge_db": mock_db, "sink_dispatcher": mock_sink}
 
         _cleanup_infrastructure(infra, config)
-        _mock_ingestion.assert_called_once()
 
-    def test_barrier_failure_still_sets_flag(self, _mock_ingestion: MagicMock) -> None:
-        from agent_fox.engine.run import _barrier_sync, _cleanup_infrastructure
+        mock_sink.close.assert_called_once()
+        mock_db.close.assert_called_once()
 
-        _mock_ingestion.side_effect = RuntimeError("ingestion failed")
+    def test_cleanup_survives_close_failures(self) -> None:
+        """_cleanup_infrastructure does not raise when close() fails."""
+        from agent_fox.engine.run import _cleanup_infrastructure
 
         config = MagicMock()
-        infra = {"knowledge_db": MagicMock(), "sink_dispatcher": MagicMock()}
+        mock_db = MagicMock()
+        mock_db.close.side_effect = RuntimeError("close failed")
+        mock_sink = MagicMock()
+        mock_sink.close.side_effect = RuntimeError("close failed")
+        infra: dict = {"knowledge_db": mock_db, "sink_dispatcher": mock_sink}
 
-        _barrier_sync(infra, config)
-
-        _mock_ingestion.reset_mock()
-        _mock_ingestion.side_effect = None
+        # Should not raise
         _cleanup_infrastructure(infra, config)
-        _mock_ingestion.assert_not_called()

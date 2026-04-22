@@ -363,8 +363,8 @@ class TestFullHardResetDeletesBranches:
 class TestFullHardResetCompactsKB:
     """TS-35-9: Knowledge compaction is called during hard reset."""
 
-    def test_compaction_called(self, tmp_path: Path) -> None:
-        """compact() is called and result reflected in HardResetResult."""
+    def test_compaction_returns_zero(self, tmp_path: Path) -> None:
+        """compaction returns (0, 0) since compact() was removed (spec 114)."""
         from agent_fox.engine.reset import hard_reset_all
 
         _agent_dir, worktrees_dir, memory_path = _setup_agent_dir(tmp_path)
@@ -376,12 +376,10 @@ class TestFullHardResetCompactsKB:
         with (
             _mock_git_for_hard_reset(),
             patch("agent_fox.engine.reset._load_state_or_raise", return_value=state),
-            patch("agent_fox.engine.reset.compact", return_value=(42, 38)),
         ):
             result = hard_reset_all(worktrees_dir, tmp_path, memory_path, db_conn=db_conn)
 
-        assert result.compaction == (42, 38)
-        assert result.compaction[0] >= result.compaction[1]
+        assert result.compaction == (0, 0)
 
 
 # ===========================================================================
@@ -989,10 +987,7 @@ def _mock_git_for_hard_reset(
 
     @contextmanager
     def _ctx():
-        with (
-            patch("agent_fox.engine.reset.subprocess.run", side_effect=mock_subprocess_run),
-            patch("agent_fox.engine.reset.compact", return_value=(0, 0)),
-        ):
+        with patch("agent_fox.engine.reset.subprocess.run", side_effect=mock_subprocess_run):
             yield
 
     return _ctx()

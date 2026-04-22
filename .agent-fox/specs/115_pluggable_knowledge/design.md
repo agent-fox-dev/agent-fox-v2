@@ -2,28 +2,145 @@
 
 ## Overview
 
-This spec implements the `KnowledgeProvider` protocol (defined in spec 114) with
-a `FoxKnowledgeProvider` that stores and retrieves three categories of scoped
-knowledge: gotchas, review carry-forward, and errata pointers. The design
-inverts the old system's priorities: hard to write to, easy to read from.
+This spec implements the `KnowledgeProvider` protocol (defined in spec 114)
+with a concrete `FoxKnowledgeProvider` that stores and retrieves scoped,
+high-signal knowledge. Three knowledge categories are supported:
+
+- **Gotchas** — surprising or non-obvious findings extracted from session
+  transcripts by an LLM, stored in a new `gotchas` DuckDB table.
+- **Review carry-forward** — unresolved critical/major review findings read
+  from the existing `review_findings` table at retrieval time.
+- **Errata** — spec-to-errata-document pointers stored in a new `errata_index`
+  DuckDB table.
+
+Retrieval is scoped by `spec_name` with a configurable cap (default 10 items).
+No embeddings or vector search. All queries are direct DuckDB column filters.
 
 ## Architecture
 
-```
-Engine
-  │
-  └── KnowledgeProvider protocol
-           │
-           └── FoxKnowledgeProvider
-                  │
-                  ├── GotchaStore      (gotchas table)
-                  ├── ReviewReader     (review_findings table, read-only)
-                  └── ErrataIndex      (errata_index table)
+```mermaid
+flowchart TB
+    subgraph Engine
+        SL[session_lifecycle.py]
+        RU[run.py]
+    end
+
+    subgraph "knowledge/"
+        PR[provider.py — KnowledgeProvider protocol]
+        FP[fox_provider.py ✨ new]
+        GS[gotcha_store.py ✨ new]
+        EI[errata_store.py ✨ new]
+        GX[gotcha_extraction.py ✨ new]
+        RS[review_store.py — existing]
+        DB[db.py — existing]
+        MG[migrations.py — existing]
+    end
+
+    SL -->|retrieve / ingest| FP
+    RU -->|construct| FP
+    FP -->|query gotchas| GS
+    FP -->|query errata| EI
+    FP -->|query findings| RS
+    FP -->|extract gotchas| GX
+    GS --> DB
+    EI --> DB
+    MG -->|v17: gotchas, errata_index| DB
 ```
 
-The provider is a composition of three internal stores, each handling one
-knowledge category. The stores are implementation details — external code
-interacts only through `ingest()` and `retrieve()`.
+```mermaid
+sequenceDiagram
+    participant E as Engine (session_lifecycle)
+    participant FP as FoxKnowledgeProvider
+    participant GS as gotcha_store
+    participant RS as review_store
+    participant EI as errata_store
+    participant GX as gotcha_extraction
+    participant LLM as LLM (SIMPLE tier)
+
+    Note over E,FP: Pre-session retrieval
+    E->>FP: retrieve(spec_name, task_desc)
+    FP->>EI: query_errata(conn, spec_name)
+    EI-->>FP: list[str]
+    FP->>RS: query_active_findings(conn, spec_name)
+    RS-->>FP: list[ReviewFinding]
+    FP->>GS: query_gotchas(conn, spec_name, ttl, limit)
+    GS-->>FP: list[str]
+    FP-->>E: list[str] (merged, capped)
+
+    Note over E,FP: Post-session ingestion
+    E->>FP: ingest(session_id, spec_name, context)
+    FP->>GX: extract_gotchas(context, model_tier)
+    GX->>LLM: prompt: "what surprised you?"
+    LLM-->>GX: 0-3 gotcha candidates
+    GX-->>FP: list[GotchaCandidate]
+    FP->>GS: store_gotchas(conn, spec_name, session_id, candidates)
+    GS-->>FP: stored count (after dedup)
+```
+
+### Module Responsibilities
+
+1. **`fox_provider.py`** (new) — `FoxKnowledgeProvider` class implementing the
+   `KnowledgeProvider` protocol. Orchestrates retrieval from three categories
+   and ingestion of gotchas.
+2. **`gotcha_store.py`** (new) — DuckDB CRUD for the `gotchas` table. Query by
+   spec_name with TTL and limit. Store with content-hash deduplication.
+3. **`errata_store.py`** (new) — DuckDB CRUD for the `errata_index` table.
+   Query by spec_name. Register/unregister errata entries.
+4. **`gotcha_extraction.py`** (new) — LLM prompt construction and response
+   parsing for gotcha extraction. Returns 0-3 `GotchaCandidate` objects.
+5. **`review_store.py`** (existing) — Provides `query_active_findings()` for
+   review carry-forward. Unmodified.
+6. **`db.py`** (existing) — `KnowledgeDB` connection management. Unmodified.
+7. **`migrations.py`** (existing) — Extended with migration v17 for `gotchas`
+   and `errata_index` tables.
+
+## Execution Paths
+
+### Path 1: Pre-session knowledge retrieval
+
+1. `engine/session_lifecycle.py: NodeSessionRunner._build_prompts` — calls
+   `self._knowledge_provider.retrieve(spec_name, task_description)` →
+   `list[str]`
+2. `knowledge/fox_provider.py: FoxKnowledgeProvider.retrieve` — orchestrates
+   three sub-queries
+3. `knowledge/errata_store.py: query_errata(conn, spec_name)` → `list[str]`
+   (prefixed with `[ERRATA] `)
+4. `knowledge/review_store.py: query_active_findings(conn, spec_name)` →
+   `list[ReviewFinding]` → formatted to `list[str]` (prefixed with
+   `[REVIEW] `)
+5. `knowledge/gotcha_store.py: query_gotchas(conn, spec_name, ttl_days, limit)` →
+   `list[str]` (prefixed with `[GOTCHA] `)
+6. `knowledge/fox_provider.py: FoxKnowledgeProvider._compose_results` —
+   merges categories in priority order (errata, review, gotchas), trims
+   gotchas if total exceeds `max_items` → `list[str]`
+
+### Path 2: Post-session gotcha ingestion
+
+1. `engine/session_lifecycle.py: NodeSessionRunner._ingest_knowledge` — calls
+   `self._knowledge_provider.ingest(session_id, spec_name, context)`
+2. `knowledge/fox_provider.py: FoxKnowledgeProvider.ingest` — checks
+   `context["session_status"] == "completed"`, calls extraction
+3. `knowledge/gotcha_extraction.py: extract_gotchas(context, model_tier)` →
+   `list[GotchaCandidate]` (0-3 items, capped)
+4. `knowledge/gotcha_store.py: store_gotchas(conn, spec_name, session_id, candidates)` →
+   `int` (stored count after content-hash dedup)
+
+### Path 3: Errata registration
+
+1. `knowledge/errata_store.py: register_errata(conn, spec_name, file_path)` →
+   `ErrataEntry` (the registered entry)
+2. DuckDB `errata_index` table — side effect: row inserted with
+   `(spec_name, file_path, created_at)`
+
+### Path 4: Provider construction at engine startup
+
+1. `engine/run.py: _setup_infrastructure` — reads `KnowledgeProviderConfig`
+   from `config.knowledge.provider`
+2. `engine/run.py: _setup_infrastructure` — constructs
+   `FoxKnowledgeProvider(knowledge_db, provider_config)` → provider instance
+3. Returns infrastructure dict with `knowledge_provider` key
+
+## Components and Interfaces
 
 ### FoxKnowledgeProvider
 
@@ -34,301 +151,338 @@ from agent_fox.knowledge.provider import KnowledgeProvider
 from agent_fox.knowledge.db import KnowledgeDB
 
 class FoxKnowledgeProvider:
-    """Concrete KnowledgeProvider: gotchas, review carry-forward, errata."""
+    """Concrete KnowledgeProvider: gotchas + review carry-forward + errata."""
 
-    def __init__(self, db: KnowledgeDB, config: KnowledgeProviderConfig) -> None:
-        self._gotcha_store = GotchaStore(db, config)
-        self._review_reader = ReviewReader(db)
-        self._errata_index = ErrataIndex(db)
-        self._max_items = config.max_items
+    def __init__(
+        self,
+        knowledge_db: KnowledgeDB,
+        config: KnowledgeProviderConfig,
+    ) -> None: ...
+
+    def retrieve(
+        self,
+        spec_name: str,
+        task_description: str,
+    ) -> list[str]: ...
 
     def ingest(
         self,
         session_id: str,
         spec_name: str,
         context: dict,
-    ) -> None:
-        if context.get("session_status") != "completed":
-            return
-        self._gotcha_store.extract_and_store(session_id, spec_name, context)
+    ) -> None: ...
 
-    def retrieve(
+    def _compose_results(
         self,
-        spec_name: str,
-        task_description: str,
-    ) -> list[str]:
-        errata = self._errata_index.get(spec_name)
-        reviews = self._review_reader.get_unresolved(spec_name)
-        gotchas = self._gotcha_store.get_recent(spec_name)
-
-        # Priority: errata > reviews > gotchas
-        result = errata + reviews
-        remaining = max(0, self._max_items - len(result))
-        result += gotchas[:remaining]
-        return result
+        errata: list[str],
+        reviews: list[str],
+        gotchas: list[str],
+    ) -> list[str]: ...
 ```
 
-### GotchaStore
+### Gotcha Store
 
 ```python
 # agent_fox/knowledge/gotcha_store.py
 
-class GotchaStore:
-    """LLM-gated gotcha extraction and storage."""
+import duckdb
 
-    def __init__(self, db: KnowledgeDB, config: KnowledgeProviderConfig) -> None:
-        self._db = db
-        self._model_tier = config.model_tier
-        self._ttl_days = config.gotcha_ttl_days
+@dataclass(frozen=True)
+class GotchaRecord:
+    id: str
+    spec_name: str
+    text: str
+    content_hash: str
+    session_id: str
+    created_at: datetime
 
-    def extract_and_store(
-        self,
-        session_id: str,
-        spec_name: str,
-        context: dict,
-    ) -> None:
-        """Prompt LLM for gotchas, deduplicate by content hash, store."""
-        candidates = self._extract_gotchas(context)  # 0-3 items
-        for candidate in candidates[:3]:
-            content_hash = self._hash(candidate)
-            if not self._exists(spec_name, content_hash):
-                self._store(spec_name, candidate, content_hash, session_id)
+def query_gotchas(
+    conn: duckdb.DuckDBPyConnection,
+    spec_name: str,
+    ttl_days: int,
+    limit: int = 5,
+) -> list[str]:
+    """Query non-expired gotchas for spec, ordered by recency.
+    Returns formatted strings prefixed with [GOTCHA]."""
+    ...
 
-    def get_recent(self, spec_name: str) -> list[str]:
-        """Return up to 5 non-expired gotchas, most recent first."""
-        cutoff = datetime.utcnow() - timedelta(days=self._ttl_days)
-        rows = self._db.execute(
-            """SELECT text FROM gotchas
-               WHERE spec_name = ? AND created_at > ?
-               ORDER BY created_at DESC LIMIT 5""",
-            [spec_name, cutoff],
-        )
-        return [f"[GOTCHA] {row[0]}" for row in rows]
+def store_gotchas(
+    conn: duckdb.DuckDBPyConnection,
+    spec_name: str,
+    session_id: str,
+    candidates: list[GotchaCandidate],
+) -> int:
+    """Store gotcha candidates with content-hash dedup.
+    Returns count of actually stored (non-duplicate) gotchas."""
+    ...
 
-    def _extract_gotchas(self, context: dict) -> list[str]:
-        """Call LLM with SIMPLE tier to extract gotcha candidates."""
-        # Prompt: "Based on this session, what was surprising or non-obvious?
-        # What would you want to know if starting a new session on this spec?
-        # Return 0-3 short findings. If nothing was surprising, return empty."
-        ...
-
-    def _hash(self, text: str) -> str:
-        normalized = " ".join(text.lower().split())
-        return hashlib.sha256(normalized.encode()).hexdigest()
-
-    def _exists(self, spec_name: str, content_hash: str) -> bool:
-        rows = self._db.execute(
-            "SELECT 1 FROM gotchas WHERE spec_name = ? AND content_hash = ?",
-            [spec_name, content_hash],
-        )
-        return len(rows) > 0
-
-    def _store(self, spec_name, text, content_hash, session_id):
-        self._db.execute(
-            """INSERT INTO gotchas (id, spec_name, category, text,
-               content_hash, session_id, created_at)
-               VALUES (?, ?, 'gotcha', ?, ?, ?, ?)""",
-            [generate_id(), spec_name, text, content_hash,
-             session_id, datetime.utcnow()],
-        )
+def compute_content_hash(text: str) -> str:
+    """SHA-256 of normalized (lowered, whitespace-collapsed) text."""
+    ...
 ```
 
-### ReviewReader
+### Errata Store
 
 ```python
-# agent_fox/knowledge/review_reader.py
+# agent_fox/knowledge/errata_store.py
 
-class ReviewReader:
-    """Read-only access to unresolved review findings."""
+import duckdb
 
-    def __init__(self, db: KnowledgeDB) -> None:
-        self._db = db
+@dataclass(frozen=True)
+class ErrataEntry:
+    spec_name: str
+    file_path: str
+    created_at: datetime
 
-    def get_unresolved(self, spec_name: str) -> list[str]:
-        """Return critical/major findings with open/in_progress status."""
-        rows = self._db.execute(
-            """SELECT severity, category, description
-               FROM review_findings
-               WHERE spec_name = ?
-                 AND severity IN ('critical', 'major')
-                 AND status IN ('open', 'in_progress')
-               ORDER BY severity, created_at DESC""",
-            [spec_name],
-        )
-        return [
-            f"[REVIEW] [{row[0].upper()}] {row[1]}: {row[2]}"
-            for row in rows
-        ]
+def query_errata(
+    conn: duckdb.DuckDBPyConnection,
+    spec_name: str,
+) -> list[str]:
+    """Query errata entries for spec.
+    Returns formatted strings prefixed with [ERRATA]."""
+    ...
+
+def register_errata(
+    conn: duckdb.DuckDBPyConnection,
+    spec_name: str,
+    file_path: str,
+) -> ErrataEntry:
+    """Register an errata entry. Idempotent (ON CONFLICT DO NOTHING).
+    Returns the registered entry."""
+    ...
+
+def unregister_errata(
+    conn: duckdb.DuckDBPyConnection,
+    spec_name: str,
+    file_path: str,
+) -> bool:
+    """Remove an errata entry. Returns True if a row was deleted."""
+    ...
 ```
 
-### ErrataIndex
+### Gotcha Extraction
 
 ```python
-# agent_fox/knowledge/errata_index.py
+# agent_fox/knowledge/gotcha_extraction.py
 
-class ErrataIndex:
-    """Spec-to-errata-document pointer store."""
+@dataclass(frozen=True)
+class GotchaCandidate:
+    text: str
+    content_hash: str  # computed at extraction time
 
-    def __init__(self, db: KnowledgeDB) -> None:
-        self._db = db
-
-    def get(self, spec_name: str) -> list[str]:
-        rows = self._db.execute(
-            """SELECT file_path FROM errata_index
-               WHERE spec_name = ?
-               ORDER BY created_at""",
-            [spec_name],
-        )
-        return [f"[ERRATA] See {row[0]}" for row in rows]
-
-    def register(self, spec_name: str, file_path: str) -> dict:
-        self._db.execute(
-            """INSERT INTO errata_index (spec_name, file_path, created_at)
-               VALUES (?, ?, ?)
-               ON CONFLICT (spec_name, file_path) DO NOTHING""",
-            [spec_name, file_path, datetime.utcnow()],
-        )
-        return {"spec_name": spec_name, "file_path": file_path}
-
-    def unregister(self, spec_name: str, file_path: str) -> None:
-        self._db.execute(
-            "DELETE FROM errata_index WHERE spec_name = ? AND file_path = ?",
-            [spec_name, file_path],
-        )
+async def extract_gotchas(
+    context: dict,
+    model_tier: str = "SIMPLE",
+) -> list[GotchaCandidate]:
+    """Prompt the LLM for 0-3 gotcha candidates.
+    Caps at 3 even if LLM returns more.
+    Returns empty list on LLM failure."""
+    ...
 ```
 
-### Configuration
+### KnowledgeProviderConfig
 
 ```python
-# Addition to agent_fox/core/config.py
+# In agent_fox/core/config.py
 
 class KnowledgeProviderConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
-    max_items: int = 10
-    gotcha_ttl_days: int = 90
-    model_tier: str = "SIMPLE"
 
-class KnowledgeConfig(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    store_path: str = ".agent-fox/knowledge.duckdb"
-    provider: KnowledgeProviderConfig = KnowledgeProviderConfig()
+    max_items: int = Field(default=10, description="Max total retrieval items")
+    gotcha_ttl_days: int = Field(default=90, description="Days before gotcha expiry")
+    model_tier: str = Field(default="SIMPLE", description="LLM tier for gotcha extraction")
 ```
 
-### Schema Migration
+## Data Models
+
+### gotchas Table (DuckDB)
 
 ```sql
--- Migration: add_gotchas_table
 CREATE TABLE IF NOT EXISTS gotchas (
-    id VARCHAR PRIMARY KEY,
-    spec_name VARCHAR NOT NULL,
-    category VARCHAR NOT NULL DEFAULT 'gotcha',
-    text VARCHAR NOT NULL,
+    id           VARCHAR PRIMARY KEY,
+    spec_name    VARCHAR NOT NULL,
+    category     VARCHAR NOT NULL DEFAULT 'gotcha',
+    text         VARCHAR NOT NULL,
     content_hash VARCHAR NOT NULL,
-    session_id VARCHAR NOT NULL,
-    created_at TIMESTAMP NOT NULL
+    session_id   VARCHAR NOT NULL,
+    created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+```
 
-CREATE INDEX IF NOT EXISTS idx_gotchas_spec
-    ON gotchas (spec_name, created_at DESC);
+### errata_index Table (DuckDB)
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_gotchas_dedup
-    ON gotchas (spec_name, content_hash);
-
--- Migration: add_errata_index_table
+```sql
 CREATE TABLE IF NOT EXISTS errata_index (
-    spec_name VARCHAR NOT NULL,
-    file_path VARCHAR NOT NULL,
-    created_at TIMESTAMP NOT NULL,
+    spec_name  VARCHAR NOT NULL,
+    file_path  VARCHAR NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (spec_name, file_path)
 );
 ```
 
 ### Gotcha Extraction Prompt
 
-```
-You just completed a coding session for spec "{spec_name}".
+```text
+Based on this coding session, what was surprising or non-obvious?
+What would you want to know if you were starting a new session on this spec?
+
+Return 0-3 bullet points. Each should describe ONE specific gotcha:
+something that looks like it should work but doesn't, a hidden constraint,
+or an unexpected behavior. Return nothing if the session was straightforward.
 
 Session context:
-- Files touched: {touched_files}
-- Commit: {commit_sha}
+- Spec: {spec_name}
+- Touched files: {touched_files}
 - Status: {session_status}
-
-Based on this session, what was surprising or non-obvious? What would a future
-developer want to know before working on this spec?
-
-Rules:
-- Return 0-3 short findings (1-2 sentences each).
-- Only include things that were genuinely surprising — not generic patterns.
-- If nothing was surprising, return an empty list.
-- Format: JSON array of strings. Example: ["Finding 1", "Finding 2"]
 ```
 
-### Provider Registration
-
-In `engine/run.py` (after spec 114's changes):
+### Retrieval Output Format
 
 ```python
-from agent_fox.knowledge.provider import KnowledgeProvider
-from agent_fox.knowledge.fox_provider import FoxKnowledgeProvider
-
-def _build_provider(db: KnowledgeDB, config: KnowledgeConfig) -> KnowledgeProvider:
-    return FoxKnowledgeProvider(db, config.provider)
+[
+    "[ERRATA] docs/errata/28_github_issue_rest_api.md",
+    "[REVIEW] [critical] Security: SQL injection in query builder — unparameterized user input in WHERE clause",
+    "[GOTCHA] The DuckDB ON CONFLICT clause requires explicit column list; omitting it silently does nothing",
+]
 ```
+
+## Operational Readiness
+
+### Observability
+
+- Gotcha ingestion count logged at INFO level per session.
+- Retrieval item counts per category logged at DEBUG level.
+- LLM extraction failures logged at WARNING level.
+
+### Rollout / Rollback
+
+- New tables (`gotchas`, `errata_index`) are additive — no risk of breaking
+  existing data.
+- Rollback: revert the commit and set `NoOpKnowledgeProvider` as default in
+  `run.py`. The new tables remain inert.
+
+### Migration / Compatibility
+
+- Migration v17 creates both tables with `IF NOT EXISTS`.
+- Existing databases gain the new tables on first open.
+- Fresh databases get them via the initial schema + migration path.
 
 ## Correctness Properties
 
-### CP-1: Protocol Conformance
+### Property 1: Protocol Conformance
 
-**Property:** `isinstance(FoxKnowledgeProvider(...), KnowledgeProvider)` returns
-`True`.
+*For any* instance of `FoxKnowledgeProvider`, `isinstance(instance, KnowledgeProvider)` SHALL return `True`.
 
-**Validation:** [115-REQ-1.1], [115-REQ-1.2]
+**Validates: Requirements 1.1, 1.2**
 
-### CP-2: Gotcha Deduplication
+### Property 2: Gotcha Deduplication
 
-**Property:** Two gotchas with identical normalized text for the same spec_name
-never both exist in the `gotchas` table.
+*For any* sequence of gotcha candidates where two candidates have the same
+normalized text, `store_gotchas` SHALL store at most one record for that
+content hash per spec_name.
 
-**Validation:** [115-REQ-2.E1]
+**Validates: Requirements 2.4, 2.E1**
 
-### CP-3: Retrieval Cap
+### Property 3: Gotcha TTL Exclusion
 
-**Property:** `len(retrieve(...))` never exceeds `max_items` unless review
-findings + errata alone exceed it.
+*For any* `gotcha_ttl_days` value T and gotcha with `created_at` older than
+T days, `query_gotchas` SHALL NOT include that gotcha in the result.
 
-**Validation:** [115-REQ-6.1], [115-REQ-6.E2]
+**Validates: Requirements 3.2, 7.1**
 
-### CP-4: Category Priority
+### Property 4: Retrieval Cap
 
-**Property:** When items must be trimmed, gotchas are removed before review
-findings, and review findings before errata.
+*For any* retrieval call, the total number of returned items SHALL NOT exceed
+`max_items`, except when review findings and errata alone exceed `max_items`
+(in which case gotchas are excluded but reviews+errata are all returned).
 
-**Validation:** [115-REQ-6.2]
+**Validates: Requirements 6.1, 6.2, 6.E2**
 
-### CP-5: Gotcha Expiry
+### Property 5: Category Priority Order
 
-**Property:** No gotcha with `created_at` older than `gotcha_ttl_days` ago
-appears in retrieval results.
+*For any* retrieval result with items from multiple categories, the items SHALL
+appear in order: errata first, then review findings, then gotchas.
 
-**Validation:** [115-REQ-7.1]
+**Validates: Requirements 6.3**
 
-### CP-6: Ingestion Gating
+### Property 6: Gotcha Extraction Cap
 
-**Property:** `ingest()` performs no LLM call and stores no data when
-`session_status != "completed"`.
+*For any* LLM response returning N candidates where N > 3, `extract_gotchas`
+SHALL return exactly 3 candidates.
 
-**Validation:** [115-REQ-2.5]
+**Validates: Requirements 2.E3**
 
-### CP-7: Review Store Read-Only
+### Property 7: Failed Session Skip
 
-**Property:** The provider never writes to or modifies the `review_findings`
-table. It reads only.
+*For any* `ingest()` call where `context["session_status"]` is not
+`"completed"`, the provider SHALL not call the LLM and SHALL return
+immediately.
 
-**Validation:** [115-REQ-4.1]
+**Validates: Requirements 2.5**
 
-### CP-8: Errata Registration Idempotence
+### Property 8: Content Hash Determinism
 
-**Property:** Registering the same `(spec_name, file_path)` pair twice does not
-raise an error or create a duplicate row.
+*For any* text string T, `compute_content_hash(T)` SHALL always return the
+same SHA-256 value. *For any* two texts T1, T2 that differ only in
+whitespace or casing, `compute_content_hash(T1)` SHALL equal
+`compute_content_hash(T2)`.
 
-**Validation:** [115-REQ-5.4]
+**Validates: Requirements 2.4**
+
+### Property 9: Review Category Prefix
+
+*For any* review finding returned by `retrieve()`, the string SHALL start
+with `"[REVIEW] "` and contain the finding's severity and description.
+
+**Validates: Requirements 4.3**
+
+## Error Handling
+
+| Error Condition | Behavior | Requirement |
+|----------------|----------|-------------|
+| KnowledgeDB connection closed | Raise descriptive error | 115-REQ-1.E1 |
+| LLM extraction failure | Log WARNING, return empty | 115-REQ-2.E2 |
+| LLM returns >3 gotchas | Truncate to first 3 | 115-REQ-2.E3 |
+| Duplicate gotcha hash | Skip silently | 115-REQ-2.E1 |
+| No gotchas for spec | Empty gotcha contribution | 115-REQ-3.E1 |
+| No findings for spec | Empty review contribution | 115-REQ-4.E1 |
+| review_findings table missing | Empty review contribution | 115-REQ-4.E2 |
+| No errata for spec | Empty errata contribution | 115-REQ-5.E1 |
+| Errata file missing on disk | Still return entry | 115-REQ-5.E2 |
+| All categories empty | Return empty list | 115-REQ-6.E1 |
+| Reviews+errata exceed cap | Return all, omit gotchas | 115-REQ-6.E2 |
+| gotcha_ttl_days is 0 | Exclude all gotchas | 115-REQ-7.E1 |
+
+## Technology Stack
+
+- **Language:** Python 3.12+
+- **Database:** DuckDB (existing knowledge store)
+- **LLM:** Anthropic API via SIMPLE model tier
+- **Hashing:** `hashlib.sha256` for content deduplication
+- **Configuration:** Pydantic v2 with `extra="ignore"`
+- **Testing:** pytest, Hypothesis (property tests)
+
+## Definition of Done
+
+A task group is complete when ALL of the following are true:
+
+1. All subtasks within the group are checked off (`[x]`)
+2. All spec tests (`test_spec.md` entries) for the task group pass
+3. All property tests for the task group pass
+4. All previously passing tests still pass (no regressions)
+5. No linter warnings or errors introduced
+6. Code is committed on a feature branch and merged into `develop`
+7. Feature branch is merged back to `develop`
+8. `tasks.md` checkboxes are updated to reflect completion
+
+## Testing Strategy
+
+- **Unit tests:** `FoxKnowledgeProvider` protocol conformance, gotcha store
+  CRUD, errata store CRUD, content hash determinism, retrieval composition
+  with cap and priority. Uses in-memory DuckDB connections.
+- **Property tests:** Hypothesis-driven tests for deduplication (Property 2),
+  TTL exclusion (Property 3), retrieval cap (Property 4), category ordering
+  (Property 5), content hash normalization (Property 8).
+- **Integration tests:** Smoke tests for retrieval path (real provider,
+  in-memory DB, mock LLM), ingestion path (real provider, in-memory DB,
+  mock LLM), provider construction at startup.

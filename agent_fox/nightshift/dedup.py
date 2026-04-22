@@ -7,7 +7,7 @@ across consecutive scan iterations.
 Supports two deduplication strategies:
 1. Fingerprint matching (exact): SHA-256 of category + sorted files.
 2. Embedding similarity (semantic): cosine similarity of text embeddings
-   from a sentence-transformers model. Requires an EmbeddingGenerator.
+   from an embedding model. Requires an embedder with ``embed_batch()``.
 
 Requirements: 79-REQ-1.*, 79-REQ-2.*, 79-REQ-3.1, 79-REQ-4.*, 79-REQ-5.*,
               110-REQ-2.*, 110-REQ-3.*, 110-REQ-7.*
@@ -22,7 +22,6 @@ import re
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from agent_fox.knowledge.embeddings import EmbeddingGenerator
     from agent_fox.nightshift.finding import FindingGroup
     from agent_fox.platform.protocol import IssueResult, PlatformProtocol
 
@@ -139,7 +138,7 @@ async def filter_known_duplicates(
     platform: PlatformProtocol,
     *,
     similarity_threshold: float = 0.85,
-    embedder: EmbeddingGenerator | None = None,
+    embedder: object | None = None,
 ) -> list[FindingGroup]:
     """Fetch af:hunt issues (open + closed), return novel FindingGroups.
 

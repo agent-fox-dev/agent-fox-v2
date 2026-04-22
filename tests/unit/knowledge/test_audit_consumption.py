@@ -276,7 +276,9 @@ def _build_coder_prompt(
     runner._config = config
     runner._knowledge_db = db
     runner._sink_dispatcher = None
-    runner._embedder = None
+    from agent_fox.knowledge.provider import NoOpKnowledgeProvider
+
+    runner._knowledge_provider = NoOpKnowledgeProvider()
     runner._archetype = "coder"
     runner._mode = None
     runner._task_group = 2

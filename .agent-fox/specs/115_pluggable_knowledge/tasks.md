@@ -1,163 +1,296 @@
-# Implementation Tasks: Pluggable Knowledge Provider
+# Implementation Plan: Pluggable Knowledge Provider
 
-## Task Group 1: Schema, Config, and Provider Shell
+<!-- AGENT INSTRUCTIONS
+- Implement exactly ONE top-level task group per session
+- Task group 1 writes failing tests from test_spec.md — all subsequent groups
+  implement code to make those tests pass
+- Follow the git-flow: feature branch from develop -> implement -> test -> merge to develop
+- Update checkbox states as you go: [-] in progress, [x] complete
+-->
 
-### Tasks
+## Overview
 
-- [ ] Add `KnowledgeProviderConfig` to `core/config.py`
-  - Fields: `max_items` (int, default 10), `gotcha_ttl_days` (int, default 90),
-    `model_tier` (str, default "SIMPLE")
-  - `ConfigDict(extra="ignore")`
-  - Add as `provider: KnowledgeProviderConfig` field on `KnowledgeConfig`
-  - Ref: [115-REQ-8.1], [115-REQ-8.2], [115-REQ-8.3]
+This spec implements the `KnowledgeProvider` protocol (defined in spec 114)
+with a concrete `FoxKnowledgeProvider`. The plan builds bottom-up: schema
+migration first, then store modules, then the provider, then engine wiring.
+Each group produces testable artifacts that accumulate into the full provider.
 
-- [ ] Add schema migration for `gotchas` and `errata_index` tables in
-  `knowledge/migrations.py`
-  - `gotchas`: id, spec_name, category, text, content_hash, session_id,
-    created_at + indexes
-  - `errata_index`: spec_name, file_path, created_at + composite PK
-  - Must be idempotent (CREATE TABLE IF NOT EXISTS)
-  - Ref: [115-REQ-9.1], [115-REQ-9.2], [115-REQ-9.3], [115-REQ-9.4]
+## Test Commands
 
-- [ ] Create `knowledge/fox_provider.py` with `FoxKnowledgeProvider` class shell
-  - Implement `KnowledgeProvider` protocol
-  - Constructor accepts `KnowledgeDB` and `KnowledgeProviderConfig`
-  - `ingest()` and `retrieve()` delegate to internal stores (stubbed for now)
-  - Ref: [115-REQ-1.1], [115-REQ-1.2], [115-REQ-1.3]
+- Spec tests: `uv run pytest -q tests/unit/knowledge/test_fox_provider.py tests/unit/knowledge/test_gotcha_store.py tests/unit/knowledge/test_errata_store.py tests/unit/knowledge/test_gotcha_extraction.py`
+- Unit tests: `uv run pytest -q tests/unit/`
+- Property tests: `uv run pytest -q tests/property/knowledge/test_fox_provider_props.py`
+- All tests: `uv run pytest -q`
+- Linter: `uv run ruff check agent_fox/ tests/`
 
-- [ ] Write tests for config and migration
-  - TC-8.1, TC-8.2, TC-8.3 in `tests/unit/core/test_config_knowledge.py`
-  - TC-9.1, TC-9.2, TC-9.3 in `tests/unit/knowledge/test_migrations.py`
-  - TC-1.1, TC-1.2 in `tests/unit/knowledge/test_fox_provider.py`
+## Tasks
 
-### Verification
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create provider unit tests
+    - Create `tests/unit/knowledge/test_fox_provider.py`
+    - Tests for protocol conformance (TS-115-1, TS-115-2, TS-115-3)
+    - Tests for retrieval composition, caps, ordering (TS-115-20, TS-115-21, TS-115-22)
+    - Tests for review carry-forward (TS-115-13, TS-115-14, TS-115-15)
+    - Edge case tests (TS-115-E1, TS-115-E5 through TS-115-E12)
+    - _Test Spec: TS-115-1, TS-115-2, TS-115-3, TS-115-13, TS-115-14, TS-115-15, TS-115-20, TS-115-21, TS-115-22, TS-115-E1, TS-115-E5, TS-115-E6, TS-115-E7, TS-115-E8, TS-115-E9, TS-115-E10, TS-115-E11, TS-115-E12_
 
-```bash
-uv run pytest tests/unit/core/test_config_knowledge.py tests/unit/knowledge/test_migrations.py tests/unit/knowledge/test_fox_provider.py -v
-```
+  - [x] 1.2 Create gotcha store and extraction tests
+    - Create `tests/unit/knowledge/test_gotcha_store.py`
+    - Tests for gotcha CRUD (TS-115-7, TS-115-9, TS-115-10, TS-115-11, TS-115-12)
+    - Tests for deduplication (TS-115-E2)
+    - Tests for TTL behavior (TS-115-23, TS-115-24)
+    - Create `tests/unit/knowledge/test_gotcha_extraction.py`
+    - Tests for LLM extraction (TS-115-4, TS-115-5, TS-115-6, TS-115-8)
+    - Tests for extraction edge cases (TS-115-E3, TS-115-E4)
+    - _Test Spec: TS-115-4, TS-115-5, TS-115-6, TS-115-7, TS-115-8, TS-115-9, TS-115-10, TS-115-11, TS-115-12, TS-115-23, TS-115-24, TS-115-E2, TS-115-E3, TS-115-E4_
 
-Confirm: config defaults correct, tables created, provider satisfies protocol.
+  - [x] 1.3 Create errata store tests
+    - Create `tests/unit/knowledge/test_errata_store.py`
+    - Tests for errata CRUD (TS-115-16, TS-115-17, TS-115-18, TS-115-19)
+    - _Test Spec: TS-115-16, TS-115-17, TS-115-18, TS-115-19_
 
----
+  - [x] 1.4 Create config and migration tests
+    - Add to `tests/unit/knowledge/test_fox_provider.py` or create separate file
+    - Tests for KnowledgeProviderConfig (TS-115-25, TS-115-26, TS-115-27)
+    - Tests for schema migration (TS-115-28, TS-115-29, TS-115-30, TS-115-31)
+    - Tests for engine integration (TS-115-32, TS-115-33, TS-115-34)
+    - _Test Spec: TS-115-25, TS-115-26, TS-115-27, TS-115-28, TS-115-29, TS-115-30, TS-115-31, TS-115-32, TS-115-33, TS-115-34_
 
-## Task Group 2: GotchaStore — Ingestion and Retrieval
+  - [x] 1.5 Create property tests and smoke tests
+    - Create `tests/property/knowledge/test_fox_provider_props.py`
+    - Property tests (TS-115-P1 through TS-115-P9)
+    - Create `tests/integration/knowledge/test_fox_provider_smoke.py`
+    - Smoke tests (TS-115-SMOKE-1 through TS-115-SMOKE-4)
+    - _Test Spec: TS-115-P1 through TS-115-P9, TS-115-SMOKE-1 through TS-115-SMOKE-4_
 
-### Tasks
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/`
 
-- [ ] Create `knowledge/gotcha_store.py` with `GotchaStore` class
-  - `extract_and_store(session_id, spec_name, context)`: LLM extraction,
-    content-hash dedup, store 0-3 gotchas
-  - `get_recent(spec_name) -> list[str]`: query by spec_name, exclude expired,
-    order by recency, limit 5, prefix with `[GOTCHA] `
-  - `_hash(text)`: normalize whitespace + lowercase, SHA-256
-  - `_exists(spec_name, content_hash)`: check dedup index
-  - Ref: [115-REQ-2.1] through [115-REQ-2.5], [115-REQ-3.1] through
-    [115-REQ-3.4]
+- [x] 2. Schema migration and configuration
+  - [x] 2.1 Add `KnowledgeProviderConfig` to `agent_fox/core/config.py`
+    - Define `KnowledgeProviderConfig` with `max_items`, `gotcha_ttl_days`, `model_tier`
+    - Add `provider: KnowledgeProviderConfig` field to `KnowledgeConfig`
+    - Set `ConfigDict(extra="ignore")`
+    - _Requirements: 8.1, 8.2, 8.3_
 
-- [ ] Write gotcha extraction prompt (SIMPLE model tier)
-  - Input: session context (touched_files, commit_sha, session_status)
-  - Output: JSON array of 0-3 strings
-  - Ref: [115-REQ-2.1], [115-REQ-2.2]
+  - [x] 2.2 Add migration v17 to `agent_fox/knowledge/migrations.py`
+    - Create `gotchas` table with: id, spec_name, category, text, content_hash, session_id, created_at
+    - Create `errata_index` table with: spec_name, file_path, created_at, PK(spec_name, file_path)
+    - Use `CREATE TABLE IF NOT EXISTS` for idempotency
+    - Register in `MIGRATIONS` list
+    - _Requirements: 9.1, 9.2, 9.3, 9.4_
 
-- [ ] Write tests in `tests/unit/knowledge/test_gotcha_store.py`
-  - TC-2.1 through TC-2.7 (ingestion)
-  - TC-3.1 through TC-3.5 (retrieval)
-  - TC-7.1, TC-7.2 (expiry)
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_fox_provider.py -k "config or migration"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/core/config.py agent_fox/knowledge/migrations.py`
+    - [x] Requirements 8.1, 8.2, 8.3, 9.1, 9.2, 9.3, 9.4 acceptance criteria met
 
-### Verification
+- [x] 3. Gotcha store and errata store modules
+  - [x] 3.1 Create `agent_fox/knowledge/gotcha_store.py`
+    - Implement `GotchaRecord` dataclass
+    - Implement `compute_content_hash(text)` — SHA-256 of lowered, whitespace-collapsed text
+    - Implement `store_gotchas(conn, spec_name, session_id, candidates)` with content-hash dedup
+    - Implement `query_gotchas(conn, spec_name, ttl_days, limit)` with TTL filter and recency ordering
+    - _Requirements: 2.4, 2.E1, 3.1, 3.2, 3.3, 3.4, 7.1, 7.2_
 
-```bash
-uv run pytest tests/unit/knowledge/test_gotcha_store.py -v
-```
+  - [x] 3.2 Create `agent_fox/knowledge/errata_store.py`
+    - Implement `ErrataEntry` dataclass
+    - Implement `register_errata(conn, spec_name, file_path)` — idempotent insert, returns `ErrataEntry`
+    - Implement `unregister_errata(conn, spec_name, file_path)` — returns bool
+    - Implement `query_errata(conn, spec_name)` — returns formatted `[ERRATA]` strings
+    - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.E1, 5.E2_
 
-Confirm: extraction works with mock LLM, dedup prevents duplicates, expiry
-excludes old gotchas, scoping filters by spec.
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_gotcha_store.py tests/unit/knowledge/test_errata_store.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/knowledge/gotcha_store.py agent_fox/knowledge/errata_store.py`
+    - [x] Requirements 2.4, 2.E1, 3.1, 3.2, 3.3, 3.4, 5.1, 5.2, 5.3, 5.4, 7.1, 7.2 acceptance criteria met
 
----
+- [x] 4. Gotcha extraction module
+  - [x] 4.1 Create `agent_fox/knowledge/gotcha_extraction.py`
+    - Implement `GotchaCandidate` dataclass
+    - Implement gotcha extraction prompt template
+    - Implement `extract_gotchas(context, model_tier)` — calls LLM, parses response, caps at 3
+    - Handle LLM failures gracefully (return empty list)
+    - _Requirements: 2.1, 2.2, 2.3, 2.5, 2.E2, 2.E3_
 
-## Task Group 3: ReviewReader and ErrataIndex
+  - [x] 4.V Verify task group 4
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_gotcha_extraction.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/knowledge/gotcha_extraction.py`
+    - [x] Requirements 2.1, 2.2, 2.3, 2.5, 2.E2, 2.E3 acceptance criteria met
 
-### Tasks
+- [x] 5. Checkpoint - Store modules complete
+  - Ensure all store-level tests pass.
+  - Gotcha store, errata store, and gotcha extraction are individually tested.
+  - Config and migration are in place.
 
-- [ ] Create `knowledge/review_reader.py` with `ReviewReader` class
-  - `get_unresolved(spec_name) -> list[str]`: query review_findings for
-    critical/major + open/in_progress, prefix with `[REVIEW] `
-  - Handle missing review_findings table gracefully
-  - Read-only — no writes to review_findings
-  - Ref: [115-REQ-4.1] through [115-REQ-4.3], [115-REQ-4.E1], [115-REQ-4.E2]
+- [x] 6. FoxKnowledgeProvider implementation
+  - [x] 6.1 Create `agent_fox/knowledge/fox_provider.py`
+    - Implement `FoxKnowledgeProvider` class implementing `KnowledgeProvider` protocol
+    - Constructor: accepts `KnowledgeDB` and `KnowledgeProviderConfig`
+    - `retrieve()`: queries errata, review findings, gotchas; composes with priority ordering and cap
+    - `ingest()`: checks session_status, calls `extract_gotchas`, calls `store_gotchas`
+    - _Requirements: 1.1, 1.2, 1.3, 1.E1_
 
-- [ ] Create `knowledge/errata_index.py` with `ErrataIndex` class
-  - `get(spec_name) -> list[str]`: query errata_index, prefix with `[ERRATA] `
-  - `register(spec_name, file_path) -> dict`: insert with ON CONFLICT DO
-    NOTHING, return registered entry
-  - `unregister(spec_name, file_path)`: delete
-  - Ref: [115-REQ-5.1] through [115-REQ-5.4]
+  - [x] 6.2 Implement `_compose_results` method
+    - Merge errata (first), review findings (second), gotchas (last)
+    - Apply max_items cap: trim gotchas first
+    - Handle reviews+errata exceeding cap (include all, omit gotchas)
+    - _Requirements: 6.1, 6.2, 6.3, 6.E1, 6.E2_
 
-- [ ] Write tests
-  - TC-4.1 through TC-4.4 in `tests/unit/knowledge/test_review_reader.py`
-  - TC-5.1 through TC-5.4 in `tests/unit/knowledge/test_errata_index.py`
+  - [x] 6.3 Implement review carry-forward in `retrieve()`
+    - Query `review_store.query_active_findings()` for spec
+    - Filter to critical/major severity
+    - Format with `[REVIEW] ` prefix including severity, category, description
+    - Handle missing `review_findings` table gracefully
+    - _Requirements: 4.1, 4.2, 4.3, 4.E1, 4.E2_
 
-### Verification
+  - [x] 6.V Verify task group 6
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_fox_provider.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/knowledge/fox_provider.py`
+    - [x] Requirements 1.1, 1.2, 1.3, 1.E1, 4.1, 4.2, 4.3, 4.E1, 4.E2, 6.1, 6.2, 6.3, 6.E1, 6.E2 acceptance criteria met
 
-```bash
-uv run pytest tests/unit/knowledge/test_review_reader.py tests/unit/knowledge/test_errata_index.py -v
-```
+- [x] 7. Engine wiring
+  - [x] 7.1 Update `engine/run.py` to construct `FoxKnowledgeProvider`
+    - Import `FoxKnowledgeProvider` from `agent_fox.knowledge.fox_provider`
+    - Read `KnowledgeProviderConfig` from `config.knowledge.provider`
+    - Construct `FoxKnowledgeProvider(knowledge_db, provider_config)` instead of `NoOpKnowledgeProvider`
+    - Add to infrastructure dict as `knowledge_provider`
+    - _Requirements: 10.1, 10.2_
 
-Confirm: review reader returns correct findings, handles missing table, errata
-registration is idempotent.
+  - [x] 7.2 Verify engine import boundary
+    - Confirm engine modules only import from the allowed knowledge module set
+    - `fox_provider` is added to the allowed set (imported only in `run.py`)
+    - _Requirements: 10.3_
 
----
+  - [x] 7.V Verify task group 7
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_fox_provider.py -k "engine or startup or boundary"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/engine/run.py`
+    - [x] Requirements 10.1, 10.2, 10.3 acceptance criteria met
 
-## Task Group 4: Provider Composition and Registration
+- [x] 8. Wiring verification
 
-### Tasks
+  - [x] 8.1 Trace every execution path from design.md end-to-end
+    - Path 1 (retrieval): `_build_prompts` → `FoxKnowledgeProvider.retrieve` → `query_errata` + `query_active_findings` + `query_gotchas` → `_compose_results`
+    - Path 2 (ingestion): `_ingest_knowledge` → `FoxKnowledgeProvider.ingest` → `extract_gotchas` → `store_gotchas`
+    - Path 3 (errata registration): `register_errata` → DuckDB insert
+    - Path 4 (startup): `_setup_infrastructure` → `FoxKnowledgeProvider(...)` → infrastructure dict
+    - For each path, verify the entry point actually calls the next function in the chain
+    - Confirm no function in the chain is a stub
+    - _Requirements: all_
 
-- [ ] Complete `knowledge/fox_provider.py`
-  - Wire `GotchaStore`, `ReviewReader`, `ErrataIndex` into provider
-  - `ingest()`: skip if session_status != "completed", delegate to
-    GotchaStore.extract_and_store()
-  - `retrieve()`: compose results from all three stores, apply max_items cap
-    with priority trimming (errata > reviews > gotchas)
-  - Ref: [115-REQ-6.1], [115-REQ-6.2], [115-REQ-6.3]
+  - [x] 8.2 Verify return values propagate correctly
+    - `FoxKnowledgeProvider.retrieve()` → returned list flows to `assemble_context` in session_lifecycle
+    - `register_errata()` → returned `ErrataEntry` available to caller
+    - `store_gotchas()` → returned count used for logging
+    - `extract_gotchas()` → returned candidates consumed by `store_gotchas`
+    - _Requirements: all_
 
-- [ ] Update `engine/run.py` to construct `FoxKnowledgeProvider` instead of
-  `NoOpKnowledgeProvider`
-  - Ref: [115-REQ-10.1], [115-REQ-10.2]
+  - [x] 8.3 Run the integration smoke tests
+    - All `TS-115-SMOKE-*` tests pass using real components (no stub bypass)
+    - `uv run pytest -q tests/integration/knowledge/test_fox_provider_smoke.py`
+    - _Test Spec: TS-115-SMOKE-1 through TS-115-SMOKE-4_
 
-- [ ] Write tests
-  - TC-6.1 through TC-6.5 in `tests/unit/knowledge/test_fox_provider.py`
-  - TC-10.1, TC-10.2 in `tests/unit/engine/test_provider_registration.py`
+  - [x] 8.4 Stub / dead-code audit
+    - Search all files touched by this spec for: `return []`, `return None` on non-Optional returns, `pass` in non-abstract methods, `# TODO`, `# stub`, `NotImplementedError`
+    - Each hit must be either: (a) justified, or (b) replaced with real implementation
+    - `query_gotchas` returning `[]` for empty spec is intentional (no gotchas)
+    - `query_errata` returning `[]` for empty spec is intentional (no errata)
 
-### Verification
+  - [x] 8.5 Cross-spec entry point verification
+    - Verify `engine/run.py` constructs `FoxKnowledgeProvider` and passes it via factory — this is the entry point from spec 114
+    - Verify `engine/session_lifecycle.py` calls `retrieve()` and `ingest()` via the protocol — these are the call sites defined in spec 114
+    - Confirm `FoxKnowledgeProvider` is called from production code, not just tests
+    - _Requirements: all_
 
-```bash
-uv run pytest tests/unit/knowledge/test_fox_provider.py tests/unit/engine/test_provider_registration.py -v
-```
+  - [x] 8.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] All cross-spec entry points are called from production code
+    - [x] All existing tests still pass: `make check`
 
-Confirm: retrieval composition caps correctly, priority trimming works,
-engine uses FoxKnowledgeProvider by default, import boundary respected.
+### Checkbox States
 
----
+| Syntax   | Meaning                |
+|----------|------------------------|
+| `- [ ]`  | Not started (required) |
+| `- [ ]*` | Not started (optional) |
+| `- [x]`  | Completed              |
+| `- [-]`  | In progress            |
+| `- [~]`  | Queued                 |
 
-## Task Group 5: Integration Testing and Final Verification
+## Traceability
 
-### Tasks
+| Requirement | Test Spec Entry | Implemented By Task | Verified By Test |
+|-------------|-----------------|---------------------|------------------|
+| 115-REQ-1.1 | TS-115-1 | 6.1 | tests/unit/knowledge/test_fox_provider.py::test_protocol_definition |
+| 115-REQ-1.2 | TS-115-2 | 6.1 | tests/unit/knowledge/test_fox_provider.py::test_isinstance_check |
+| 115-REQ-1.3 | TS-115-3 | 6.1 | tests/unit/knowledge/test_fox_provider.py::test_constructor |
+| 115-REQ-1.E1 | TS-115-E1 | 6.1 | tests/unit/knowledge/test_fox_provider.py::test_closed_db |
+| 115-REQ-2.1 | TS-115-4 | 4.1 | tests/unit/knowledge/test_gotcha_extraction.py::test_extraction |
+| 115-REQ-2.2 | TS-115-5 | 4.1 | tests/unit/knowledge/test_gotcha_extraction.py::test_model_tier |
+| 115-REQ-2.3 | TS-115-6 | 4.1 | tests/unit/knowledge/test_gotcha_extraction.py::test_zero_candidates |
+| 115-REQ-2.4 | TS-115-7 | 3.1 | tests/unit/knowledge/test_gotcha_store.py::test_record_fields |
+| 115-REQ-2.5 | TS-115-8 | 4.1 | tests/unit/knowledge/test_gotcha_extraction.py::test_skip_non_completed |
+| 115-REQ-2.E1 | TS-115-E2 | 3.1 | tests/unit/knowledge/test_gotcha_store.py::test_dedup |
+| 115-REQ-2.E2 | TS-115-E3 | 4.1 | tests/unit/knowledge/test_gotcha_extraction.py::test_llm_failure |
+| 115-REQ-2.E3 | TS-115-E4 | 4.1 | tests/unit/knowledge/test_gotcha_extraction.py::test_cap_at_3 |
+| 115-REQ-3.1 | TS-115-9 | 3.1 | tests/unit/knowledge/test_gotcha_store.py::test_query_by_spec |
+| 115-REQ-3.2 | TS-115-10 | 3.1 | tests/unit/knowledge/test_gotcha_store.py::test_ttl_exclusion |
+| 115-REQ-3.3 | TS-115-11 | 3.1 | tests/unit/knowledge/test_gotcha_store.py::test_max_5 |
+| 115-REQ-3.4 | TS-115-12 | 3.1 | tests/unit/knowledge/test_gotcha_store.py::test_gotcha_prefix |
+| 115-REQ-3.E1 | TS-115-E5 | 6.1 | tests/unit/knowledge/test_fox_provider.py::test_no_gotchas |
+| 115-REQ-4.1 | TS-115-13 | 6.3 | tests/unit/knowledge/test_fox_provider.py::test_review_carry_forward |
+| 115-REQ-4.2 | TS-115-14 | 6.2 | tests/unit/knowledge/test_fox_provider.py::test_review_not_limited |
+| 115-REQ-4.3 | TS-115-15 | 6.3 | tests/unit/knowledge/test_fox_provider.py::test_review_prefix |
+| 115-REQ-4.E1 | TS-115-E6 | 6.3 | tests/unit/knowledge/test_fox_provider.py::test_no_findings |
+| 115-REQ-4.E2 | TS-115-E7 | 6.3 | tests/unit/knowledge/test_fox_provider.py::test_missing_review_table |
+| 115-REQ-5.1 | TS-115-16 | 3.2 | tests/unit/knowledge/test_errata_store.py::test_storage |
+| 115-REQ-5.2 | TS-115-17 | 3.2 | tests/unit/knowledge/test_errata_store.py::test_retrieval |
+| 115-REQ-5.3 | TS-115-18 | 3.2 | tests/unit/knowledge/test_errata_store.py::test_prefix |
+| 115-REQ-5.4 | TS-115-19 | 3.2 | tests/unit/knowledge/test_errata_store.py::test_register_unregister |
+| 115-REQ-5.E1 | TS-115-E8 | 6.1 | tests/unit/knowledge/test_fox_provider.py::test_no_errata |
+| 115-REQ-5.E2 | TS-115-E9 | 3.2 | tests/unit/knowledge/test_errata_store.py::test_missing_file |
+| 115-REQ-6.1 | TS-115-20 | 6.2 | tests/unit/knowledge/test_fox_provider.py::test_total_cap |
+| 115-REQ-6.2 | TS-115-21 | 6.2 | tests/unit/knowledge/test_fox_provider.py::test_gotchas_trimmed |
+| 115-REQ-6.3 | TS-115-22 | 6.2 | tests/unit/knowledge/test_fox_provider.py::test_category_order |
+| 115-REQ-6.E1 | TS-115-E10 | 6.2 | tests/unit/knowledge/test_fox_provider.py::test_all_empty |
+| 115-REQ-6.E2 | TS-115-E11 | 6.2 | tests/unit/knowledge/test_fox_provider.py::test_reviews_errata_exceed |
+| 115-REQ-7.1 | TS-115-23 | 3.1 | tests/unit/knowledge/test_gotcha_store.py::test_ttl_config |
+| 115-REQ-7.2 | TS-115-24 | 3.1 | tests/unit/knowledge/test_gotcha_store.py::test_expired_not_deleted |
+| 115-REQ-7.E1 | TS-115-E12 | 3.1 | tests/unit/knowledge/test_gotcha_store.py::test_ttl_zero |
+| 115-REQ-8.1 | TS-115-25 | 2.1 | tests/unit/knowledge/test_fox_provider.py::test_config_fields |
+| 115-REQ-8.2 | TS-115-26 | 2.1 | tests/unit/knowledge/test_fox_provider.py::test_config_nested |
+| 115-REQ-8.3 | TS-115-27 | 2.1 | tests/unit/knowledge/test_fox_provider.py::test_config_extra_ignore |
+| 115-REQ-9.1 | TS-115-28 | 2.2 | tests/unit/knowledge/test_fox_provider.py::test_gotchas_schema |
+| 115-REQ-9.2 | TS-115-29 | 2.2 | tests/unit/knowledge/test_fox_provider.py::test_errata_schema |
+| 115-REQ-9.3 | TS-115-30 | 2.2 | tests/unit/knowledge/test_fox_provider.py::test_migration_framework |
+| 115-REQ-9.4 | TS-115-31 | 2.2 | tests/unit/knowledge/test_fox_provider.py::test_idempotent_migration |
+| 115-REQ-10.1 | TS-115-32 | 7.1 | tests/unit/knowledge/test_fox_provider.py::test_startup_construction |
+| 115-REQ-10.2 | TS-115-33 | 7.1 | tests/unit/knowledge/test_fox_provider.py::test_replaces_noop |
+| 115-REQ-10.3 | TS-115-34 | 7.2 | tests/unit/knowledge/test_fox_provider.py::test_import_boundary |
+| Property 1 | TS-115-P1 | 6.1 | tests/property/knowledge/test_fox_provider_props.py::test_protocol |
+| Property 2 | TS-115-P2 | 3.1 | tests/property/knowledge/test_fox_provider_props.py::test_dedup |
+| Property 3 | TS-115-P3 | 3.1 | tests/property/knowledge/test_fox_provider_props.py::test_ttl |
+| Property 4 | TS-115-P4 | 6.2 | tests/property/knowledge/test_fox_provider_props.py::test_cap |
+| Property 5 | TS-115-P5 | 6.2 | tests/property/knowledge/test_fox_provider_props.py::test_order |
+| Property 6 | TS-115-P6 | 4.1 | tests/property/knowledge/test_fox_provider_props.py::test_extraction_cap |
+| Property 7 | TS-115-P7 | 4.1 | tests/property/knowledge/test_fox_provider_props.py::test_skip_failed |
+| Property 8 | TS-115-P8 | 3.1 | tests/property/knowledge/test_fox_provider_props.py::test_hash |
+| Property 9 | TS-115-P9 | 6.3 | tests/property/knowledge/test_fox_provider_props.py::test_review_prefix |
 
-- [ ] Write integration test: full ingest/retrieve cycle
-  - Create a FoxKnowledgeProvider with a real DuckDB (tmp_path)
-  - Ingest a session with mock LLM returning 2 gotchas
-  - Register an errata entry
-  - Insert a review finding directly in review_findings table
-  - Call retrieve() and verify all three categories appear in correct order
+## Notes
 
-- [ ] Run `make check` — full lint + test suite
-  - Ref: all requirements
-
-### Verification
-
-```bash
-make check
-```
-
-Confirm: all tests pass, no lint errors, no import errors.
-All correctness properties (CP-1 through CP-8) validated.
+- All store modules use the existing DuckDB connection from `KnowledgeDB` — no new database files.
+- The gotcha extraction module requires an LLM call. Tests mock the LLM; smoke tests use a mock LLM that returns canned responses.
+- The `review_store.query_active_findings()` function returns findings for all severities. The provider must filter to critical/major severity after querying.
+- The `errata_store` is independent of LLM calls — purely database-driven.
+- Migration v17 must be idempotent (`CREATE TABLE IF NOT EXISTS`) since the migration framework runs on every database open.
+- The dependency on spec 114 is for the `KnowledgeProvider` protocol and the engine wiring point in `run.py`. This spec adds `FoxKnowledgeProvider` as the concrete implementation.

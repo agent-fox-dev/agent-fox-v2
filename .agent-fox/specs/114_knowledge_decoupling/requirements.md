@@ -39,7 +39,7 @@ providers without modifying engine code.
 #### Acceptance Criteria
 
 [114-REQ-1.1] THE system SHALL define a `KnowledgeProvider` protocol in
-`agent_fox/knowledge/provider.py` with an `ingest(session_id: str, spec_name: str, context: dict) -> None` method and a `retrieve(spec_name: str, task_description: str) -> list[str]` method.
+`agent_fox/knowledge/provider.py` with an `ingest(session_id: str, spec_name: str, context: dict[str, Any]) -> None` method and a `retrieve(spec_name: str, task_description: str) -> list[str]` method.
 
 [114-REQ-1.2] THE `KnowledgeProvider` protocol SHALL be a `typing.Protocol`
 class decorated with `@runtime_checkable`.
@@ -54,8 +54,7 @@ and return None.
 #### Edge Cases
 
 [114-REQ-1.E1] IF a class implements only one of the two protocol methods,
-THEN THE system SHALL raise a `TypeError` at runtime when
-`isinstance(obj, KnowledgeProvider)` is called.
+THEN `isinstance(obj, KnowledgeProvider)` SHALL return `False`.
 
 ### Requirement 2: NoOpKnowledgeProvider Implementation
 
@@ -122,7 +121,8 @@ where `context` includes at minimum `touched_files`, `commit_sha`, and
 
 [114-REQ-4.2] THE engine SHALL NOT import `extract_session_facts`,
 `extract_tool_calls`, `store_causal_links`, `dedup_new_facts`,
-`detect_contradictions`, or any extraction/lifecycle module directly.
+`detect_contradictions`, `extract_and_store_knowledge`,
+`run_background_ingestion`, or any extraction/lifecycle module directly.
 
 [114-REQ-4.3] THE `knowledge_harvest.py` file SHALL be deleted entirely.
 
@@ -140,11 +140,12 @@ knowledge components, so that barrier execution is fast and error-free.
 
 [114-REQ-5.1] THE `barrier.py` file SHALL NOT import or call
 `run_consolidation`, `compact`, `SleepComputer`, `SleepContext`,
-`BundleBuilder`, `ContextRewriter`, or `run_cleanup`.
+`BundleBuilder`, `ContextRewriter`, `run_cleanup`, or `render_summary`.
 
-[114-REQ-5.2] WHEN a sync barrier runs, THE system SHALL still execute
-lifecycle cleanup for session outcomes and rendering, but SHALL NOT execute
-consolidation, compaction, or sleep compute steps.
+[114-REQ-5.2] WHEN a sync barrier runs, THE system SHALL still execute its
+operational steps (worktree verification, develop sync, hot-load, barrier
+callback, config reload) but SHALL NOT execute consolidation, compaction,
+lifecycle cleanup, rendering, or sleep compute steps.
 
 #### Edge Cases
 
@@ -172,6 +173,11 @@ work stream.
 
 [114-REQ-6.4] THE nightshift files `ignore_ingest.py`, `dedup.py`, and
 `ignore_filter.py` SHALL NOT import from removed knowledge modules.
+
+[114-REQ-6.5] THE `ingest_ignore_signals()` function in `ignore_ingest.py`
+SHALL be converted to a no-op (return immediately without storing facts),
+since its `Fact`-based and `_write_fact`-based storage mechanism is removed
+with the knowledge pipeline.
 
 #### Edge Cases
 
@@ -244,8 +250,9 @@ knowledge components to be updated or removed, so that the CLI does not break.
 
 #### Acceptance Criteria
 
-[114-REQ-9.1] THE `cli/onboard.py` command SHALL be removed or disabled, since
-the onboarding pipeline is being deleted.
+[114-REQ-9.1] THE `cli/onboard.py` file SHALL be deleted AND its import and
+command registration SHALL be removed from `cli/app.py`, since the onboarding
+pipeline is being deleted.
 
 [114-REQ-9.2] THE `cli/nightshift.py` SHALL NOT import `EmbeddingGenerator`
 from removed modules.

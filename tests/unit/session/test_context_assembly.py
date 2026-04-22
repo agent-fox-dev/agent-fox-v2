@@ -199,26 +199,20 @@ def schema_conn() -> Generator[duckdb.DuckDBPyConnection, None, None]:
 
 
 class TestCausalContextAssembly:
-    """Tests for select_context_with_causal() using traverse_with_reviews.
+    """Tests for select_context_with_causal() keyword passthrough.
 
-    Requirements: 42-REQ-1.1, 42-REQ-1.2
+    Note: Causal traversal was removed in spec 114 (knowledge decoupling).
+    The function now returns keyword_facts trimmed to max_facts.
+
+    Requirements: 42-REQ-1.1, 42-REQ-1.2 (causal portions removed)
     """
 
-    def test_includes_review_findings_in_result(
+    def test_returns_keyword_facts_trimmed(
         self,
         schema_conn: duckdb.DuckDBPyConnection,
     ) -> None:
-        """TS-42-5: select_context_with_causal includes review findings."""
+        """select_context_with_causal returns keyword_facts trimmed to max_facts."""
         fact_id = _new_id()
-        review_id = _new_id()
-
-        _insert_fact(schema_conn, fact_id, "A test fact", "test_spec")
-        _insert_review_finding(
-            schema_conn,
-            review_id,
-            "test_spec",
-            description="Review issue found",
-        )
 
         keyword_facts = [
             {
@@ -237,10 +231,9 @@ class TestCausalContextAssembly:
             keyword_facts=keyword_facts,
         )
 
-        # The result should include an entry representing the review finding,
-        # distinguishable from regular fact dicts (has a "type" key or similar)
-        has_review = any(isinstance(item, dict) and item.get("type") == "review" for item in result)
-        assert has_review, "Expected review finding in select_context_with_causal result"
+        # After causal removal, the function just passes through keyword_facts
+        assert len(result) == 1
+        assert result[0]["id"] == fact_id
 
 
 # ---------------------------------------------------------------------------
@@ -503,23 +496,20 @@ class TestPriorGroupFindings:
 class TestCacheIntegration:
     """Tests for cache disabled behavior.
 
-    Requirements: 42-REQ-3.4
+    Requirements: 42-REQ-3.4 (superseded by 114-REQ-8.1)
+
+    The fact_cache_enabled field was removed from KnowledgeConfig in
+    spec 114. Old configs specifying it are silently ignored.
     """
 
-    def test_cache_disabled_skips_population(self) -> None:
-        """TS-42-14: cache disabled skips population.
+    def test_old_cache_flag_silently_ignored(self) -> None:
+        """TS-42-14: Old fact_cache_enabled is silently ignored.
 
-        When fact_cache_enabled=False, the orchestrator should not call
-        precompute_fact_rankings(). We verify this by checking config
-        and ensuring the code path respects the flag.
+        The fact caching pipeline was removed in spec 114. Old config
+        files that specify this field are silently ignored.
         """
         from agent_fox.core.config import KnowledgeConfig
 
-        config = KnowledgeConfig(fact_cache_enabled=False)
-        assert config.fact_cache_enabled is False
-
-        # The orchestrator path that checks this flag should skip cache.
-        # This test verifies the config setting; the actual wiring is
-        # tested via integration when the orchestrator is implemented.
-        config_enabled = KnowledgeConfig(fact_cache_enabled=True)
-        assert config_enabled.fact_cache_enabled is True
+        # Should not raise - extra="ignore" silently drops unknown fields
+        KnowledgeConfig(fact_cache_enabled=False)  # type: ignore[call-arg]
+        assert "fact_cache_enabled" not in KnowledgeConfig.model_fields

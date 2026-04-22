@@ -1,3 +1,969 @@
 # Agent-Fox Memory
 
-_No facts have been recorded yet._
+_3174 facts | last updated: 2026-04-22_
+
+## Gotchas
+
+- Auto-formatting tools (like ruff) may rewrite modified files and potentially revert hand-edited changes if they conflict with formatting rules, so verify formatting is applied after manual edits are complete. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - effect: Wiring verification should trace all execution paths end-to-…
+- Lazy imports inside methods (like `from ... import extract_gotchas` inside a function body) correctly bind to mocked versions when patches are applied before the function is called, because module resolution happens at execution time. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - effect: Wiring verification should trace all execution paths end-to-…
+- When deleting modules, check if test files contain string references to deleted module names in docstrings or comments, as import scanners may flag these as false positives. _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+  - effect: A test file scanning for deleted module imports must exclude…
+- Moving imports from function-local scope to module-level is necessary for test patches to work correctly, since mock.patch() targets module-level names, not local variables. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - cause: Lazy imports inside methods (e.g., `from module import funct…
+  - cause: refactor: split god modules into focused single-responsibili…
+  - effect: When replacing a default implementation with a new one acros…
+- Module-level imports in one file (e.g., app.py importing cli/onboard.py) can trigger import errors for other modules that the imported file depends on. Removing problematic imports may be necessary during earlier phases if they block import health, even if the file deletion is scheduled for later. _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+  - cause: Large-scale deletions (27+ modules, multiple directories) be…
+  - effect: When a module has a TYPE_CHECKING import from a deleted modu…
+- Test files that reference deleted file paths in assertions (e.g., checking if files exist) will fail when those files are deleted. Remove the deleted paths from the test assertions during the deletion phase. _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+  - cause: Test files that exclusively test removed functionality shoul…
+- When a module has a TYPE_CHECKING import from a deleted module, the import doesn't execute at runtime but will fail type checkers. Replace TYPE_CHECKING imports with string annotations to avoid type checker failures. _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+  - cause: Module-level imports in one file (e.g., app.py importing cli…
+  - cause: Large-scale deletions (27+ modules, multiple directories) be…
+- Test helpers that call `insert_findings()` multiple times with the same `task_group` value will experience unintended supersession, where later findings replace earlier ones. Use unique identifiers (like finding UUIDs) as task_group values to prevent this. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - cause: Lazy imports inside methods (e.g., `from module import funct…
+- When a DuckDB connection is closed directly via `conn.close()`, the connection object still exists but executing SQL on it raises `duckdb.ConnectionException`. This needs to be caught and wrapped in `KnowledgeStoreError` rather than allowing the raw exception to propagate. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - effect: When a required table like `review_findings` doesn't exist (…
+- When a git stash pop fails due to conflicts, using 'git checkout -- <file>' on the conflicted file restores it to the previous state but does not re-apply the stashed changes; manual re-application is required. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - cause: Formatting fixes that affect linter passes should be applied…
+- The KnowledgeProvider protocol defines ingest() as synchronous, so extraction functions must use ai_call_sync rather than async patterns, even when calling LLMs. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - cause: Circular imports between modules can be resolved by using la…
+  - effect: Tests that patch internal _call_llm functions directly test …
+  - effect: Error handling in extraction functions should catch all exce…
+- MagicMock objects returned by mock.get() are truthy and have arbitrary attributes, causing issues when passed to functions expecting real values (e.g., model tier names); configure mocks to return None or real values for downstream processing. _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+- When patching deferred imports (imports inside function bodies), patch at the source module where the function is defined, not at the consuming module, otherwise the patch won't affect the actual import location. _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+- Unicode case-folding edge cases require casefold() instead of lower() for proper normalization—for example, the ligature 'ﬀ' (U+FB00) expands to 'FF' when uppercased but stays as 'ﬀ' when lowercased, causing identical texts to produce different hashes. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - effect: Property-based tests using hypothesis with st.text() can gen…
+- When migrations increment the version number, the total row count in the schema_version table equals the highest version number; update range checks accordingly (e.g., range(1, 18) for versions 1-17). _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - cause: When adding new database tables via migrations, update both …
+  - effect: Test files with hardcoded version numbers or table counts ne…
+- When adding new database tables via migrations, update both the migration function AND the _BASE_SCHEMA_DDL constant so fresh databases include the new tables. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - effect: When migrations increment the version number, the total row …
+  - effect: Test schema fixtures in conftest.py may need updating when n…
+- Test files that import non-existent modules at the top level will ERROR at collection time rather than FAIL at execution, making it harder to distinguish between import failures and assertion failures. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - cause: When writing failing spec tests for unimplemented modules, u…
+  - effect: Test failures from pre-existing code issues (e.g., engine im…
+  - effect: When writing failing spec tests for unimplemented modules, u…
+  - replaces: When writing failing test suites for unimplemented modules, structure tests to f…
+- Active review findings in the database are identified by `superseded_by IS NULL` rather than a status column, so filtering logic must use this condition rather than explicit status checks. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+- The `from __future__ import annotations` directive causes all annotations to be stored as strings rather than evaluated types, which breaks test assertions that compare against actual type objects like `list[str]` or `None`. _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+  - effect: Test inspection of function signatures (via `inspect.signatu…
+- Protocol compliance tests should assert `isinstance()` returns `False` (not raise `TypeError`) when checking partial protocol implementations that lack required methods. _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+  - cause: When using `typing.Protocol` with `@runtime_checkable`, part…
+- The superseded_by column in memory_facts is actually named 'supersedes' in the DuckDB schema; cold-start count queries must filter on 'supersedes IS NULL'. _(spec: 113_knowledge_effectiveness, confidence: 0.90)_
+  - effect: Cold-start detection in _count_available_facts() returns ear…
+- Pre-existing formatting issues in files modified by prior task groups can cause `make check` failures; fix them as part of the current verification task to keep the codebase clean. _(spec: 114_knowledge_decoupling, confidence: 0.60)_
+  - effect: chore: wiring verification for spec 79 hunt scan dedup (task…
+- Stale Python bytecode in `__pycache__` directories can cause transient test failures after major refactoring; clearing these caches can resolve flaky tests. _(spec: 114_knowledge_decoupling, confidence: 0.60)_
+  - effect: A test file scanning for deleted module imports must exclude…
+- TTL filtering for gotchas using `created_at > (now - TTL days)` means a TTL of 0 excludes gotchas created at the current timestamp due to subsecond timing. Use `created_at >= (now - TTL days)` if inclusion of current-moment inserts is needed. _(spec: 115_pluggable_knowledge, confidence: 0.60)_
+
+## Patterns
+
+- Cross-spec entry point verification requires checking that interface implementations match protocol contracts and that all deprecated modules have been fully purged from dependent specs. _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+  - effect: fix(af-spec): add cross-spec entry point verification to wir…
+- When verifying execution paths end-to-end, trace through actual line numbers in implementation files rather than relying on high-level understanding; this catches subtle wiring issues and confirms return value propagation. _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+  - effect: Wiring verification should trace all execution paths end-to-…
+- Run the full test suite after structural changes (like moving spec files) to verify no regressions, even when changes appear isolated. _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+  - cause: Use `git mv` to move entire spec directories to archive rath…
+- Use `git mv` to move entire spec directories to archive rather than manual file operations, preserving git history for superseded specifications. _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+  - cause: When superseding specifications, add deprecation banners to …
+  - effect: Run the full test suite after structural changes (like movin…
+- When superseding specifications, add deprecation banners to all files in the superseded spec directories (prd.md, requirements.md, design.md, test_spec.md, tasks.md) before archiving them. _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+  - effect: Use `git mv` to move entire spec directories to archive rath…
+- Wiring verification should trace all execution paths end-to-end from design specifications, verify return value propagation through each step, and confirm cross-spec entry points are actually called from production code rather than left as stubs. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - cause: Lazy imports inside methods (like `from ... import extract_g…
+  - cause: When strengthening test assertions, prioritize mocking lower…
+  - effect: Execution path verification checklist: after implementing en…
+- When strengthening test assertions, prioritize mocking lower-level dependencies (like `_call_llm`) rather than intermediate functions to exercise more of the actual code path and improve coverage without reducing safety. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - effect: Wiring verification should trace all execution paths end-to-…
+- Tests referencing removed config fields should be updated to verify the fields are now silently ignored (if using `extra='ignore'`), rather than assuming they still exist on the model. _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+  - cause: When removing Pydantic model fields, use `extra='ignore'` to…
+  - cause: When deleting functionality, distinguish between test files …
+- Hardcode magic numbers (like embedding dimensions) in code when removing config fields, if the value must remain consistent for backward compatibility with existing persistent data structures. _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+  - effect: When removing Pydantic model fields, use `extra='ignore'` to…
+- When removing Pydantic model fields, use `extra='ignore'` to silently accept (and discard) old config values for backward compatibility during migration. _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+  - cause: Hardcode magic numbers (like embedding dimensions) in code w…
+  - effect: Tests referencing removed config fields should be updated to…
+- When a new config field is accessed on a mocked config object, MagicMock automatically creates nested MagicMock attributes that can be passed to real constructors without special handling. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - effect: When replacing a default implementation with a new one acros…
+- When replacing a default implementation with a new one across specs, update both the implementation and all existing tests that assert the old default type, not just the new spec tests. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - cause: Moving imports from function-local scope to module-level is …
+  - cause: When a new config field is accessed on a mocked config objec…
+- Large-scale deletions (27+ modules, multiple directories) benefit from a scan-first approach to identify all import references before deletion, then a systematic fix pass to clean up references. _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+  - effect: Module-level imports in one file (e.g., app.py importing cli…
+  - effect: Test conftest files that import from deleted modules need to…
+- Converting a function to a no-op that previously performed side effects (fact creation, API calls) requires updating all tests that expect those side effects. The tests should verify the new no-op behavior rather than testing the removed functionality. _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+  - effect: When simplifying or removing functionality (e.g., removing c…
+- When simplifying or removing functionality (e.g., removing causal traversal), update affected tests to match the new behavior rather than leaving them as regressions; verify which tests are intentional behavior changes vs. unintended breakage. _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+  - cause: Test files that exclusively test removed functionality shoul…
+  - cause: Converting a function to a no-op that previously performed s…
+- Test files that exclusively test removed functionality should be identified and scheduled for deletion alongside the code removal, not left as failing tests until later cleanup phases. _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+  - effect: Test files that reference deleted file paths in assertions (…
+  - effect: When simplifying or removing functionality (e.g., removing c…
+- When `ingest()` guards execution on session status being 'completed', early return prevents any side effects (like mocked functions being called) for invalid session states, which tests can verify via call assertions. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - effect: Defense-in-depth capping should occur at multiple levels: `e…
+- When a required table like `review_findings` doesn't exist (e.g., in a fresh database before migrations), catch the exception and return an empty result set rather than crashing. This allows graceful degradation. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - cause: When a DuckDB connection is closed directly via `conn.close(…
+  - effect: Review findings should be filtered to only critical and majo…
+- Review findings should be filtered to only critical and major severity levels using `severity IN ('critical', 'major')`, excluding minor and observation levels. Format as `[REVIEW] [severity] category: description`. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - cause: When a required table like `review_findings` doesn't exist (…
+- When composing knowledge results with a `max_items` limit, prioritize errata and reviews (never trim these) and trim gotchas first if total exceeds the cap. This ensures critical findings remain visible while deprioritized gotchas are cut. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - cause: Defense-in-depth capping should occur at multiple levels: `e…
+- Defense-in-depth capping should occur at multiple levels: `extract_gotchas()` caps at 3, and `ingest()` should also cap before calling `store_gotchas()` to ensure no more than 3 gotchas are persisted regardless of what the LLM returns. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - cause: When `ingest()` guards execution on session status being 'co…
+  - effect: When composing knowledge results with a `max_items` limit, p…
+- Pre-existing test failures unrelated to the current task (e.g., engine import isolation tests, backward compat tests) should be documented separately and not conflated with new failures introduced by changes. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - cause: Checkpoint tasks verify that individually-testable store mod…
+- When tests fail due to missing upstream modules that are part of later task groups, it's expected and should not block checkpoint completion if all lower-level store tests pass. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - cause: Checkpoint tasks verify that individually-testable store mod…
+- Checkpoint tasks verify that individually-testable store modules pass their unit tests in isolation before integration layers are built. Failures in integration tests (like provider-level tests) are expected if the integration layer hasn't been implemented yet. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - effect: When tests fail due to missing upstream modules that are par…
+  - effect: Pre-existing test failures unrelated to the current task (e.…
+- Error handling in protocol implementations should use try/except with WARNING-level logging rather than allowing exceptions to propagate, to maintain resilience when knowledge providers fail. _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+  - cause: When tests mock internal methods, patching at the helper fun…
+- Checkpoint tasks should verify that critical findings from prior reviews have been addressed before marking the checkpoint complete, even if the fixes were already implemented in earlier task groups. _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+  - cause: When verifying checkpoint completion, distinguish between te…
+  - cause: Engine rewiring to use a protocol exclusively should be veri…
+- Engine rewiring to use a protocol exclusively should be verified by checking that old modules remain on disk but are no longer imported by the engine codebase, not just that the new protocol is used. _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+  - effect: Checkpoint tasks should verify that critical findings from p…
+- When verifying checkpoint completion, distinguish between tests that should pass at the current stage versus tests targeting future task groups; 'ensure all tests pass' means tests relevant to completed work, not the entire suite. _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+  - effect: Pre-existing test failures from other specifications (e.g., …
+  - effect: Checkpoint tasks should verify that critical findings from p…
+- Tests that patch internal _call_llm functions directly test extraction logic in isolation, while tests depending on higher-level providers (FoxKnowledgeProvider) test end-to-end integration and may fail until those providers are implemented. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - cause: The KnowledgeProvider protocol defines ingest() as synchrono…
+- When implementing LLM response parsing, accepting multiple bullet-point formats (-, *, numbered lists, continuations) is more robust than expecting a single format. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - effect: Error handling in extraction functions should catch all exce…
+- Circular imports between modules can be resolved by using lazy imports inside function bodies rather than at module level, allowing functions to import dependencies only at runtime. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - effect: The KnowledgeProvider protocol defines ingest() as synchrono…
+- Protocol implementations should include try/except blocks around external calls (retrieve/ingest) to gracefully degrade when providers are unavailable; log warnings but continue execution. _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+  - effect: When replacing feature implementations with protocol delegat…
+- When removing functionality from a module (e.g., consolidation from barrier), update integration tests to call the removed functionality directly if testing it independently, rather than patching removed call sites in the consuming module. _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+  - cause: When replacing feature implementations with protocol delegat…
+  - cause: Protocol-based refactoring requires updating all test instan…
+- Protocol-based refactoring requires updating all test instantiation sites when constructor signatures change; search for both direct instantiation and `__new__` bypass patterns used in tests. _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+  - effect: When writing failing spec tests for unimplemented modules, u…
+  - effect: When removing functionality from a module (e.g., consolidati…
+- Cross-module test dependencies where test files import from future task groups require careful stubbing—at minimum, export dataclasses and stub functions to allow imports to succeed even if implementations are incomplete. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - effect: Pre-existing test failures from future task groups should be…
+- When implementing TTL-based filtering with timestamp comparisons, use strict > comparison (not >=) for the cutoff boundary to avoid edge cases where age == ttl could depend on microsecond precision and cause flaky tests. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+- Database migrations should use CREATE TABLE IF NOT EXISTS for idempotency, allowing migrations to be safely re-run without errors. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - effect: Test schema fixtures in conftest.py may need updating when n…
+  - effect: Test files with hardcoded version numbers or table counts ne…
+- When adding nested Pydantic config classes, use ConfigDict(extra='ignore') for forward compatibility with future configuration fields. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+- Test assertions that check table/column existence after migrations should explicitly query the schema (e.g., `conn.execute('PRAGMA table_info(gotchas)').fetchall()`) rather than relying on absence of errors. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - cause: When tests verify that a second migration run is idempotent,…
+- When designing test fixtures that depend on database migrations not yet implemented, structure them to work once migrations are in place—use raw DDL setup that mirrors what the migration will create (with IF NOT EXISTS to prevent conflicts). _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - cause: DuckDB schema testing requires manual table creation via DDL…
+  - effect: When tests verify that a second migration run is idempotent,…
+- When tests verify that a second migration run is idempotent, ensure the test actually checks that expected tables/columns were created, not just that the function doesn't error. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - cause: When designing test fixtures that depend on database migrati…
+  - effect: Test assertions that check table/column existence after migr…
+- DuckDB schema testing requires manual table creation via DDL when migrations don't exist yet, using IF NOT EXISTS clauses to avoid conflicts when migrations later create the same tables. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - effect: When designing test fixtures that depend on database migrati…
+- When writing failing spec tests for unimplemented modules, use local imports within test methods/classes rather than top-level imports to allow independent test verification of partially-implemented features (e.g., config tests can pass without provider implementation). _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - cause: Protocol-based refactoring requires updating all test instan…
+  - cause: Test files that import non-existent modules at the top level…
+  - effect: Cross-module dependencies in test specifications may require…
+  - effect: Test files that import non-existent modules at the top level…
+- A no-op implementation pattern for a protocol with required methods is to have collection-returning methods return empty collections and void-returning methods return `None` immediately. _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+  - effect: When writing failing test suites for unimplemented modules, …
+- When using `typing.Protocol` with `@runtime_checkable`, partial implementations will return `False` from `isinstance()` checks rather than raising a TypeError. _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+  - effect: isinstance() returns False (not TypeError) when checking aga…
+  - effect: Protocol compliance tests should assert `isinstance()` retur…
+- Some tests in a 'failing test group 1' may pass if they verify properties that are already true before implementation begins (e.g., checking that expected files still exist). _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+  - cause: When writing failing test suites for unimplemented modules, …
+  - effect: Spec tests should be written first as failing tests before i…
+- Test suites that verify file deletion should include both positive checks (files are gone) and negative checks (functionality previously provided by deleted files no longer works). _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+- _query_prior_touched_files() queries session_outcomes for prior completed sessions with the same spec_name, deduplicates paths, and limits to 50 most recent to activate the entity signal. _(spec: 113_knowledge_effectiveness, confidence: 0.90)_
+  - effect: RetrievalResult now includes cold_start: bool and token_budg…
+- Audit findings are persisted to review_findings with category='audit' after persist_auditor_results writes the markdown report, and injected via query_active_findings for all coder attempts. _(spec: 113_knowledge_effectiveness, confidence: 0.90)_
+- _substring_supersede() marks facts as superseded if their content is a substring of another fact with equal or higher confidence; _filter_minimum_length() rejects facts shorter than 50 characters at ingestion. _(spec: 113_knowledge_effectiveness, confidence: 0.90)_
+  - cause: feat(113): implement transcript reconstruction and compactio…
+- Cold-start detection in _count_available_facts() returns early with cold_start=True if zero facts match the spec or confidence threshold, skipping all four signal queries. _(spec: 113_knowledge_effectiveness, confidence: 0.90)_
+  - cause: The superseded_by column in memory_facts is actually named '…
+  - effect: RetrievalResult now includes cold_start: bool and token_budg…
+- ingest_git_commits is async and batches commits into groups of 20, skipping messages under 20 characters, with LLM returning structured facts using confidence values high=0.9, medium=0.6, low=0.3. _(spec: 113_knowledge_effectiveness, confidence: 0.90)_
+  - effect: Empty LLM results during git fact extraction store zero fact…
+- reconstruct_transcript() filters agent trace events by node_id and event_type == 'assistant.message', returning concatenated content or empty string if the trace file is missing or has no matches. _(spec: 113_knowledge_effectiveness, confidence: 0.90)_
+  - effect: _extract_knowledge_and_findings falls back to _build_fallbac…
+- Test conftest files that import from deleted modules need to be updated with stub implementations or minimal replacements to keep test collection working during phased refactoring. _(spec: 114_knowledge_decoupling, confidence: 0.60)_
+  - cause: Large-scale deletions (27+ modules, multiple directories) be…
+- Lazy imports inside methods (e.g., `from module import function` inside a function body) will correctly resolve to mocked versions when the test patches the module before the method is called, enabling proper test isolation. _(spec: 115_pluggable_knowledge, confidence: 0.60)_
+  - effect: Test helpers that call `insert_findings()` multiple times wi…
+  - effect: Moving imports from function-local scope to module-level is …
+- When tests mock internal methods, patching at the helper function level (e.g., `assemble_context`) rather than the higher-level method (e.g., `_build_prompts`) allows the real method to execute while validating its dependencies are called correctly. _(spec: 114_knowledge_decoupling, confidence: 0.60)_
+  - effect: Error handling in protocol implementations should use try/ex…
+- Capping results at a limit (e.g., 3 gotchas) should occur at both the extraction function level and the provider ingest level as defense-in-depth, not just one layer. _(spec: 115_pluggable_knowledge, confidence: 0.60)_
+  - cause: Error handling in extraction functions should catch all exce…
+- Application-level deduplication within a single function call must happen before database inserts, even if the database also guards against duplicates—check for existing hashes in memory when processing batches. _(spec: 115_pluggable_knowledge, confidence: 0.60)_
+  - effect: DuckDB supports INSERT OR IGNORE for idempotent upserts with…
+- Property-based tests using Hypothesis should avoid flaky random seeds by using `@settings(derandomize=True)` or similar configuration when deterministic behavior is required. _(spec: 115_pluggable_knowledge, confidence: 0.60)_
+  - effect: test: add failing spec tests for DuckDB hardening (task grou…
+- Property-based tests (Hypothesis) are appropriate for validating that batch operations maintain invariants across varying input sizes and types. _(spec: 114_knowledge_decoupling, confidence: 0.60)_
+- Empty LLM results during git fact extraction store zero facts; LLM failures skip the batch with a warning rather than failing the entire ingestion. _(spec: 113_knowledge_effectiveness, confidence: 0.60)_
+  - cause: ingest_git_commits is async and batches commits into groups …
+- Co-change pattern: .specs/03_session_and_workspace/tasks.md and agent_fox/session/runner.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: .specs/04_orchestrator/tasks.md and agent_fox/engine/orchestrator.py were modified together in 8 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: .specs/05_structured_memory/tasks.md and agent_fox/memory/extraction.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: .specs/09_spec_validation/tasks.md and agent_fox/spec/validator.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: .specs/08_error_autofix/tasks.md and agent_fox/fix/clusterer.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: .specs/10_platform_integration/tasks.md and agent_fox/platform/__init__.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: .specs/11_duckdb_knowledge_store/tasks.md and agent_fox/knowledge/__init__.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/session/context.py and agent_fox/session/runner.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/memory/extraction.py and agent_fox/session/context.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/graph/fast_mode.py and agent_fox/graph/persistence.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/fix/loop.py and agent_fox/fix/spec_gen.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/state.py and agent_fox/engine/sync.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/init.py and agent_fox/ui/theme.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/orchestrator.py and agent_fox/engine/serial.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/orchestrator.py and agent_fox/reporting/standup.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/orchestrator.py and agent_fox/reporting/formatters.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/circuit.py and agent_fox/engine/orchestrator.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/engine/test_sync_props.py and tests/unit/engine/test_parallel.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/parallel.py and agent_fox/engine/sync.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/orchestrator.py and agent_fox/engine/parallel.py were modified together in 11 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/causal.py and agent_fox/knowledge/temporal.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/engine/test_parallel.py and tests/unit/engine/test_state.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/engine/test_circuit.py and tests/unit/engine/test_parallel.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/engine/test_state_props.py and tests/unit/engine/test_parallel.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/engine/test_circuit_props.py and tests/unit/engine/test_parallel.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/orchestrator.py and agent_fox/memory/store.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/parallel.py and agent_fox/memory/store.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/memory/extraction.py and agent_fox/memory/store.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/temporal.py and agent_fox/memory/extraction.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/ingest.py and agent_fox/memory/store.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/embeddings.py and agent_fox/knowledge/search.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/embeddings.py and agent_fox/knowledge/ingest.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/fix/clusterer.py and agent_fox/fix/loop.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/orchestrator.py and agent_fox/engine/state.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/session/runner.py and tests/unit/session/test_runner.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/orchestrator.py and agent_fox/session/runner.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/code.py and agent_fox/session/runner.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/code.py and agent_fox/engine/orchestrator.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/spec/conftest.py and tests/unit/spec/test_parser.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/orchestrator.py and tests/unit/engine/test_orchestrator.py were modified together in 10 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/workspace/git.py and agent_fox/workspace/harvester.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/platform/__init__.py and agent_fox/platform/null.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/platform/__init__.py and agent_fox/platform/factory.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/memory/extraction.py and tests/unit/memory/test_extraction.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/orchestrator.py and agent_fox/engine/sync.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/workspace/harvester.py and agent_fox/workspace/worktree.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/spec/ai_validator.py and tests/unit/spec/test_ai_validator.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/spec/ai_validator.py and agent_fox/spec/validator.py were modified together in 8 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/memory/compaction.py and agent_fox/memory/render.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/temporal.py and tests/unit/knowledge/test_temporal.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/temporal.py and tests/property/knowledge/test_temporal_props.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/temporal.py and agent_fox/reporting/standup.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/graph/fast_mode.py and agent_fox/graph/resolver.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/fix/clusterer.py and agent_fox/knowledge/temporal.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/lint_spec.py and agent_fox/spec/ai_validator.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/lint_spec.py and agent_fox/knowledge/temporal.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/parallel.py and agent_fox/engine/state.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/parallel.py and agent_fox/engine/serial.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/engine/test_parallel.py and tests/unit/engine/test_serial.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/engine/test_orchestrator.py and tests/unit/engine/test_parallel.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/fix/test_loop.py and tests/unit/fix/test_loop_props.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/fix/test_collector_props.py and tests/unit/fix/test_loop_props.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/fix/test_collector_props.py and tests/unit/fix/test_loop.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/fix/test_collector.py and tests/unit/fix/test_loop_props.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/fix/test_collector.py and tests/unit/fix/test_loop.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/fix/test_collector.py and tests/unit/fix/test_collector_props.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/fix/test_clusterer_props.py and tests/unit/fix/test_loop_props.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/fix/test_clusterer_props.py and tests/unit/fix/test_loop.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/fix/test_clusterer_props.py and tests/unit/fix/test_collector_props.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/fix/test_clusterer_props.py and tests/unit/fix/test_collector.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/fix/test_clusterer.py and tests/unit/fix/test_loop_props.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/fix/test_clusterer.py and tests/unit/fix/test_loop.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/fix/test_clusterer.py and tests/unit/fix/test_collector_props.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/fix/test_clusterer.py and tests/unit/fix/test_collector.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/fix/test_clusterer.py and tests/unit/fix/test_clusterer_props.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/workspace/harvester.py and tests/unit/workspace/test_harvester.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/app.py and agent_fox/ui/banner.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/engine/test_sync_props.py and tests/unit/engine/test_sync.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/lint_spec.py and agent_fox/spec/validator.py were modified together in 8 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/memory/test_render.py and tests/unit/memory/test_store.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/memory/test_compaction_props.py and tests/unit/memory/test_store.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/memory/test_compaction_props.py and tests/unit/memory/test_render.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/session/test_prompt_props.py and tests/unit/session/test_context.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: .specs/03_session_and_workspace/requirements.md and .specs/04_orchestrator/requirements.md were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: .specs/01_core_foundation/design.md and .specs/01_core_foundation/requirements.md were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/duckdb_sink.py and agent_fox/knowledge/sink.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/duckdb_sink.py and agent_fox/knowledge/jsonl_sink.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/parallel.py and agent_fox/reporting/standup.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/parallel.py and agent_fox/knowledge/ingest.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/app.py and agent_fox/cli/init.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/lint_spec.py and tests/unit/spec/test_ai_validator.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/lint_spec.py and agent_fox/reporting/standup.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/lint_spec.py and agent_fox/cli/plan.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/engine/test_circuit.py and tests/unit/engine/test_serial.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/engine/test_circuit_props.py and tests/unit/engine/test_serial.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/code.py and agent_fox/cli/lint_spec.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/workspace/test_harvester.py and tests/unit/workspace/test_worktree.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/session/test_runner.py and tests/unit/workspace/test_worktree.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/session/test_runner.py and tests/unit/workspace/test_harvester.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/serial.py and tests/unit/engine/test_serial.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/session/test_skeptic.py and tests/unit/session/test_verifier.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/ui/events.py and tests/unit/ui/test_events.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/core/config.py and pyproject.toml were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: docs/cli-reference.md and tests/integration/test_json_flag.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/lint_spec.py and tests/integration/test_lint_spec.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/app.py and tests/integration/test_json_flag.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/app.py and docs/cli-reference.md were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: .specs/61_night_shift/tasks.md and agent_fox/nightshift/engine.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/plan.py and agent_fox/graph/types.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/_templates/prompts/skeptic.md and agent_fox/_templates/prompts/verifier.md were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/code.py and agent_fox/engine/parallel.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/core/config.py and agent_fox/session/archetypes.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/session/test_review_context.py and tests/unit/session/test_skeptic.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/session/conftest.py and tests/unit/workspace/test_worktree.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/session/conftest.py and tests/unit/session/test_context.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/fix/test_clusterer.py and tests/unit/fix/test_detector.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/engine/test_post_harvest.py and tests/unit/workspace/test_git_ensure.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/engine/test_circuit.py and tests/unit/engine/test_state.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/engine/test_circuit.py and tests/unit/engine/test_orchestrator.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/cli/test_knowledge_wiring.py and tests/unit/engine/test_sync_facts_to_duckdb.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/ui/test_progress_props.py and tests/unit/ui/test_progress.py were modified together in 9 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/ui/test_progress_props.py and tests/unit/ui/test_events.py were modified together in 8 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/ui/test_banner_props.py and tests/unit/ui/test_banner.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/reporting/test_standup_fmt_props.py and tests/unit/reporting/test_standup_formatting.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/platform/test_overhaul_props.py and tests/unit/engine/test_post_harvest.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/knowledge/test_search_props.py and tests/unit/knowledge/test_embeddings.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/knowledge/test_dual_write_props.py and tests/unit/knowledge/test_dual_write.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/hooks/test_security_props.py and tests/unit/hooks/test_security.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/graph/test_fast_mode_props.py and tests/unit/graph/test_fast_mode.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/engine/test_sync_props.py and tests/unit/engine/test_state.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/engine/test_sync_props.py and tests/unit/engine/test_orchestrator.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/engine/test_sync_props.py and tests/unit/engine/test_circuit.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/engine/test_state_props.py and tests/unit/engine/test_circuit.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/engine/test_state_props.py and tests/property/engine/test_sync_props.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/engine/test_circuit_props.py and tests/unit/engine/test_state.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/engine/test_circuit_props.py and tests/unit/engine/test_orchestrator.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/engine/test_circuit_props.py and tests/unit/engine/test_circuit.py were modified together in 8 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/engine/test_circuit_props.py and tests/property/engine/test_sync_props.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/engine/test_circuit_props.py and tests/property/engine/test_state_props.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/core/test_config_gen_props.py and tests/unit/core/test_config_gen.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/cli/test_code_props.py and tests/unit/cli/test_code.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/integration/test_init.py and tests/unit/core/test_config.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/spec/parser.py and tests/unit/spec/test_parser.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/spec/discovery.py and agent_fox/spec/parser.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/session/prompt.py and tests/unit/session/test_review_context.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/session/prompt.py and tests/unit/session/test_context.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/session/context.py and agent_fox/workspace/git.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/session/context.py and agent_fox/session/prompt.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/routing/assessor.py and agent_fox/spec/ai_validation.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/routing/assessor.py and agent_fox/session/prompt.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/reporting/standup.py and tests/unit/knowledge/test_temporal.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/reporting/formatters.py and tests/unit/reporting/test_standup_formatting.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/reporting/formatters.py and tests/property/reporting/test_standup_fmt_props.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/store.py and agent_fox/reporting/status.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/ingest.py and agent_fox/reporting/standup.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/ingest.py and agent_fox/reporting/formatters.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/ingest.py and agent_fox/knowledge/search.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/db.py and tests/property/knowledge/test_db_props.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/db.py and agent_fox/knowledge/migrations.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/causal.py and tests/unit/knowledge/test_temporal.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/causal.py and tests/unit/knowledge/test_extraction_causal.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/causal.py and tests/unit/knowledge/test_causal.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/causal.py and agent_fox/session/context.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/causal.py and agent_fox/reporting/standup.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/graph/types.py and agent_fox/spec/parser.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/graph/types.py and agent_fox/spec/discovery.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/graph/resolver.py and agent_fox/spec/parser.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/graph/resolver.py and agent_fox/spec/discovery.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/graph/resolver.py and agent_fox/reporting/status.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/graph/resolver.py and agent_fox/graph/types.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/graph/persistence.py and agent_fox/spec/parser.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/graph/persistence.py and agent_fox/spec/discovery.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/graph/persistence.py and agent_fox/reporting/formatters.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/graph/persistence.py and agent_fox/knowledge/ingest.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/fix/clusterer.py and agent_fox/routing/assessor.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/fix/clusterer.py and agent_fox/fix/spec_gen.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/fix/analyzer.py and tests/unit/fix/test_analyzer.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/session_lifecycle.py and tests/unit/knowledge/test_dual_write.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/session_lifecycle.py and tests/unit/engine/test_post_harvest.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/session_lifecycle.py and agent_fox/workspace/git.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/session_lifecycle.py and agent_fox/reporting/status.py were modified together in 10 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/session_lifecycle.py and agent_fox/reporting/standup.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/reset.py and agent_fox/reporting/formatters.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/reset.py and agent_fox/knowledge/store.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/knowledge_harvest.py and tests/unit/cli/test_knowledge_wiring.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/knowledge_harvest.py and agent_fox/spec/ai_validation.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/knowledge_harvest.py and agent_fox/reporting/status.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/knowledge_harvest.py and agent_fox/fix/clusterer.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/engine.py and agent_fox/graph/builder.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/circuit.py and tests/unit/engine/test_orchestrator.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/circuit.py and tests/unit/engine/test_circuit.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/circuit.py and tests/property/engine/test_circuit_props.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/core/models.py and tests/unit/core/test_models.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/core/models.py and agent_fox/reporting/status.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/core/models.py and agent_fox/engine/session_lifecycle.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/core/config.py and tests/property/core/test_config_props.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/core/config.py and tests/integration/test_init.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/core/config.py and agent_fox/session/session.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/core/config.py and agent_fox/core/models.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/status.py and agent_fox/reporting/formatters.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/reset.py and agent_fox/reporting/formatters.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/fix.py and agent_fox/reporting/status.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/fix.py and agent_fox/reporting/standup.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/fix.py and agent_fox/knowledge/causal.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/nightshift/engine.py and agent_fox/nightshift/finding.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/graph/test_analyzer_props.py and tests/unit/graph/test_analyzer.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/graph/persistence.py and agent_fox/graph/resolver.py were modified together in 8 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/core/config.py and agent_fox/core/config_schema.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/ui/test_events.py and tests/unit/ui/test_progress.py were modified together in 8 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/ui/progress.py and tests/unit/ui/test_events.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/ui/progress.py and tests/unit/ui/test_progress.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/review_parser.py and agent_fox/engine/session_lifecycle.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/engine.py and tests/unit/cli/test_knowledge_wiring.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/knowledge/conftest.py and tests/unit/knowledge/test_duckdb_sink.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/core/test_config_gen.py and tests/unit/engine/test_hard_reset.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/cli/test_code.py and tests/unit/session/test_runner.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/platform/test_overhaul_props.py and tests/unit/platform/test_platform_config.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/platform/test_overhaul_props.py and tests/unit/core/test_config_gen.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/planning/test_predictive_props.py and tests/unit/routing/test_duration.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/integration/test_json_flag.py and tests/property/cli/test_json_props.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/integration/nightshift/test_fix_flow.py and tests/unit/nightshift/test_scheduler.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/integration/nightshift/test_fix_flow.py and tests/property/nightshift/test_nightshift_props.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/routing/assessor.py and tests/unit/session/test_review_context.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/extraction.py and agent_fox/routing/assessor.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/session_lifecycle.py and tests/unit/session/test_runner.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/session_lifecycle.py and tests/unit/reporting/test_cost_reporting.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/session_lifecycle.py and tests/unit/engine/test_sync_facts_to_duckdb.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/knowledge_harvest.py and tests/unit/engine/test_sync_facts_to_duckdb.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/knowledge_harvest.py and agent_fox/routing/assessor.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/knowledge_harvest.py and agent_fox/knowledge/extraction.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/engine.py and tests/unit/engine/test_session_lifecycle.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/engine.py and agent_fox/session/session.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/engine.py and agent_fox/routing/assessor.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/engine.py and agent_fox/engine/knowledge_harvest.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/session_lifecycle.py and agent_fox/session/session.py were modified together in 13 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/session_lifecycle.py and agent_fox/session/backends/claude.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/session_lifecycle.py and agent_fox/engine/state.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/result_handler.py and agent_fox/session/session.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/review_store.py and tests/unit/knowledge/test_review_store.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/review_store.py and agent_fox/session/review_parser.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/migrations.py and agent_fox/knowledge/review_store.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/knowledge/test_sink_props.py and tests/unit/knowledge/test_duckdb_sink.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/nightshift/test_nightshift_props.py and tests/unit/nightshift/test_scheduler.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/workspace/worktree.py and tests/unit/workspace/test_worktree.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/session/session.py and tests/unit/session/test_runner.py were modified together in 9 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/session/session.py and tests/unit/session/backends/test_claude.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/session/backends/protocol.py and agent_fox/session/session.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/session/backends/claude.py and tests/unit/session/backends/test_claude.py were modified together in 10 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/session/backends/claude.py and agent_fox/session/session.py were modified together in 9 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/session/backends/claude.py and agent_fox/session/backends/protocol.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/knowledge/test_duckdb_hardening.py and tests/unit/reporting/test_cost_reporting.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/routing/assessor.py and tests/unit/reporting/test_cost_reporting.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/routing/assessor.py and tests/unit/knowledge/test_duckdb_hardening.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/status.py and tests/property/planning/test_predictive_props.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/test_routing/test_integration.py and tests/test_routing/test_storage.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/test_routing/test_calibration.py and tests/test_routing/test_integration.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/test_routing/test_assessor.py and tests/test_routing/test_storage.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/test_routing/test_assessor.py and tests/test_routing/test_integration.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/test_routing/test_assessor.py and tests/test_routing/test_calibration.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: docs/memory.md and uv.lock were modified together in 8 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: .agent-fox/state.jsonl and uv.lock were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/integration/test_spec_gen_lifecycle.py and tests/unit/nightshift/test_spec_gen.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/ingest.py and tests/unit/knowledge/test_ingest.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/app.py and agent_fox/cli/code.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/spec/test_fixer.py and tests/unit/spec/test_validator.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/spec/test_ai_validator.py and tests/unit/spec/test_validator.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/spec/test_ai_validator.py and tests/unit/spec/test_stale_dependency.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/spec/test_ai_criteria_fix.py and tests/unit/spec/test_stale_dependency.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/spec/test_ai_criteria_fix.py and tests/unit/spec/test_ai_validator.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/fix/test_clusterer.py and tests/unit/spec/test_ai_validator.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/spec/test_validator_props.py and tests/unit/spec/test_validator.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/spec/test_validator_props.py and tests/unit/spec/test_ai_validator.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/spec/test_ai_criteria_fix_props.py and tests/unit/spec/test_stale_dependency.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/spec/test_ai_criteria_fix_props.py and tests/unit/spec/test_ai_validator.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/spec/test_ai_criteria_fix_props.py and tests/unit/spec/test_ai_criteria_fix.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/integration/test_ai_criteria_fix.py and tests/unit/spec/test_stale_dependency.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/integration/test_ai_criteria_fix.py and tests/unit/spec/test_ai_validator.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/integration/test_ai_criteria_fix.py and tests/unit/spec/test_ai_criteria_fix.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/integration/test_ai_criteria_fix.py and tests/property/spec/test_ai_criteria_fix_props.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/spec/validator.py and tests/unit/spec/test_validator.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/spec/validator.py and tests/unit/spec/test_fixer.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/spec/validator.py and tests/unit/spec/test_ai_validator.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/spec/fixer.py and tests/unit/spec/test_fixer.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/spec/fixer.py and agent_fox/spec/validator.py were modified together in 8 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/nightshift/critic.py and agent_fox/nightshift/triage.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/nightshift/critic.py and agent_fox/nightshift/staleness.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/extraction.py and agent_fox/spec/ai_validation.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/fix/clusterer.py and tests/unit/fix/test_clusterer.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/fix/clusterer.py and agent_fox/spec/ai_validation.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/fix/clusterer.py and agent_fox/knowledge/extraction.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/engine.py and agent_fox/spec/fixer.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/graph/persistence.py and agent_fox/graph/types.py were modified together in 10 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/sdk_params.py and agent_fox/engine/session_lifecycle.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/parallel.py and agent_fox/engine/session_lifecycle.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/engine.py and agent_fox/session/prompt.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/engine.py and agent_fox/engine/parallel.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: .agent-fox/config.toml and agent_fox/core/config.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/graph/test_builder_auditor.py and tests/unit/session/test_auditor.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/graph/test_builder_archetypes.py and tests/unit/session/test_prompt_archetype.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/graph/test_builder_archetypes.py and tests/unit/session/test_archetypes.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/graph/test_builder_archetypes.py and tests/unit/oracle/test_registry.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/engine/test_session_lifecycle.py and tests/unit/session/test_prompt_archetype.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/engine/test_retry_predecessor.py and tests/unit/session/test_skeptic.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/engine/test_retry_predecessor.py and tests/unit/session/test_prompt_archetype.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/core/test_config_gen.py and tests/unit/graph/test_builder_archetypes.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/core/test_config_archetypes.py and tests/unit/graph/test_builder_archetypes.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/spec/parser.py and tests/unit/session/test_archetypes.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/spec/parser.py and tests/unit/graph/test_builder_archetypes.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/session/prompt.py and tests/unit/test_archetype_tiers.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/session/prompt.py and tests/unit/session/test_skeptic.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/session/prompt.py and tests/unit/graph/test_builder_archetypes.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/session/prompt.py and tests/unit/engine/test_retry_predecessor.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/session/prompt.py and tests/property/test_archetype_tiers_props.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/session/prompt.py and agent_fox/spec/parser.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/graph/injection.py and tests/property/engine/test_review_persistence_props.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/graph/builder.py and tests/unit/session/test_archetypes.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/graph/builder.py and tests/unit/graph/test_builder_archetypes.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/graph/builder.py and agent_fox/spec/parser.py were modified together in 9 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/graph/builder.py and agent_fox/session/prompt.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/session_lifecycle.py and tests/unit/test_predecessor_escalation.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/session_lifecycle.py and tests/unit/test_archetype_tiers.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/session_lifecycle.py and tests/unit/session/test_prompt_archetype.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/session_lifecycle.py and tests/property/engine/test_review_persistence_props.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/session_lifecycle.py and agent_fox/session/prompt.py were modified together in 12 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/result_handler.py and agent_fox/engine/session_lifecycle.py were modified together in 8 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/core/config_gen.py and tests/unit/graph/test_builder_archetypes.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/core/config_gen.py and tests/unit/core/test_config_archetypes.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/core/config_gen.py and agent_fox/session/prompt.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/core/config.py and tests/unit/test_sdk_config.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/core/config.py and tests/unit/session/test_archetypes.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/core/config.py and tests/unit/graph/test_builder_archetypes.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/core/config.py and tests/unit/core/test_config_archetypes.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/core/config.py and agent_fox/spec/parser.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/core/config.py and agent_fox/graph/builder.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/session/test_security_props.py and tests/unit/session/test_security.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/core/test_config_gen.py and tests/unit/engine/test_config_reload.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/session_lifecycle.py and tests/unit/engine/test_config_reload.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/core/config_gen.py and agent_fox/engine/engine.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/core/config.py and tests/property/core/test_models_props.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/core/config.py and agent_fox/core/config_gen.py were modified together in 10 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/hooks/test_runner_props.py and tests/unit/hooks/test_runner.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/knowledge/conftest.py and tests/unit/knowledge/test_db.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/knowledge/test_search_props.py and tests/unit/knowledge/conftest.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/knowledge/test_knowledge_context_props.py and tests/unit/session/test_context_assembly.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/knowledge/test_db_props.py and tests/unit/knowledge/conftest.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/migrations.py and tests/unit/knowledge/conftest.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/jsonl_sink.py and agent_fox/knowledge/sink.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/session_lifecycle.py and agent_fox/knowledge/store.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/session_lifecycle.py and agent_fox/knowledge/compaction.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/fact_cache.py and agent_fox/knowledge/store.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: .agent-fox/state.jsonl and docs/memory.md were modified together in 64 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: .agent-fox/memory.jsonl and docs/memory.md were modified together in 73 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/knowledge/test_confidence_filter.py and tests/unit/knowledge/test_consolidation_store.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/knowledge/test_knowledge_context_props.py and tests/unit/knowledge/test_knowledge_context.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/knowledge/test_knowledge_context_props.py and tests/unit/knowledge/test_consolidation_store.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/knowledge/test_knowledge_context_props.py and tests/unit/knowledge/test_confidence_filter.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/knowledge/test_knowledge_context_props.py and tests/unit/engine/test_fact_cache.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/knowledge/test_consolidation_props.py and tests/unit/knowledge/test_consolidation_store.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/cli/test_knowledge_wiring.py and tests/unit/engine/test_session_lifecycle.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/cli/test_code.py and tests/unit/cli/test_knowledge_wiring.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/session/test_archetypes.py and tests/unit/session/test_prompt_archetype.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/session/test_prompt_props.py and tests/unit/session/test_prompt.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/session/prompt.py and tests/unit/session/test_prompt_archetype.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/session/prompt.py and tests/unit/session/test_archetypes.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/session/prompt.py and tests/property/session/test_prompt_props.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/archetypes.py and tests/unit/session/test_archetypes.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/nightshift/test_nightshift_callbacks.py and tests/unit/nightshift/test_nightshift_display.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/nightshift/test_fix_label_removal.py and tests/unit/nightshift/test_fix_pipeline.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/integration/nightshift/test_nightshift_smoke.py and tests/unit/nightshift/test_fix_label_removal.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/nightshift/triage.py and tests/unit/test_fix_ordering.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/nightshift/staleness.py and tests/unit/test_fix_ordering.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/nightshift/staleness.py and agent_fox/nightshift/triage.py were modified together in 8 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/nightshift/engine.py and tests/unit/nightshift/test_nightshift_display.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/nightshift/engine.py and agent_fox/nightshift/triage.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/engine/test_orchestrator.py and tests/unit/engine/test_state.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/engine/test_state_props.py and tests/unit/engine/test_state.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/engine/test_state_props.py and tests/unit/engine/test_orchestrator.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/state.py and tests/unit/engine/test_state.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/result_handler.py and tests/unit/engine/test_auditor_circuit_breaker.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/engine.py and tests/unit/reporting/test_cost_reporting.py were modified together in 8 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/engine.py and tests/unit/engine/test_state_merge.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/engine.py and agent_fox/engine/result_handler.py were modified together in 10 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/status.py and agent_fox/engine/result_handler.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: .specs/107_additional_language_analyzers/tasks.md and uv.lock were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/nightshift/test_fix_pipeline_triage.py and tests/unit/nightshift/test_nightshift_callbacks.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/nightshift/test_fix_pipeline.py and tests/unit/nightshift/test_nightshift_callbacks.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/nightshift/test_fix_pipeline.py and tests/unit/nightshift/test_fix_pipeline_triage.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/integration/nightshift/test_nightshift_smoke.py and tests/unit/nightshift/test_nightshift_callbacks.py were modified together in 9 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/integration/nightshift/test_nightshift_smoke.py and tests/unit/nightshift/test_fix_pipeline_triage.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/integration/nightshift/test_nightshift_smoke.py and tests/unit/nightshift/test_fix_pipeline.py were modified together in 8 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/integration/nightshift/test_fix_pipeline_smoke.py and tests/unit/nightshift/test_nightshift_callbacks.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/integration/nightshift/test_fix_pipeline_smoke.py and tests/unit/nightshift/test_fix_pipeline_triage.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/integration/nightshift/test_fix_pipeline_smoke.py and tests/integration/nightshift/test_nightshift_smoke.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/integration/nightshift/test_fix_flow.py and tests/unit/nightshift/test_nightshift_callbacks.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/integration/nightshift/test_fix_flow.py and tests/unit/nightshift/test_fix_pipeline_triage.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/integration/nightshift/test_fix_flow.py and tests/unit/nightshift/test_fix_pipeline.py were modified together in 11 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/integration/nightshift/test_fix_flow.py and tests/integration/nightshift/test_nightshift_smoke.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/integration/nightshift/test_fix_flow.py and tests/integration/nightshift/test_fix_pipeline_smoke.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/integration/nightshift/test_cost_tracking_smoke.py and tests/unit/nightshift/test_cost_tracking.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/nightshift/fix_pipeline.py and tests/unit/nightshift/test_fix_pipeline_triage.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/nightshift/fix_pipeline.py and tests/integration/nightshift/test_nightshift_smoke.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/nightshift/fix_pipeline.py and tests/integration/nightshift/test_fix_flow.py were modified together in 9 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/platform/github.py and agent_fox/platform/protocol.py were modified together in 10 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/nightshift/fix_pipeline.py and agent_fox/platform/github.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/nightshift/engine.py and tests/property/nightshift/test_nightshift_props.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/nightshift/engine.py and agent_fox/platform/github.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/nightshift/engine.py and agent_fox/nightshift/staleness.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: .agent-fox/config.toml and agent_fox/core/config_gen.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/test_dump.py and tests/unit/test_dump_db.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/reporting/standup.py and tests/unit/reporting/test_formatters.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/reporting/formatters.py and tests/unit/reporting/test_formatters.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/reporting/formatters.py and agent_fox/reporting/status.py were modified together in 12 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/reporting/formatters.py and agent_fox/reporting/standup.py were modified together in 16 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/barrier.py and agent_fox/engine/engine.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/core/config.py and tests/unit/core/test_config.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/init.py and tests/integration/test_init.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/platform/github.py and tests/unit/platform/test_github_rest.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/extraction.py and agent_fox/nightshift/critic.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/app.py and tests/unit/cli/test_app.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/nightshift/fix_pipeline.py and tests/unit/nightshift/test_fix_label_removal.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/reporting/test_standup.py and tests/unit/reporting/test_status.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/graph/test_builder_archetypes.py and tests/unit/test_archetype_tiers.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/engine/test_retry_predecessor.py and tests/unit/graph/test_builder_archetypes.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/engine/test_reset.py and tests/unit/reporting/test_status.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/engine/test_reset.py and tests/unit/reporting/test_standup.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/engine/test_orchestrator.py and tests/unit/reporting/test_standup_formatting.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/engine/test_hard_reset_props.py and tests/unit/engine/test_reset_spec.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/engine/test_hard_reset.py and tests/unit/engine/test_retry_predecessor.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/engine/test_hard_reset.py and tests/unit/engine/test_reset_spec.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/engine/test_hard_reset.py and tests/unit/engine/test_hard_reset_props.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/engine/test_config_reload.py and tests/unit/engine/test_hard_reset.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/engine/test_auditor_circuit_breaker.py and tests/unit/test_predecessor_escalation.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/engine/test_auditor_circuit_breaker.py and tests/unit/test_archetype_tiers.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/engine/test_auditor_circuit_breaker.py and tests/unit/engine/test_retry_predecessor.py were modified together in 9 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/engine/test_auditor_circuit_breaker.py and tests/unit/engine/test_hard_reset.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/cli/test_reset_spec.py and tests/unit/engine/test_reset_spec.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/cli/test_reset_spec.py and tests/unit/engine/test_hard_reset_props.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/cli/test_reset_spec.py and tests/unit/engine/test_hard_reset.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/cli/test_reset.py and tests/unit/engine/test_reset.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/cli/test_code.py and tests/unit/engine/test_orchestrator.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/reporting/test_status_props.py and tests/unit/reporting/test_status.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/reporting/test_status_props.py and tests/unit/reporting/test_standup.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/reporting/test_status_props.py and tests/unit/engine/test_reset.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/reporting/test_reset_props.py and tests/unit/reporting/test_status.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/reporting/test_reset_props.py and tests/unit/reporting/test_standup.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/reporting/test_reset_props.py and tests/unit/engine/test_reset.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/reporting/test_reset_props.py and tests/property/reporting/test_status_props.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/engine/test_reset_spec_props.py and tests/unit/engine/test_reset_spec.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/engine/test_config_reload_props.py and tests/unit/engine/test_hard_reset.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/engine/test_config_reload_props.py and tests/unit/engine/test_config_reload.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/integration/test_json_flag.py and tests/unit/cli/test_code.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: docs/memory.md and tests/unit/engine/test_block_budget.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/reporting/status.py and tests/unit/reporting/test_status.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/reporting/status.py and tests/unit/reporting/test_standup.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/reporting/status.py and tests/unit/reporting/conftest.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/reporting/standup.py and tests/unit/reporting/test_status.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/reporting/standup.py and tests/unit/reporting/test_standup_formatting.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/reporting/standup.py and tests/unit/reporting/test_standup.py were modified together in 13 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/reporting/standup.py and tests/unit/reporting/conftest.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/reporting/standup.py and tests/unit/engine/test_reset.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/reporting/standup.py and tests/unit/cli/test_code.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/reporting/standup.py and agent_fox/reporting/status.py were modified together in 15 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/migrations.py and agent_fox/reporting/standup.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/graph/persistence.py and agent_fox/reporting/status.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/graph/persistence.py and agent_fox/reporting/standup.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/state.py and agent_fox/reporting/status.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/state.py and agent_fox/reporting/standup.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/state.py and agent_fox/graph/persistence.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/reset.py and tests/unit/reporting/test_standup.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/reset.py and tests/unit/engine/test_reset_spec.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/reset.py and tests/unit/engine/test_reset.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/reset.py and tests/unit/engine/test_hard_reset_props.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/reset.py and tests/unit/engine/test_hard_reset.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/reset.py and tests/unit/cli/test_reset_spec.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/reset.py and agent_fox/reporting/status.py were modified together in 12 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/reset.py and agent_fox/reporting/standup.py were modified together in 10 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/reset.py and agent_fox/graph/persistence.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/reset.py and agent_fox/engine/state.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/engine.py and tests/unit/test_predecessor_escalation.py were modified together in 8 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/engine.py and tests/unit/test_archetype_tiers.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/engine.py and tests/unit/engine/test_retry_predecessor.py were modified together in 10 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/engine.py and tests/unit/engine/test_reset_spec.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/engine.py and tests/unit/engine/test_hard_reset_props.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/engine.py and tests/unit/engine/test_hard_reset.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/engine.py and tests/unit/engine/test_config_reload.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/engine.py and tests/unit/engine/test_auditor_circuit_breaker.py were modified together in 8 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/engine.py and tests/unit/cli/test_reset_spec.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/engine.py and tests/unit/cli/test_code.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/engine.py and tests/property/engine/test_end_of_run_discovery_props.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/engine.py and tests/property/engine/test_config_reload_props.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/engine.py and agent_fox/reporting/status.py were modified together in 10 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/engine.py and agent_fox/reporting/standup.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/status.py and tests/unit/test_predecessor_escalation.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/status.py and tests/unit/engine/test_retry_predecessor.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/status.py and tests/unit/engine/test_auditor_circuit_breaker.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/status.py and agent_fox/engine/engine.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/standup.py and agent_fox/cli/status.py were modified together in 8 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/reset.py and agent_fox/reporting/status.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/reset.py and agent_fox/reporting/standup.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/reset.py and agent_fox/graph/persistence.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/reset.py and agent_fox/engine/state.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/reset.py and agent_fox/engine/reset.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/reset.py and agent_fox/cli/status.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/reset.py and agent_fox/cli/standup.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/plan.py and tests/unit/cli/test_code.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/plan.py and agent_fox/reporting/status.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/plan.py and agent_fox/reporting/standup.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/plan.py and agent_fox/graph/persistence.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/code.py and tests/unit/engine/test_orchestrator.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/code.py and tests/unit/cli/test_code.py were modified together in 13 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/code.py and tests/integration/test_json_flag.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/code.py and agent_fox/reporting/status.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/code.py and agent_fox/reporting/standup.py were modified together in 8 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/state.py and agent_fox/knowledge/migrations.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/state.py and agent_fox/knowledge/ingest.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/lang/registry.py and uv.lock were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/lang/registry.py and pyproject.toml were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/workspace/git.py and tests/unit/workspace/test_harvester.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/workspace/git.py and agent_fox/workspace/worktree.py were modified together in 9 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/nightshift.py and agent_fox/nightshift/engine.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/session/test_steering_props.py and tests/unit/cli/test_steering.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/integration/test_steering.py and tests/unit/cli/test_steering.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/integration/test_steering.py and tests/property/session/test_steering_props.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/session_lifecycle.py and tests/unit/core/test_config_gen.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/run.py and agent_fox/engine/session_lifecycle.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/reset.py and agent_fox/session/context.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/reset.py and agent_fox/engine/session_lifecycle.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/engine.py and tests/unit/core/test_config_gen.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/engine.py and agent_fox/engine/session_lifecycle.py were modified together in 21 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/engine.py and agent_fox/engine/run.py were modified together in 8 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/engine.py and agent_fox/engine/reset.py were modified together in 10 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/engine.py and agent_fox/engine/hot_load.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/core/config.py and tests/unit/core/test_config_gen.py were modified together in 11 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/core/config.py and agent_fox/engine/session_lifecycle.py were modified together in 11 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/plan.py and agent_fox/engine/run.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/plan.py and agent_fox/engine/engine.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/nightshift.py and agent_fox/engine/engine.py were modified together in 8 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/init.py and agent_fox/workspace/init_project.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/init.py and agent_fox/engine/session_lifecycle.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/init.py and agent_fox/core/config.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/init.py and agent_fox/cli/plan.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/code.py and agent_fox/engine/session_lifecycle.py were modified together in 14 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/code.py and agent_fox/engine/run.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/code.py and agent_fox/engine/reset.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/code.py and agent_fox/engine/engine.py were modified together in 18 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/cli/code.py and agent_fox/cli/plan.py were modified together in 10 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/_templates/skills/af-spec and agent_fox/_templates/skills/af-spec-audit were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/_templates/skills/af-reverse-engineer and agent_fox/_templates/skills/af-spec-audit were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/_templates/skills/af-reverse-engineer and agent_fox/_templates/skills/af-spec were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/_templates/skills/af-code-simplifier and agent_fox/_templates/skills/af-spec-audit were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/_templates/skills/af-code-simplifier and agent_fox/_templates/skills/af-spec were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/_templates/skills/af-code-simplifier and agent_fox/_templates/skills/af-reverse-engineer were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/_templates/skills/af-adr and agent_fox/_templates/skills/af-spec-audit were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/_templates/skills/af-adr and agent_fox/_templates/skills/af-spec were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/_templates/skills/af-adr and agent_fox/_templates/skills/af-reverse-engineer were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/_templates/skills/af-adr and agent_fox/_templates/skills/af-code-simplifier were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/_templates/agents_md.md and agent_fox/_templates/skills/af-spec were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/test_mode_properties.py and tests/unit/engine/test_sdk_params_modes.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: .agent-fox/memory.jsonl and .agent-fox/state.jsonl were modified together in 65 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: .agent-fox/config.toml and .agent-fox/state.jsonl were modified together in 11 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: docs/cli-reference.md and docs/skills.md were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: docs/architecture/03-execution-and-archetypes.md and docs/architecture/04-night-shift.md were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: docs/README.md and docs/architecture/03-execution-and-archetypes.md were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: README.md and docs/cli-reference.md were modified together in 8 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: README.md and docs/README.md were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/knowledge/test_db.py and tests/unit/knowledge/test_review_store.py were modified together in 12 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/knowledge/test_blocking_history.py and tests/unit/knowledge/test_project_model.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/knowledge/test_review_store_props.py and tests/unit/knowledge/test_review_store.py were modified together in 12 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/knowledge/test_review_store_props.py and tests/unit/knowledge/test_db.py were modified together in 10 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/knowledge/test_db_props.py and tests/unit/knowledge/test_review_store.py were modified together in 11 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/knowledge/test_db_props.py and tests/unit/knowledge/test_db.py were modified together in 14 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/knowledge/test_db_props.py and tests/property/knowledge/test_review_store_props.py were modified together in 12 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/migrations.py and tests/unit/knowledge/test_review_store.py were modified together in 13 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/migrations.py and tests/unit/knowledge/test_db.py were modified together in 15 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/migrations.py and tests/property/knowledge/test_review_store_props.py were modified together in 11 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/migrations.py and tests/property/knowledge/test_db_props.py were modified together in 16 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/migrations.py and agent_fox/session/convergence.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/workspace/harvest.py and tests/unit/workspace/test_harvester.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/session/prompt.py and tests/unit/session/test_prompt.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/session_lifecycle.py and tests/unit/cli/test_knowledge_wiring.py were modified together in 12 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: .agent-fox/config.toml and docs/memory.md were modified together in 9 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: .agent-fox/config.toml and AGENTS.md were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: .agent-fox/config.toml and .gitignore were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/core/test_config_gen.py and tests/unit/core/test_config_simplification.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/integration/test_init.py and tests/unit/core/test_config_gen.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/core/config_gen.py and tests/unit/core/test_config_gen.py were modified together in 12 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/duckdb_sink.py and tests/unit/knowledge/test_duckdb_sink.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/state.py and tests/unit/engine/test_orchestrator.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/engine.py and tests/unit/engine/test_orchestrator.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/engine.py and agent_fox/engine/state.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/engine.py and tests/unit/engine/test_end_of_run_discovery.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/workspace/test_develop_reconciliation.py and tests/unit/workspace/test_harvest_locking.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/workspace/init_project.py and tests/integration/test_init.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/integration/nightshift/test_fix_pipeline_smoke.py and tests/unit/nightshift/test_fix_pipeline.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/nightshift/fix_pipeline.py and tests/integration/nightshift/test_fix_pipeline_smoke.py were modified together in 8 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/nightshift/fix_pipeline.py and tests/unit/nightshift/test_nightshift_callbacks.py were modified together in 10 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/nightshift/engine.py and tests/unit/nightshift/test_nightshift_callbacks.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/nightshift/engine.py and agent_fox/nightshift/fix_pipeline.py were modified together in 15 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/nightshift/engine.py and tests/unit/nightshift/test_fix_pipeline.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/nightshift/engine.py and tests/unit/test_fix_ordering.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/nightshift/fix_pipeline.py and tests/unit/nightshift/test_fix_pipeline.py were modified together in 15 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/knowledge/migrations.py and tests/unit/knowledge/test_migrations.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/cli/test_code.py and tests/unit/engine/test_session_lifecycle.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/session_lifecycle.py and tests/unit/cli/test_code.py were modified together in 10 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/review_persistence.py and tests/unit/engine/test_session_lifecycle.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/review_persistence.py and agent_fox/engine/session_lifecycle.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/session/review_parser.py and tests/unit/session/test_review_parser.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/state.py and tests/unit/engine/test_db_plan_state.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/session_lifecycle.py and tests/unit/engine/test_session_lifecycle.py were modified together in 13 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/engine/test_harvest_props.py and tests/unit/knowledge/test_causal_harvest.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/knowledge_harvest.py and agent_fox/engine/session_lifecycle.py were modified together in 12 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/graph/builder.py and tests/unit/graph/test_builder.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/core/config.py and docs/config-reference.md were modified together in 9 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/core/config.py and agent_fox/engine/engine.py were modified together in 9 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/engine.py and agent_fox/engine/graph_sync.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/test_archetype_tiers.py and tests/unit/test_sdk_config.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/test_archetype_tiers.py and tests/unit/test_predecessor_escalation.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/session/test_archetypes.py and tests/unit/test_sdk_config.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/session/test_archetypes.py and tests/unit/test_archetype_tiers.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/knowledge/test_patterns.py and tests/unit/knowledge/test_temporal.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/engine/test_retry_predecessor.py and tests/unit/test_predecessor_escalation.py were modified together in 8 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/engine/test_retry_predecessor.py and tests/unit/test_archetype_tiers.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/engine/test_retry_predecessor.py and tests/unit/session/test_archetypes.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/unit/engine/test_retry_predecessor.py and tests/unit/reporting/test_cost_reporting.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/test_archetype_tiers_props.py and tests/unit/test_sdk_config.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/test_archetype_tiers_props.py and tests/unit/test_archetype_tiers.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/test_archetype_tiers_props.py and tests/unit/session/test_archetypes.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/test_archetype_tiers_props.py and tests/unit/engine/test_retry_predecessor.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/oracle/test_oracle_props.py and tests/unit/engine/test_retry_predecessor.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/knowledge/test_temporal_props.py and tests/unit/knowledge/test_temporal.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/knowledge/test_temporal_props.py and tests/unit/knowledge/test_patterns.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: tests/property/core/test_token_tracking_props.py and tests/unit/reporting/test_cost_reporting.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/session/archetypes.py and tests/unit/session/test_archetypes.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/reporting/status.py and tests/unit/reporting/test_cost_reporting.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/result_handler.py and tests/unit/test_predecessor_escalation.py were modified together in 8 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/result_handler.py and tests/unit/test_archetype_tiers.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/result_handler.py and tests/unit/reporting/test_cost_reporting.py were modified together in 5 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/engine/result_handler.py and tests/unit/engine/test_retry_predecessor.py were modified together in 7 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/nightshift/fix_pipeline.py and tests/unit/nightshift/test_cost_tracking.py were modified together in 6 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: pyproject.toml and uv.lock were modified together in 48 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/__init__.py and uv.lock were modified together in 23 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: agent_fox/__init__.py and pyproject.toml were modified together in 42 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+- Co-change pattern: .agent-fox/config.toml and .agent-fox/memory.jsonl were modified together in 11 commits, suggesting coupling. _(spec: onboard, confidence: 0.60)_
+
+## Decisions
+
+- No-op implementations (stubs that return empty lists, None, or placeholder values) are justified when they satisfy documented requirements; audit them by cross-referencing requirement IDs rather than removing them as dead code. _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+  - effect: Intentional stubs (e.g., returning None on exception, pass s…
+- When deleting functionality, distinguish between test files that exclusively test removed code (delete entirely) versus files with mixed tests (remove only affected test classes/methods). _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+  - effect: Tests referencing removed config fields should be updated to…
+- Pre-existing coupling between modules (e.g., knowledge_harvest.py importing knowledge internals) that predates a new boundary requirement should be documented in errata rather than weakening the test or expanding the allowed set. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - cause: Test failures from pre-existing code issues (e.g., engine im…
+- Formatting fixes that affect linter passes should be applied consistently across all affected files, including pre-existing issues, to ensure 'make check' passes for the checkpoint. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - effect: When a git stash pop fails due to conflicts, using 'git chec…
+- Pre-existing test failures from other specifications (e.g., spec 115) should be left intact during checkpoint verification rather than treated as regressions of the current work. _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+  - cause: When verifying checkpoint completion, distinguish between te…
+- When replacing feature implementations with protocol delegation, preserve test contracts by updating assertions to validate the new call path (e.g., checking provider.ingest() instead of extract_and_store_knowledge). _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+  - cause: Protocol implementations should include try/except blocks ar…
+  - effect: When removing functionality from a module (e.g., consolidati…
+- When a specification has contradictory requirements, resolve by following the design doc's explicit resolution path rather than attempting to satisfy conflicting REQ statements. _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+- RetrievalResult now includes cold_start: bool and token_budget_used: int fields, with retrieval_summary JSON stored in session_outcomes after RRF fusion. _(spec: 113_knowledge_effectiveness, confidence: 0.90)_
+  - cause: Cold-start detection in _count_available_facts() returns ear…
+  - cause: _query_prior_touched_files() queries session_outcomes for pr…
+- _extract_knowledge_and_findings falls back to _build_fallback_input() (commit diff + metadata) when the agent trace is unavailable. _(spec: 113_knowledge_effectiveness, confidence: 0.90)_
+  - cause: reconstruct_transcript() filters agent trace events by node_…
+  - cause: feat(113): implement transcript reconstruction and compactio…
+
+## Conventions
+
+- Smoke tests should be comprehensive enough to exercise all major execution paths; having property tests (behavioral) plus smoke tests (path coverage) together provides both depth and breadth of verification. _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+  - effect: feat(99): wiring verification and integration smoke tests (t…
+  - effect: chore: complete wiring verification for review output visibi…
+- Pre-existing code formatting issues should be distinguished from task-related changes; verify they exist in baseline before proceeding with work. _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+- Test failures from pre-existing code issues (e.g., engine import isolation tests failing before the current task) should be distinguished from new failures introduced by the current changes to avoid conflating unrelated problems. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - cause: Test files that import non-existent modules at the top level…
+  - effect: Pre-existing coupling between modules (e.g., knowledge_harve…
+- Error handling in extraction functions should catch all exceptions, log warnings, and return empty lists rather than propagating failures, allowing graceful degradation. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - cause: The KnowledgeProvider protocol defines ingest() as synchrono…
+  - cause: When implementing LLM response parsing, accepting multiple b…
+  - effect: Capping results at a limit (e.g., 3 gotchas) should occur at…
+- Pre-existing test failures from incomplete task groups should be left intact; only fix regressions introduced by the current task to keep task boundaries clear. _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+- Pre-existing test failures from future task groups should be verified as such before making changes—document baseline test counts to confirm that implemented changes don't introduce new regressions. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - cause: Cross-module test dependencies where test files import from …
+- DuckDB supports INSERT OR IGNORE for idempotent upserts without requiring UNIQUE constraints—this pattern appears consistently in the codebase for duplicate-key handling. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - cause: Application-level deduplication within a single function cal…
+- Lint configuration should be verified to pass on all new test files before committing, to avoid introducing technical debt into the test suite itself. _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+- Expected test failures from unimplemented task groups can be distinguished from regressions by verifying they all originate from spec files targeting those specific future task groups. _(spec: 114_knowledge_decoupling, confidence: 0.60)_
+
+## Anti-Patterns
+
+- Test assertions using `or` conditions can become logically flawed—for example, checking `(condition1) or (any_log_exists)` will pass whenever any log exists regardless of the intended condition, making the first clause ineffective. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - effect: String matching in assertions (like checking model tier with…
+- Test helper functions that compute hashes or normalize text must import and reuse the actual implementation functions rather than reimplementing the logic, to avoid inconsistencies that cause property test failures. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - cause: Property-based tests using hypothesis with st.text() can gen…
+  - effect: Property-based tests using hypothesis with st.text() can gen…
+- Configuration documentation files (like config-reference.md) must be kept in sync when adding new config sections; treat doc updates as part of the implementation task. _(spec: 115_pluggable_knowledge, confidence: 0.60)_
+
+## Fragile Areas
+
+- A test file scanning for deleted module imports must exclude itself from the scan, otherwise it will self-flag on the list of module names it's checking for. _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+  - cause: When deleting modules, check if test files contain string re…
+  - cause: Stale Python bytecode in `__pycache__` directories can cause…
+- Property-based tests using hypothesis with st.text() can generate Unicode ligatures and other edge cases that expose inconsistencies between different normalization methods—test helpers must use the same normalization as the implementation. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - cause: Unicode case-folding edge cases require casefold() instead o…
+  - cause: Test helper functions that compute hashes or normalize text …
+  - effect: Test helper functions that compute hashes or normalize text …
+- Test schema fixtures in conftest.py may need updating when new tables are introduced; ensure test databases have the same schema structure as production. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - cause: Database migrations should use CREATE TABLE IF NOT EXISTS fo…
+  - cause: When adding new database tables via migrations, update both …
+- Test files with hardcoded version numbers or table counts need updating whenever schema migrations are added; search for version assertions across all test files systematically. _(spec: 115_pluggable_knowledge, confidence: 0.90)_
+  - cause: When migrations increment the version number, the total row …
+  - cause: Database migrations should use CREATE TABLE IF NOT EXISTS fo…
+- Test inspection of function signatures (via `inspect.signature()`) requires annotations to be actual type objects, not string representations, when comparing with `==` or `is` operators. _(spec: 114_knowledge_decoupling, confidence: 0.90)_
+  - cause: The `from __future__ import annotations` directive causes al…
+- String matching in assertions (like checking model tier with substring matching) is fragile and should be replaced with more specific comparisons or type/value checks to reduce false positives. _(spec: 115_pluggable_knowledge, confidence: 0.60)_
+  - cause: Test assertions using `or` conditions can become logically f…
+- Substring matching in test assertions (e.g., checking 'compact' in source) can produce false positives from words like 'compaction' or 'compatible'; use precise matching or update documentation to avoid banned keywords. _(spec: 114_knowledge_decoupling, confidence: 0.60)_
+  - effect: When a data source is superseded (e.g., DuckDB replaced memo…
+- When mocking async functions, consider whether the actual implementation will be sync or async—writing tests to match pseudocode patterns may require adjustment if implementation choices differ from initial design. _(spec: 115_pluggable_knowledge, confidence: 0.60)_
+  - effect: test: add failing tests for structured audit log (spec 40, t…
+- Cross-module dependencies in test specifications may require careful task sequencing—if group 3 tests import from group 4 modules (e.g., GotchaCandidate from gotcha_extraction), the group 3 implementer must create minimal stub definitions or group 4 must implement first. _(spec: 115_pluggable_knowledge, confidence: 0.60)_
+  - cause: When writing failing spec tests for unimplemented modules, u…
+  - effect: For table migrations, update all related test fixtures (test…
+- Fragile area: agent_fox/engine/orchestrator.py was modified in 25 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- Fragile area: agent_fox/memory/extraction.py was modified in 20 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- Fragile area: agent_fox/cli/lint_spec.py was modified in 25 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- Fragile area: agent_fox/spec/validator.py was modified in 29 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- Fragile area: tests/unit/knowledge/conftest.py was modified in 20 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- Fragile area: agent_fox/session/session.py was modified in 24 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- Fragile area: agent_fox/reporting/formatters.py was modified in 28 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- Fragile area: agent_fox/platform/github.py was modified in 23 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- Fragile area: agent_fox/cli/app.py was modified in 44 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- Fragile area: agent_fox/reporting/standup.py was modified in 34 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- Fragile area: agent_fox/workspace/git.py was modified in 23 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- Fragile area: agent_fox/engine/reset.py was modified in 28 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- Fragile area: agent_fox/cli/plan.py was modified in 24 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- Fragile area: agent_fox/cli/init.py was modified in 24 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- Fragile area: agent_fox/cli/code.py was modified in 54 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- Fragile area: .agent-fox/state.jsonl was modified in 115 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- Fragile area: docs/cli-reference.md was modified in 32 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- Fragile area: agent_fox/session/prompt.py was modified in 39 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- Fragile area: docs/memory.md was modified in 112 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- Fragile area: .gitignore was modified in 21 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- Fragile area: tests/unit/core/test_config_gen.py was modified in 22 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- Fragile area: tests/unit/engine/test_orchestrator.py was modified in 21 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- Fragile area: agent_fox/nightshift/engine.py was modified in 38 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- Fragile area: tests/unit/nightshift/test_fix_pipeline.py was modified in 24 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- Fragile area: agent_fox/knowledge/migrations.py was modified in 28 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- Fragile area: README.md was modified in 38 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- Fragile area: tests/unit/cli/test_code.py was modified in 26 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- Fragile area: agent_fox/engine/state.py was modified in 25 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- Fragile area: agent_fox/engine/session_lifecycle.py was modified in 77 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- Fragile area: agent_fox/graph/builder.py was modified in 20 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- Fragile area: agent_fox/core/config.py was modified in 67 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- Fragile area: agent_fox/engine/engine.py was modified in 75 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- Fragile area: agent_fox/reporting/status.py was modified in 37 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- Fragile area: agent_fox/nightshift/fix_pipeline.py was modified in 37 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- Fragile area: uv.lock was modified in 64 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- Fragile area: pyproject.toml was modified in 76 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- Fragile area: agent_fox/__init__.py was modified in 44 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- Fragile area: .agent-fox/memory.jsonl was modified in 99 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- Fragile area: .agent-fox/config.toml was modified in 35 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_

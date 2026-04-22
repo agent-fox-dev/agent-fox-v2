@@ -193,11 +193,8 @@ class TestCallSiteInstrumentation:
             "nightshift_ai_call",
         }
         files = [
-            "agent_fox/knowledge/extraction.py",
-            "agent_fox/engine/knowledge_harvest.py",
             "agent_fox/spec/ai_validation.py",
             "agent_fox/fix/clusterer.py",
-            "agent_fox/knowledge/query_oracle.py",
         ]
         for filepath in files:
             content = Path(filepath).read_text()

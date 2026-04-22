@@ -162,8 +162,8 @@ def _persist_audit_findings_to_db(
             # Derive severity: prefer explicit severity field, fall back from verdict
             severity = entry.severity if entry.severity else _verdict_to_severity(entry.verdict)
             # Derive description: prefer explicit description, fall back to notes/ts_entry
-            description = entry.description if entry.description else (
-                entry.notes or f"[{entry.verdict}] {entry.ts_entry}"
+            description = (
+                entry.description if entry.description else (entry.notes or f"[{entry.verdict}] {entry.ts_entry}")
             )
 
             finding = ReviewFinding(

@@ -657,6 +657,40 @@ def _migrate_v16(conn: duckdb.DuckDBPyConnection) -> None:
         logger.info("session_outcomes table not found, skipping retrieval_summary extension in v16 migration")
 
 
+def _migrate_v17(conn: duckdb.DuckDBPyConnection) -> None:
+    """Add gotchas and errata_index tables for pluggable knowledge provider.
+
+    The ``gotchas`` table stores surprising or non-obvious findings extracted
+    by an LLM from session transcripts, scoped by spec_name.
+
+    The ``errata_index`` table stores spec-to-errata-document pointers as
+    ``(spec_name, file_path)`` pairs, with a composite primary key.
+
+    Both tables use ``CREATE TABLE IF NOT EXISTS`` for idempotency.
+
+    Requirements: 115-REQ-9.1, 115-REQ-9.2, 115-REQ-9.3, 115-REQ-9.4
+    """
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS gotchas (
+            id           VARCHAR PRIMARY KEY,
+            spec_name    VARCHAR NOT NULL,
+            category     VARCHAR NOT NULL DEFAULT 'gotcha',
+            text         VARCHAR NOT NULL,
+            content_hash VARCHAR NOT NULL,
+            session_id   VARCHAR NOT NULL,
+            created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS errata_index (
+            spec_name  VARCHAR NOT NULL,
+            file_path  VARCHAR NOT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (spec_name, file_path)
+        )
+    """)
+
+
 # Registry of all migrations, ordered by version.
 MIGRATIONS: list[Migration] = [
     Migration(
@@ -733,6 +767,11 @@ MIGRATIONS: list[Migration] = [
         version=16,
         description="add retrieval_summary column to session_outcomes",
         apply=_migrate_v16,
+    ),
+    Migration(
+        version=17,
+        description="add gotchas and errata_index tables for pluggable knowledge provider",
+        apply=_migrate_v17,
     ),
 ]
 
@@ -866,6 +905,23 @@ CREATE TABLE IF NOT EXISTS blocking_history (
     blocked       BOOLEAN NOT NULL,
     outcome       VARCHAR,
     created_at    TIMESTAMP DEFAULT current_timestamp
+);
+
+CREATE TABLE IF NOT EXISTS gotchas (
+    id           VARCHAR PRIMARY KEY,
+    spec_name    VARCHAR NOT NULL,
+    category     VARCHAR NOT NULL DEFAULT 'gotcha',
+    text         VARCHAR NOT NULL,
+    content_hash VARCHAR NOT NULL,
+    session_id   VARCHAR NOT NULL,
+    created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS errata_index (
+    spec_name  VARCHAR NOT NULL,
+    file_path  VARCHAR NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (spec_name, file_path)
 );
 
 INSERT INTO schema_version (version, description)
