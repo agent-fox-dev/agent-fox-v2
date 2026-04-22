@@ -338,14 +338,17 @@ async def ai_call(
 
     async def _call() -> Any:
         client = create_async_anthropic_client()
-        return await cached_messages_create(
-            client,
-            model=model_entry.model_id,
-            max_tokens=max_tokens,
-            messages=messages,
-            system=system,
-            cache_policy=cache_policy,
-        )
+        try:
+            return await cached_messages_create(
+                client,
+                model=model_entry.model_id,
+                max_tokens=max_tokens,
+                messages=messages,
+                system=system,
+                cache_policy=cache_policy,
+            )
+        finally:
+            await client.close()
 
     response = await retry_api_call_async(_call, context=context)
     track_response_usage(response, model_entry.model_id, context)
