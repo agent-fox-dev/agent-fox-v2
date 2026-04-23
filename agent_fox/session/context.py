@@ -281,6 +281,7 @@ def assemble_context(
     *,
     conn: duckdb.DuckDBPyConnection,
     project_root: Path | None = None,
+    archetype: str | None = None,
 ) -> str:
     """Assemble task-specific context for a coding session.
 
@@ -299,6 +300,9 @@ def assemble_context(
     When project_root is provided, includes steering directives from
     .specs/steering.md after spec files and before memory facts
     (64-REQ-2.1, 64-REQ-2.2).
+
+    When archetype is ``"verifier"``, appends a structured verification
+    checklist (task completion audit + requirement-to-test coverage).
 
     Returns a formatted string with section headers.
 
@@ -390,6 +394,25 @@ def assemble_context(
                 "Failed to fetch prior group findings for %s group %d",
                 spec_name,
                 task_group,
+            )
+
+    # Verification checklist for the verifier archetype
+    if archetype == "verifier":
+        try:
+            from agent_fox.spec.verification_checklist import (
+                build_verification_checklist,
+                render_checklist_markdown,
+            )
+
+            tests_dir = project_root / "tests" if project_root is not None else None
+            checklist = build_verification_checklist(spec_dir, conn, tests_dir=tests_dir)
+            checklist_md = render_checklist_markdown(checklist)
+            sections.append(checklist_md)
+        except Exception:
+            logger.warning(
+                "Failed to build verification checklist for %s",
+                spec_dir.name,
+                exc_info=True,
             )
 
     # 03-REQ-4.3: Return formatted string with section headers
