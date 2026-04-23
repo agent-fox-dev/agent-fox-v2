@@ -25,13 +25,13 @@ imports and config, (5) verify wiring end-to-end.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create test file structure
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create test file structure
     - Create `tests/test_knowledge_pruning.py`
     - Import pytest, DuckDB fixtures from existing test infrastructure
     - _Test Spec: TS-116-1 through TS-116-20_
 
-  - [ ] 1.2 Translate module-removal tests
+  - [x] 1.2 Translate module-removal tests
     - Tests for TS-116-1, TS-116-2, TS-116-5, TS-116-7 (import should fail)
     - Tests for TS-116-8 (result_handler has no blocking_history reference)
     - Tests for TS-116-19 (no dead imports in production code)
@@ -39,37 +39,37 @@ imports and config, (5) verify wiring end-to-end.
     - These tests MUST FAIL now (modules still exist)
     - _Test Spec: TS-116-1, TS-116-2, TS-116-5, TS-116-7, TS-116-8, TS-116-19, TS-116-20_
 
-  - [ ] 1.3 Translate provider and config tests
+  - [x] 1.3 Translate provider and config tests
     - Tests for TS-116-3 (ingest is no-op)
     - Tests for TS-116-4, TS-116-6 (no gotcha/errata in retrieve)
     - Tests for TS-116-13, TS-116-14, TS-116-15 (review retrieval works)
     - Tests for TS-116-16, TS-116-17, TS-116-18 (config fields)
     - _Test Spec: TS-116-3, TS-116-4, TS-116-6, TS-116-13, TS-116-14, TS-116-15, TS-116-16, TS-116-17, TS-116-18_
 
-  - [ ] 1.4 Translate migration and supersession tests
+  - [x] 1.4 Translate migration and supersession tests
     - Tests for TS-116-9 (migration drops tables)
     - Tests for TS-116-10 (migration preserves retained tables)
     - Tests for TS-116-11 (migration on fresh DB)
     - Tests for TS-116-12 (supersession without fact_causes)
     - _Test Spec: TS-116-9, TS-116-10, TS-116-11, TS-116-12_
 
-  - [ ] 1.5 Translate edge case and property tests
+  - [x] 1.5 Translate edge case and property tests
     - Tests for TS-116-E1 (missing review_findings table)
     - Tests for TS-116-E2 (config ignores removed fields)
     - Tests for TS-116-E3 (gotchas table exists but not queried)
     - Property tests for TS-116-P1, TS-116-P2, TS-116-P3
     - _Test Spec: TS-116-E1, TS-116-E2, TS-116-E3, TS-116-P1, TS-116-P2, TS-116-P3_
 
-  - [ ] 1.6 Translate integration smoke tests
+  - [x] 1.6 Translate integration smoke tests
     - Tests for TS-116-SMOKE-1 (full retrieve cycle)
     - Tests for TS-116-SMOKE-2 (ingest then retrieve)
     - Tests for TS-116-SMOKE-3 (full migration with data)
     - _Test Spec: TS-116-SMOKE-1, TS-116-SMOKE-2, TS-116-SMOKE-3_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/test_knowledge_pruning.py`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/test_knowledge_pruning.py`
 
 - [ ] 2. Add migration v18 and remove causal links
   - [ ] 2.1 Add migration v18 to migrations.py
