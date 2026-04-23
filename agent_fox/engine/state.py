@@ -84,6 +84,7 @@ class SessionOutcomeRecord:
     error_message: str | None  # SQL NULL for successful sessions (REQ-3.E1)
     is_transport_error: bool
     retrieval_summary: str | None = None  # JSON: {"facts_injected": int, "signals_active": [...]}
+    coverage_data: str | None = None  # JSON: per-file coverage for trend tracking
 
 
 @dataclass
@@ -411,8 +412,9 @@ def record_session(
             id, spec_name, task_group, node_id, touched_path,
             status, input_tokens, output_tokens, duration_ms, created_at,
             run_id, attempt, cost, model, archetype,
-            commit_sha, error_message, is_transport_error, retrieval_summary
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            commit_sha, error_message, is_transport_error, retrieval_summary,
+            coverage_data
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         [
             record.id,
@@ -434,6 +436,7 @@ def record_session(
             record.error_message,  # None -> SQL NULL (REQ-3.E1)
             record.is_transport_error,
             record.retrieval_summary,  # 113-REQ-7.2
+            record.coverage_data,
         ],
     )
 

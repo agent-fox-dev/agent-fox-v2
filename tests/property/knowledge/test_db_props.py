@@ -67,7 +67,7 @@ class TestSchemaInitializationIdempotency:
 
             version_count = db.connection.execute("SELECT COUNT(*) FROM schema_version").fetchone()
             assert version_count is not None
-            assert version_count[0] == 19
+            assert version_count[0] == 20
 
             tables = {r[0] for r in db.connection.execute("SHOW TABLES").fetchall()}
             assert tables == EXPECTED_TABLES

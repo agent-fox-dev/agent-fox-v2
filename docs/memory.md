@@ -2,6 +2,15 @@
 
 _3176 facts | last updated: 2026-04-23_
 
+**2026-04-23 coverage regression gate (issue #520):** Added
+`engine/coverage.py` — detects coverage tools (pytest-cov, cargo-tarpaulin,
+go test -cover), measures per-file line coverage, and compares baseline vs
+post-session to detect regressions. Integrated into engine dispatch (baseline
+capture before coder sessions) and result handler (regression check after
+successful sessions). Regressions emit blocking findings via review_findings
+table. Coverage data stored in session_outcomes (migration v20: coverage_data
+column) for trend tracking. +35 tests (4399 total pass).
+
 **2026-04-23 verifier checklist enforcement (issue #521):** Added
 `spec/verification_checklist.py` — builds a structured verification
 checklist from tasks.md checkboxes, requirements.md acceptance criteria,
