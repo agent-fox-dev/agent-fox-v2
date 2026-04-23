@@ -1,6 +1,13 @@
 # Agent-Fox Memory
 
-_3175 facts | last updated: 2026-04-23_
+_3176 facts | last updated: 2026-04-23_
+
+**2026-04-23 state transition validation (issue #523):** Added
+`VALID_TRANSITIONS` table and `_transition()` validation method to
+`GraphSync` in `engine/graph_sync.py`. All `mark_*()` methods now validate
+transitions (warning on invalid, never crashing) and emit structured log
+entries for debugging. `_transition_log` list provides an in-memory audit
+trail. +12 tests (4342 total pass).
 
 **2026-04-23 errata generation (issue #522):** Added lightweight errata
 auto-generation from reviewer blocking. When a reviewer blocks a coder task
