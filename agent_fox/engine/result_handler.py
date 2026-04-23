@@ -43,8 +43,6 @@ class SessionResultHandler:
         *,
         graph_sync: GraphSync,
         routing_ladders: dict[str, Any],
-        routing_assessments: dict[str, Any] | None = None,
-        routing_pipeline: Any | None = None,
         retries_before_escalation: int,
         max_retries: int,
         task_callback: TaskCallback | None,
@@ -62,8 +60,6 @@ class SessionResultHandler:
     ) -> None:
         self._graph_sync = graph_sync
         self._routing_ladders = routing_ladders
-        self._routing_assessments: dict[str, Any] = routing_assessments or {}
-        self._routing_pipeline = routing_pipeline
         self._retries_before_escalation = retries_before_escalation
         self._max_retries = max_retries
         self._task_callback = task_callback
@@ -402,6 +398,7 @@ class SessionResultHandler:
             try:
                 import uuid as _uuid  # stdlib first (ruff I001)
 
+                from agent_fox.core.node_id import spec_name_of as _spec_name_of
                 from agent_fox.engine.state import (
                     SessionOutcomeRecord,
                 )
@@ -412,9 +409,9 @@ class SessionResultHandler:
                     update_run_totals as _update_run_totals,
                 )
 
-                parts = record.node_id.split(":", 1)
-                spec_name = parts[0]
-                task_group = parts[1] if len(parts) > 1 else ""
+                spec_name = _spec_name_of(record.node_id)
+                idx = record.node_id.find(":")
+                task_group = record.node_id[idx + 1 :] if idx >= 0 else ""
                 outcome = SessionOutcomeRecord(
                     id=str(_uuid.uuid4()),
                     spec_name=spec_name,

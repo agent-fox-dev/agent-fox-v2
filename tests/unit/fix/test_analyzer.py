@@ -102,31 +102,3 @@ class TestFilterImprovements:
         assert filtered[0].tier == "quick_win"
         assert filtered[1].tier == "structural"
         assert filtered[2].tier == "design_level"
-
-
-class TestQueryOracleContext:
-    """TS-31-29, TS-31-30: Oracle context queries."""
-
-    def test_oracle_returns_formatted_facts(self, mock_config: AgentFoxConfig) -> None:
-        """TS-31-29: Oracle returns formatted context with provenance."""
-        mock_result = MagicMock()
-        mock_result.content = "Use dataclasses for models"
-        mock_result.metadata = {"spec": "01"}
-
-        with patch(
-            "agent_fox.fix.analyzer._query_oracle_facts",
-            return_value=[mock_result],
-        ):
-            context = query_oracle_context(mock_config)
-
-        assert len(context) > 0
-        assert "dataclasses" in context
-
-    def test_oracle_propagates_error_when_unavailable(self, mock_config: AgentFoxConfig) -> None:
-        """TS-31-30 (superseded by 38-REQ-3.1): Oracle errors propagate."""
-        with patch(
-            "agent_fox.fix.analyzer._query_oracle_facts",
-            side_effect=Exception("Knowledge store unavailable"),
-        ):
-            with pytest.raises(Exception, match="Knowledge store unavailable"):
-                query_oracle_context(mock_config)

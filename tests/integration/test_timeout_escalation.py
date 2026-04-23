@@ -100,8 +100,6 @@ def _make_handler_with_sink(
     handler = SessionResultHandler(
         graph_sync=graph_sync,
         routing_ladders=routing_ladders,
-        routing_assessments={},
-        routing_pipeline=None,
         retries_before_escalation=1,
         max_retries=max_timeout_retries + 3,
         task_callback=None,

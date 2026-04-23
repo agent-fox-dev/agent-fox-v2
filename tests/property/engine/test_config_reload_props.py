@@ -152,7 +152,6 @@ class TestMutableFieldsUpdatedProperty:
         "quality_gate",
         "quality_gate_timeout",
         "max_budget_usd",
-        "causal_context_limit",
         "audit_retention_runs",
     ]
 

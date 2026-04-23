@@ -72,6 +72,11 @@ def _estimate_tokens(text: str) -> int:
     return len(text) // 4
 
 
+def _estimate_tokens_from_len(length: int) -> int:
+    """Rough token estimate from character count."""
+    return length // 4
+
+
 # ---------------------------------------------------------------------------
 # Internal cache_control injection logic
 # ---------------------------------------------------------------------------
@@ -100,11 +105,11 @@ def _inject_cache_control(
 
     cache_control = _CACHE_CONTROL[cache_policy]
 
-    # Determine total text for threshold estimation
+    # Estimate total text length for threshold check without joining.
     if isinstance(system, str):
-        total_text = system
+        total_len = len(system)
     else:
-        total_text = "".join(block.get("text", "") if isinstance(block, dict) else "" for block in system)
+        total_len = sum(len(block.get("text", "")) if isinstance(block, dict) else 0 for block in system)
 
     threshold = _CACHE_TOKEN_THRESHOLDS.get(model, _DEFAULT_THRESHOLD)
     if model not in _CACHE_TOKEN_THRESHOLDS:
@@ -114,7 +119,7 @@ def _inject_cache_control(
             _DEFAULT_THRESHOLD,
         )
 
-    if _estimate_tokens(total_text) < threshold:
+    if _estimate_tokens_from_len(total_len) < threshold:
         # Below threshold — skip caching (77-REQ-4.2)
         return system
 

@@ -2,6 +2,26 @@
 
 _3176 facts | last updated: 2026-04-23_
 
+**2026-04-23 get-well plan (Tiers 1-2):** Implemented fixes from
+consolidated audit: B-1 (daemon stop event type), B-2 (assert→RuntimeError
+in dispatch/migrations/persistence), B-7+B-8 (IPv6 URL parsing via
+urlsplit, DNS warning), B-9 (reset_blocked_tasks only persists changed
+nodes), D-1 (removed dead select_context_with_causal + tests), D-2
+(removed causal_context_limit config field), D-3 (removed vestigial
+_barrier_sync/barrier_callback chain), D-4 (removed routing_assessments/
+routing_pipeline params), D-8 (removed _query_false_positives querying
+dropped memory_facts table), D-9 (removed _query_oracle_facts stub), A-2
+(hoisted duplicate _ts to module level), A-14 (use spec_name_of instead of
+split), A-17 (_BUDGET_EXHAUST_RATIO hoisted to module scope), A-22 (removed
+stale run_consolidation comment), P-1 (cached _spec_fan_out in __init__),
+P-2 (is_stalled accepts pre-computed ready list), P-3 (deque.popleft
+replaces list.pop(0)), P-4 (pre-grouped session history by node_id), P-5
+(merged dual plan_nodes queries into single SELECT), P-9 (hoisted
+JSONDecoder to module level), P-10 (set-based edge removal in dep_graph),
+P-11 (backtracking path limit of 64), P-12 (pre-computed normalization in
+convergence sort), P-13 (token estimation without string join), A-12
+(single-pass partition in _interleave_by_spec). All 4388 tests pass.
+
 **2026-04-23 coverage regression gate (issue #520):** Added
 `engine/coverage.py` — detects coverage tools (pytest-cov, cargo-tarpaulin,
 go test -cover), measures per-file line coverage, and compares baseline vs

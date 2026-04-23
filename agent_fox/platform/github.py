@@ -16,7 +16,7 @@ import ipaddress
 import logging
 import re
 import socket
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 import httpx
 
@@ -57,31 +57,24 @@ def _validate_github_url(url: str) -> None:
 
     Requirements: 221-REQ-1.*, 221-REQ-2.*
     """
-    # Strip port suffix (e.g. "127.0.0.1:8080" → "127.0.0.1")
-    host = url.rsplit(":", 1)[0] if ":" in url else url
-    # IPv6 addresses contain colons but no port suffix here; try parsing
-    # directly as an IP address first to avoid stripping part of the address.
+    # Try parsing as a bare IP address first (handles both IPv4 and IPv6).
     try:
         addr = ipaddress.ip_address(url)
-        # url itself is a bare IP address — use it directly.
         _check_address(addr, url)
         return
     except ValueError:
         pass
 
-    try:
-        addr_with_port = ipaddress.ip_address(host)
-        _check_address(addr_with_port, url)
-        return
-    except ValueError:
-        pass
+    # Use urlsplit with a synthetic scheme to correctly separate host and port,
+    # including bracketed IPv6 addresses like [2001:db8::1]:8080.
+    parsed = urlsplit(f"https://{url}")
+    host = parsed.hostname or url
 
     # host is a hostname — resolve it and check each resulting address.
     try:
         infos = socket.getaddrinfo(host, None)
     except (OSError, UnicodeError):
-        # If resolution fails (e.g. hostname unreachable or invalid encoding)
-        # we cannot confirm it is restricted; allow it through.
+        logger.warning("DNS resolution failed for %r; allowing URL through", url)
         return
 
     for info in infos:

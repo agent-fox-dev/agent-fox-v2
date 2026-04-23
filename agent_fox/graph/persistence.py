@@ -151,7 +151,8 @@ def _load_plan_from_db(conn: duckdb.DuckDBPyConnection) -> TaskGraph | None:
     """
     # Check whether a plan has been saved
     _count_row = conn.sql("SELECT count(*) FROM plan_meta").fetchone()
-    assert _count_row is not None  # COUNT(*) always returns exactly one row
+    if _count_row is None:
+        raise RuntimeError("COUNT(*) query returned no rows")
     meta_count = _count_row[0]
     if meta_count == 0:
         return None
@@ -160,7 +161,8 @@ def _load_plan_from_db(conn: duckdb.DuckDBPyConnection) -> TaskGraph | None:
     meta_row = conn.sql(
         "SELECT content_hash, created_at, fast_mode, filtered_spec, version FROM plan_meta WHERE id = 1"
     ).fetchone()
-    assert meta_row is not None  # guaranteed: meta_count > 0 confirmed above
+    if meta_row is None:
+        raise RuntimeError("plan_meta row missing despite non-zero count")
 
     created_at_val = meta_row[1]
     if hasattr(created_at_val, "isoformat"):

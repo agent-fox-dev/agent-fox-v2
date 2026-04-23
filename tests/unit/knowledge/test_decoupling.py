@@ -174,7 +174,6 @@ class TestBarrierRetainedSteps:
         mock_emit_audit = MagicMock()
         mock_hot_load = AM()
         mock_sync_plan = MagicMock()
-        mock_barrier_cb = MagicMock()
         mock_reload = MagicMock()
 
         with (
@@ -196,14 +195,13 @@ class TestBarrierRetainedSteps:
                 hot_load_enabled=True,
                 hot_load_fn=mock_hot_load,
                 sync_plan_fn=mock_sync_plan,
-                barrier_callback=mock_barrier_cb,
+                barrier_callback=None,
                 reload_config_fn=mock_reload,
             )
 
         mock_verify.assert_called_once()
         mock_sync.assert_called_once()
         mock_hot_load.assert_called_once()
-        mock_barrier_cb.assert_called_once()
         mock_reload.assert_called_once()
         mock_emit_audit.assert_called_once()
 

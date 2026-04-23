@@ -92,11 +92,11 @@ def _spec_round_robin(
             sorted_groups.append(sorted(spec_tasks))
 
     result: list[str] = []
-    queues = [list(g) for g in sorted_groups]
+    queues = [deque(g) for g in sorted_groups]
     while any(queues):
         for q in queues:
             if q:
-                result.append(q.pop(0))
+                result.append(q.popleft())
 
     return result
 
@@ -141,8 +141,10 @@ def _interleave_by_spec(
     if not ready:
         return []
 
-    pre = [n for n in ready if _is_auto_pre(n)]
-    regular = [n for n in ready if not _is_auto_pre(n)]
+    pre: list[str] = []
+    regular: list[str] = []
+    for n in ready:
+        (pre if _is_auto_pre(n) else regular).append(n)
 
     result: list[str] = []
     if pre:
@@ -213,6 +215,8 @@ class GraphSync:
                 if dep in self._dependents:
                     self._dependents[dep].append(node)
 
+        self._spec_fan_out = self._compute_spec_fan_out()
+
     def _transition(self, node_id: str, to_status: str, *, reason: str = "") -> None:
         """Validate and apply a state transition, logging the change.
 
@@ -281,8 +285,7 @@ class GraphSync:
             if all(self.node_states.get(d) == "completed" for d in deps):
                 ready.append(node_id)
 
-        fan_out = self._compute_spec_fan_out()
-        return _interleave_by_spec(ready, duration_hints, fan_out, self._node_archetypes)
+        return _interleave_by_spec(ready, duration_hints, self._spec_fan_out, self._node_archetypes)
 
     def _compute_spec_fan_out(self) -> dict[str, int]:
         """Count distinct cross-spec dependent specs.
@@ -379,14 +382,17 @@ class GraphSync:
                     break
         return promoted
 
-    def is_stalled(self) -> bool:
+    def is_stalled(self, ready: list[str] | None = None) -> bool:
         """Check if no progress is possible.
 
         Returns True when no tasks are ready, no tasks are in_progress,
         but incomplete tasks remain (i.e. there are still pending or
         blocked tasks that are not completed).
+
+        Args:
+            ready: Pre-computed ready list to avoid recomputation.
         """
-        has_ready = bool(self.ready_tasks())
+        has_ready = bool(ready) if ready is not None else bool(self.ready_tasks())
         has_in_progress = any(s == "in_progress" for s in self.node_states.values())
         all_completed = all(s == "completed" for s in self.node_states.values())
 

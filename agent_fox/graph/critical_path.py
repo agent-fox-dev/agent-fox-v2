@@ -135,17 +135,26 @@ def compute_critical_path(
     )
 
 
+_MAX_BACKTRACK_PATHS = 64
+
+
 def _backtrack_paths(
     node: str,
     edges: dict[str, list[str]],
     earliest_finish: dict[str, int],
     duration_hints: dict[str, int],
+    _count: list[int] | None = None,
 ) -> list[list[str]]:
     """Backtrack from a node to find all critical paths ending at it.
 
     A predecessor is on the critical path if its earliest_finish equals
     this node's earliest_finish minus this node's duration.
+
+    Stops after ``_MAX_BACKTRACK_PATHS`` paths to prevent exponential blowup.
     """
+    if _count is None:
+        _count = [0]
+
     dur = duration_hints.get(node, 0)
     expected_pred_finish = earliest_finish.get(node, 0) - dur
 
@@ -153,12 +162,14 @@ def _backtrack_paths(
     critical_preds = [p for p in preds if earliest_finish.get(p, 0) == expected_pred_finish]
 
     if not critical_preds:
-        # This is a source node on the critical path
+        _count[0] += 1
         return [[node]]
 
     paths: list[list[str]] = []
     for pred in sorted(critical_preds):
-        sub_paths = _backtrack_paths(pred, edges, earliest_finish, duration_hints)
+        if _count[0] >= _MAX_BACKTRACK_PATHS:
+            break
+        sub_paths = _backtrack_paths(pred, edges, earliest_finish, duration_hints, _count)
         for sp in sub_paths:
             paths.append(sp + [node])
 
