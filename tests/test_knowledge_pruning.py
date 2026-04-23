@@ -866,7 +866,7 @@ class TestPropertyReviewCarryforward:
             insert_findings(conn, normalized)
 
         db = _create_knowledge_db(conn)
-        provider = _make_provider(db)
+        provider = _make_provider(db, max_items=len(normalized))
         result = provider.retrieve("prop_spec", "task")
 
         expected_count = sum(
