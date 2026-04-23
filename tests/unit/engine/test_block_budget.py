@@ -204,22 +204,50 @@ class TestSkepticBlocking:
     async def test_reviewer_blocks_coder_on_critical_findings(
         self,
     ) -> None:
-        """When reviewer:pre-review finds criticals above threshold, coder is blocked."""
-        db_conn = _chain_with_reviewer()
+        """When skeptic finds criticals above threshold, coder is blocked.
+
+        Uses the legacy skeptic archetype (no retry_predecessor) to test
+        permanent blocking. Pre-review mode now has retry_predecessor=True
+        and converts blocks to retries instead.
+        """
+        db_conn = write_plan_to_db(
+            nodes={
+                "spec_a:1:skeptic": {
+                    "title": "Skeptic Review",
+                    "spec_name": "spec_a",
+                    "group_number": 1,
+                    "archetype": "skeptic",
+                },
+                "spec_a:1": {
+                    "title": "Implement spec_a",
+                    "spec_name": "spec_a",
+                    "group_number": 1,
+                    "archetype": "coder",
+                },
+                "spec_a:1:verifier": {
+                    "title": "Verify spec_a",
+                    "spec_name": "spec_a",
+                    "group_number": 1,
+                    "archetype": "verifier",
+                },
+            },
+            edges=[
+                {"source": "spec_a:1", "target": "spec_a:1:skeptic", "kind": "intra_spec"},
+                {"source": "spec_a:1", "target": "spec_a:1:verifier", "kind": "intra_spec"},
+            ],
+            order=["spec_a:1", "spec_a:1:skeptic", "spec_a:1:verifier"],
+        )
 
         runner = MockSessionRunner()
         runner.configure(
-            "spec_a:0:reviewer:pre-review",
-            [
-                MockSessionOutcome(
-                    "spec_a:0:reviewer:pre-review",
-                    "completed",
-                    archetype="reviewer",
-                )
-            ],
+            "spec_a:1",
+            [MockSessionOutcome("spec_a:1", "completed", archetype="coder")],
+        )
+        runner.configure(
+            "spec_a:1:skeptic",
+            [MockSessionOutcome("spec_a:1:skeptic", "completed", archetype="skeptic")],
         )
 
-        # Mock review findings with 4 criticals (threshold default is 3)
         mock_findings = []
         for i in range(4):
             finding = MagicMock()

@@ -307,8 +307,8 @@ class TestReviewerConfig:
         from agent_fox.core.config import ReviewerConfig
 
         rc = ReviewerConfig()
-        assert rc.pre_review_block_threshold == 3, (
-            f"pre_review_block_threshold should be 3, got {rc.pre_review_block_threshold}"
+        assert rc.pre_review_block_threshold == 1, (
+            f"pre_review_block_threshold should be 1, got {rc.pre_review_block_threshold}"
         )
         assert rc.drift_review_block_threshold is None, (
             f"drift_review_block_threshold should be None (advisory), got {rc.drift_review_block_threshold}"

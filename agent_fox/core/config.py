@@ -399,7 +399,7 @@ class ReviewerConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     pre_review_block_threshold: Annotated[int, Clamped(ge=0)] = Field(
-        default=3,
+        default=1,
         description="Finding count to block merge for pre-review mode",
     )
     drift_review_block_threshold: int | None = Field(
