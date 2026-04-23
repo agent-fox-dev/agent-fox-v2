@@ -4,7 +4,7 @@ requires-python = ">=3.12"
 
 [[package]]
 name = "agent-fox"
-version = "3.2.0"
+version = "3.3.0"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic", extra = ["bedrock", "vertex"] },
