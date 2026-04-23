@@ -270,7 +270,7 @@ def query_oracle_context(config: AgentFoxConfig) -> str:
 
     Requirements: 31-REQ-4.1, 31-REQ-4.2, 31-REQ-4.3, 31-REQ-4.E1
     """
-    results = _query_oracle_facts(config)
+    results: list[Any] = []
 
     if not results:
         return ""
@@ -333,19 +333,6 @@ def load_review_context(project_root: Path) -> str:
 
     db.close()
     return "\n".join(parts)
-
-
-def _query_oracle_facts(config: AgentFoxConfig) -> list[Any]:
-    """Query oracle for project knowledge facts.
-
-    This is a separate function to allow easy mocking in tests.
-    Raises on failure (caller handles gracefully).
-
-    Note: The Oracle/EmbeddingGenerator/VectorSearch pipeline has been removed
-    as part of the knowledge decoupling (spec 114). This function now always
-    returns an empty list.
-    """
-    return []
 
 
 def _load_conventions(project_root: Path) -> str:

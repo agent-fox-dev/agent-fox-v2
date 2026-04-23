@@ -541,7 +541,6 @@ class TestFullBarrierSequenceExecuted:
             "hot_load_enabled",
             "hot_load_fn",
             "sync_plan_fn",
-            "barrier_callback",
             "knowledge_db_conn",
         }
         assert expected_keys.issubset(set(call_kwargs.keys())), (

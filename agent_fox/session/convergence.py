@@ -82,11 +82,12 @@ def converge_skeptic(
     # Build merged list: all unique findings (union)
     # Sort for determinism: by severity priority then description
     severity_order = {"critical": 0, "major": 1, "minor": 2, "observation": 3}
+    norm_cache = {id(f): normalize_finding(f)[1] for f in representative.values()}
     merged = sorted(
         representative.values(),
         key=lambda f: (
             severity_order.get(f.severity.lower(), 99),
-            normalize_finding(f)[1],
+            norm_cache[id(f)],
         ),
     )
 

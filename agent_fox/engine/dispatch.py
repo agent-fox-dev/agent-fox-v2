@@ -37,7 +37,8 @@ class SerialDispatcher:
     ) -> bool:
         """Dispatch one ready task serially. Returns updated first_dispatch."""
         orch = self._orch
-        assert orch._graph_sync is not None  # noqa: S101
+        if orch._graph_sync is None:
+            raise RuntimeError("Orchestrator._graph_sync must be initialized before dispatch")
 
         for node_id in ready:
             if orch._signal.interrupted:
@@ -92,7 +93,8 @@ class SerialDispatcher:
                 max_turns_override=max_turns_override,
             )
 
-            assert orch._result_handler is not None  # noqa: S101
+            if orch._result_handler is None:
+                raise RuntimeError("Orchestrator._result_handler must be initialized before dispatch")
             orch._result_handler.process(
                 record,
                 attempt,
@@ -129,8 +131,10 @@ class ParallelDispatcher:
         and empty pool slots are filled with newly-unblocked work.
         """
         orch = self._orch
-        assert orch._graph_sync is not None  # noqa: S101
-        assert orch._parallel_runner is not None  # noqa: S101
+        if orch._graph_sync is None:
+            raise RuntimeError("Orchestrator._graph_sync must be initialized before dispatch")
+        if orch._parallel_runner is None:
+            raise RuntimeError("Orchestrator._parallel_runner must be initialized before dispatch")
 
         graph_sync = orch._graph_sync
         parallel_runner = orch._parallel_runner
@@ -198,8 +202,10 @@ class ParallelDispatcher:
         slots to prevent slot starvation.
         """
         orch = self._orch
-        assert orch._graph_sync is not None  # noqa: S101
-        assert orch._parallel_runner is not None  # noqa: S101
+        if orch._graph_sync is None:
+            raise RuntimeError("Orchestrator._graph_sync must be initialized before dispatch")
+        if orch._parallel_runner is None:
+            raise RuntimeError("Orchestrator._parallel_runner must be initialized before dispatch")
 
         max_pool = orch._parallel_runner.max_parallelism
         max_review = max(1, int(max_pool * orch._config.max_review_fraction))
@@ -280,7 +286,8 @@ class ParallelDispatcher:
     ) -> bool:
         """Process completed parallel tasks. Returns True if a barrier is needed."""
         orch = self._orch
-        assert orch._result_handler is not None  # noqa: S101
+        if orch._result_handler is None:
+            raise RuntimeError("Orchestrator._result_handler must be initialized before dispatch")
 
         barrier_needed = False
         for completed_task in done:

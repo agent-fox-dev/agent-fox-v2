@@ -22,7 +22,6 @@ from agent_fox.session.context import (  # noqa: F401
     render_prior_group_findings,
     render_review_context,
     render_verification_context,
-    select_context_with_causal,
 )
 from agent_fox.session.profiles import load_profile
 from agent_fox.session.steering import (  # noqa: F401

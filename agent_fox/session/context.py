@@ -538,26 +538,3 @@ def render_prior_group_findings(findings: list[PriorFinding]) -> str:
         lines.append(f"- {group_label} {type_label} {sev_label} {safe_desc}")
 
     return "\n".join(lines)
-
-
-# ---------------------------------------------------------------------------
-# Causal context selection
-# ---------------------------------------------------------------------------
-
-
-def select_context_with_causal(
-    conn: duckdb.DuckDBPyConnection,
-    spec_name: str,
-    touched_files: list[str],
-    *,
-    keyword_facts: list[dict],
-    max_facts: int = 50,
-    causal_budget: int = 10,
-) -> list[dict]:
-    """Select session context facts with causal enhancement.
-
-    Note: The causal graph traversal (CausalFact, traverse_with_reviews) has
-    been removed as part of the knowledge decoupling (spec 114). This function
-    now returns keyword_facts trimmed to max_facts without causal enhancement.
-    """
-    return keyword_facts[:max_facts]

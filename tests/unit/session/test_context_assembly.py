@@ -20,7 +20,6 @@ from agent_fox.session.prompt import (
     assemble_context,
     get_prior_group_findings,
     render_prior_group_findings,
-    select_context_with_causal,
 )
 
 # Import schema helper from knowledge conftest
@@ -191,49 +190,6 @@ def schema_conn() -> Generator[duckdb.DuckDBPyConnection, None, None]:
         conn.close()
     except Exception:
         pass
-
-
-# ---------------------------------------------------------------------------
-# TestCausalContextAssembly
-# ---------------------------------------------------------------------------
-
-
-class TestCausalContextAssembly:
-    """Tests for select_context_with_causal() keyword passthrough.
-
-    Note: Causal traversal was removed in spec 114 (knowledge decoupling).
-    The function now returns keyword_facts trimmed to max_facts.
-
-    Requirements: 42-REQ-1.1, 42-REQ-1.2 (causal portions removed)
-    """
-
-    def test_returns_keyword_facts_trimmed(
-        self,
-        schema_conn: duckdb.DuckDBPyConnection,
-    ) -> None:
-        """select_context_with_causal returns keyword_facts trimmed to max_facts."""
-        fact_id = _new_id()
-
-        keyword_facts = [
-            {
-                "id": fact_id,
-                "content": "A test fact",
-                "spec_name": "test_spec",
-                "session_id": None,
-                "commit_sha": None,
-            },
-        ]
-
-        result = select_context_with_causal(
-            schema_conn,
-            "test_spec",
-            [],
-            keyword_facts=keyword_facts,
-        )
-
-        # After causal removal, the function just passes through keyword_facts
-        assert len(result) == 1
-        assert result[0]["id"] == fact_id
 
 
 # ---------------------------------------------------------------------------

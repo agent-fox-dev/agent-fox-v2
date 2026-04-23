@@ -163,16 +163,6 @@ class OrchestratorConfig(BaseModel):
         description="Maximum USD spend per session, 0 = unlimited",
     )
 
-    causal_context_limit: Annotated[int, Clamped(ge=10, le=10000, cast=int)] = Field(
-        default=200,
-        description=(
-            "Maximum number of prior facts included in the causal extraction "
-            "prompt. When total non-superseded facts exceed this limit, prior "
-            "facts are ranked by embedding similarity to the new facts and "
-            "only the top N are included."
-        ),
-    )
-
     watch_interval: Annotated[int, Clamped(ge=10, cast=int)] = Field(
         default=60,
         description=("Seconds between watch polls when --watch is active. Values below 10 are clamped to 10."),

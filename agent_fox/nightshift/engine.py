@@ -386,30 +386,6 @@ class NightShiftEngine:
         scanner = HuntScanner(registry, self._config)
         return await scanner.run(Path.cwd(), sink=sink, run_id=run_id)  # type: ignore[return-value]
 
-    def _query_false_positives(self) -> list[str]:
-        """Query the knowledge store for anti_pattern facts from af:ignore signals.
-
-        Returns a list of content strings for facts with category='anti_pattern'
-        and spec_name='nightshift:ignore'. Returns an empty list on failure
-        (fail-open).
-
-        Requirements: 110-REQ-6.3, 110-REQ-6.E1
-        """
-        if self._conn is None:
-            return []
-        try:
-            rows = self._conn.execute(
-                "SELECT content FROM memory_facts WHERE category = 'anti_pattern' AND spec_name = 'nightshift:ignore'",
-            ).fetchall()
-            return [row[0] for row in rows]
-        except Exception:
-            logger.warning(
-                "Failed to query anti_pattern facts from knowledge store; "
-                "proceeding with empty false_positives list (fail-open)",
-                exc_info=True,
-            )
-            return []
-
     async def _run_hunt_scan(self) -> None:
         """Execute a full hunt scan and create issues from findings.
 
@@ -426,9 +402,7 @@ class NightShiftEngine:
 
         hunt_run_id = generate_run_id()
 
-        # 110-REQ-6.3: Query knowledge store for anti_pattern facts to pass
-        # as false_positives to the AI critic.
-        false_positives = self._query_false_positives()
+        false_positives: list[str] = []
 
         self._hunt_scan_in_progress = True
         try:

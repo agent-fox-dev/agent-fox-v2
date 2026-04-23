@@ -1,7 +1,6 @@
 """Tests for simplified barrier/cleanup after knowledge decoupling.
 
-Verifies that _barrier_sync and _cleanup_infrastructure no longer perform
-any knowledge ingestion (run_background_ingestion was removed by spec 114).
+Verifies that _cleanup_infrastructure only closes resources.
 """
 
 from __future__ import annotations
@@ -10,17 +9,7 @@ from unittest.mock import MagicMock
 
 
 class TestSimplifiedBarrierAndCleanup:
-    """_barrier_sync is a no-op and _cleanup_infrastructure only closes resources."""
-
-    def test_barrier_sync_sets_flag(self) -> None:
-        """_barrier_sync sets the _barrier_ingestion_ran flag on infra dict."""
-        from agent_fox.engine.run import _barrier_sync
-
-        config = MagicMock()
-        infra: dict = {"knowledge_db": MagicMock(), "sink_dispatcher": MagicMock()}
-
-        _barrier_sync(infra, config)
-        assert infra.get("_barrier_ingestion_ran") is True
+    """_cleanup_infrastructure only closes resources."""
 
     def test_cleanup_closes_sinks_and_db(self) -> None:
         """_cleanup_infrastructure closes the sink dispatcher and knowledge DB."""
