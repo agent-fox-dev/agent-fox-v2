@@ -111,7 +111,8 @@ def evaluate_review_blocking(
 
     parsed = parse_node_id(record.node_id)
     spec_name = parsed.spec_name
-    task_group = str(parsed.group_number) if parsed.group_number else "1"
+    # Group-0 nodes are auto_pre reviewers; the first coder group is always 1
+    task_group = "1" if parsed.group_number == 0 else str(parsed.group_number)
     coder_node_id = f"{spec_name}:{task_group}"
 
     # Display label for log messages
@@ -182,7 +183,7 @@ def evaluate_review_blocking(
                     return BlockDecision(should_block=False)
                 configured_threshold = rc.drift_review_block_threshold
 
-        blocked = critical_count > configured_threshold
+        blocked = critical_count >= configured_threshold
 
         if blocked:
             reason = _format_block_reason(

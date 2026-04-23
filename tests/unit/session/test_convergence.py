@@ -280,7 +280,7 @@ class TestPropertyBlockingThreshold:
         findings = [Finding(severity="critical", description=f"Issue {i}") for i in range(n_criticals)]
         # Use 1 instance so all findings pass majority gate (1/1 >= ceil(1/2))
         _, blocked = converge_skeptic([findings], block_threshold=threshold)
-        assert blocked == (n_criticals > threshold)
+        assert blocked == (n_criticals > 0 and n_criticals >= threshold)
 
 
 # ---------------------------------------------------------------------------

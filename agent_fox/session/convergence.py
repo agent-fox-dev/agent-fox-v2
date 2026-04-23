@@ -97,7 +97,7 @@ def converge_skeptic(
         if severity == "critical" and count >= majority_threshold:
             majority_critical_count += 1
 
-    blocked = majority_critical_count > block_threshold
+    blocked = majority_critical_count > 0 and majority_critical_count >= block_threshold
 
     return merged, blocked
 
@@ -191,7 +191,7 @@ def converge_skeptic_records(
         if severity == "critical" and count >= majority_threshold:
             majority_critical_count += 1
 
-    blocked = majority_critical_count > block_threshold
+    blocked = majority_critical_count > 0 and majority_critical_count >= block_threshold
 
     return merged, blocked
 
