@@ -16,7 +16,7 @@ from unittest.mock import MagicMock
 
 import duckdb
 
-from agent_fox.engine.result_handler import evaluate_review_blocking
+from agent_fox.engine.blocking import evaluate_review_blocking
 from agent_fox.engine.state import SessionRecord
 from agent_fox.knowledge.review_store import (
     ReviewFinding,

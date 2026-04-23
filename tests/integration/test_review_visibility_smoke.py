@@ -134,7 +134,7 @@ class TestEnrichedBlockingReasonE2E:
     """
 
     def test_enriched_reason_from_real_db(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
-        from agent_fox.engine.result_handler import evaluate_review_blocking
+        from agent_fox.engine.blocking import evaluate_review_blocking
         from agent_fox.engine.state import SessionRecord
 
         findings = [

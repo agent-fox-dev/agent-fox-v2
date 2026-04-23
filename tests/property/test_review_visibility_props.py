@@ -122,7 +122,7 @@ class TestBlockReasonIdCapProperty:
     @settings(max_examples=20)
     def test_finding_id_count_capped(self, n: int) -> None:
         """For any N critical findings, reason has min(N, 3) F- IDs."""
-        from agent_fox.engine.result_handler import _format_block_reason
+        from agent_fox.engine.blocking import _format_block_reason
         from agent_fox.knowledge.review_store import ReviewFinding
 
         findings = [
