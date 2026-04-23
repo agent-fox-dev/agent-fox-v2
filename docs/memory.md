@@ -2,6 +2,14 @@
 
 _3175 facts | last updated: 2026-04-23_
 
+**2026-04-23 strategy extraction (issue #518):** Extracted collaborator classes
+from the three largest files: blocking logic from result_handler.py to
+engine/blocking.py, dispatch strategies from engine.py to engine/dispatch.py
+(SerialDispatcher, ParallelDispatcher), and coder-reviewer loop from
+fix_pipeline.py to nightshift/coder_reviewer.py (CoderReviewerLoop). Net:
+engine.py 2051→1817, fix_pipeline.py 1237→980, result_handler.py 793→590;
++3 new focused modules (851 LOC total). All 4292 tests pass unchanged.
+
 **2026-04-23 simplification pass:** Deleted dead code (nightshift/extraction.py,
 nightshift/ignore_ingest.py, unused llm_validation functions) and consolidated
 small single-consumer files (_text_utils→prompt_safety, assessment→engine,
