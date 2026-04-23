@@ -277,7 +277,6 @@ class TestSchemaExtraction:
             "archetypes",
             "pricing",
             "planning",
-            "blocking",
             "caching",
             "night_shift",
             "paths",

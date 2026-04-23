@@ -1,6 +1,6 @@
 # Agent-Fox Memory
 
-_3174 facts | last updated: 2026-04-22_
+_3175 facts | last updated: 2026-04-23_
 
 ## Gotchas
 
@@ -967,3 +967,4 @@ _3174 facts | last updated: 2026-04-22_
 - Fragile area: agent_fox/__init__.py was modified in 44 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
 - Fragile area: .agent-fox/memory.jsonl was modified in 99 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
 - Fragile area: .agent-fox/config.toml was modified in 35 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- `resolve_block_threshold()` in `convergence.py` was a passthrough that masked a bug: legacy archetype names ("skeptic", "oracle") from old session records need explicit mapping to `ReviewerConfig` thresholds. Tests that patched this function were hiding the gap. After removal, threshold resolution for legacy archetypes was added directly to `evaluate_review_blocking()`. _(confidence: 0.95)_

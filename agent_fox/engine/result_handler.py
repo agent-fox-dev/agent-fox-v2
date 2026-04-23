@@ -182,35 +182,31 @@ def evaluate_review_blocking(
                 reason=reason,
             )
 
-        # Resolve threshold from ReviewerConfig by mode
+        # Resolve threshold from ReviewerConfig by mode (or legacy archetype name)
         configured_threshold = 3  # conservative default
         if archetypes_config is not None:
+            rc = archetypes_config.reviewer_config
             if archetype == "reviewer":
-                rc = archetypes_config.reviewer_config
                 if mode == "pre-review":
                     configured_threshold = rc.pre_review_block_threshold
                 elif mode == "drift-review":
                     if rc.drift_review_block_threshold is None:
-                        # Drift-review is advisory-only when threshold is None
                         return BlockDecision(should_block=False)
                     configured_threshold = rc.drift_review_block_threshold
+            elif archetype == "skeptic":
+                configured_threshold = rc.pre_review_block_threshold
+            elif archetype == "oracle":
+                if rc.drift_review_block_threshold is None:
+                    return BlockDecision(should_block=False)
+                configured_threshold = rc.drift_review_block_threshold
 
-        from agent_fox.session.convergence import resolve_block_threshold
-
-        effective_threshold = resolve_block_threshold(
-            configured_threshold,
-            archetype,
-            knowledge_db_conn,
-            learn_thresholds=False,
-        )
-
-        blocked = critical_count > effective_threshold
+        blocked = critical_count > configured_threshold
 
         if blocked:
             reason = _format_block_reason(
                 display_name,
                 findings,
-                effective_threshold,
+                configured_threshold,
                 spec_name,
                 task_group,
             )

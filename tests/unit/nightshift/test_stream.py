@@ -17,7 +17,7 @@ class TestWorkStreamProtocol:
 
     def test_complete_implementation_passes_isinstance(self) -> None:
         """A class implementing all WorkStream attributes passes isinstance check."""
-        from agent_fox.nightshift.stream import WorkStream
+        from agent_fox.nightshift.streams import WorkStream
 
         class CompleteStream:
             @property
@@ -43,7 +43,7 @@ class TestWorkStreamProtocol:
 
     def test_incomplete_implementation_fails_isinstance(self) -> None:
         """A class missing run_once fails isinstance check."""
-        from agent_fox.nightshift.stream import WorkStream
+        from agent_fox.nightshift.streams import WorkStream
 
         class IncompleteStream:
             @property
@@ -66,7 +66,7 @@ class TestWorkStreamProtocol:
 
     def test_complete_stream_attributes(self) -> None:
         """Complete stream exposes correct attribute values."""
-        from agent_fox.nightshift.stream import WorkStream
+        from agent_fox.nightshift.streams import WorkStream
 
         class CompleteStream:
             @property

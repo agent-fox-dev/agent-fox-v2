@@ -93,6 +93,16 @@ class FixPipeline:
         self._conn = conn
         self._run_id: str = ""
 
+    async def _post_comment(self, issue_number: int, message: str) -> None:
+        """Post a comment on an issue, logging failures without raising."""
+        try:
+            await self._platform.add_issue_comment(  # type: ignore[attr-defined]
+                issue_number,
+                message,
+            )
+        except Exception as exc:
+            logger.warning("Failed to post comment for issue #%d: %s", issue_number, exc)
+
     def _update_spinner(self, text: str) -> None:
         """Update the spinner text with a phase hint.
 
@@ -662,16 +672,7 @@ class FixPipeline:
         # Post triage comment if we have results
         if triage.criteria or triage.summary:
             comment = self._format_triage_comment(triage) + f"\n(run: `{self._run_id}`)"
-            try:
-                await self._platform.add_issue_comment(  # type: ignore[attr-defined]
-                    spec.issue_number, comment
-                )
-            except Exception as exc:
-                logger.warning(
-                    "Failed to post triage comment for issue #%d: %s",
-                    spec.issue_number,
-                    exc,
-                )
+            await self._post_comment(spec.issue_number, comment)
 
         return triage
 
@@ -927,16 +928,7 @@ class FixPipeline:
 
             # Post review comment
             review_comment = self._format_review_comment(review_result) + f"\n(run: `{self._run_id}`)"
-            try:
-                await self._platform.add_issue_comment(  # type: ignore[attr-defined]
-                    spec.issue_number, review_comment
-                )
-            except Exception as exc:
-                logger.warning(
-                    "Failed to post review comment for issue #%d: %s",
-                    spec.issue_number,
-                    exc,
-                )
+            await self._post_comment(spec.issue_number, review_comment)
 
             # Check verdict
             if review_result.overall_verdict == "PASS":
@@ -946,20 +938,12 @@ class FixPipeline:
             ladder.record_failure()
 
             if ladder.is_exhausted or _attempt >= max_retries:
-                # Post failure comment and stop
-                try:
-                    await self._platform.add_issue_comment(  # type: ignore[attr-defined]
-                        spec.issue_number,
-                        "Fix pipeline exhausted all retries. "
-                        "The issue could not be resolved automatically. "
-                        f"Manual intervention is required. (run: `{self._run_id}`)",
-                    )
-                except Exception as exc:
-                    logger.warning(
-                        "Failed to post exhaustion comment for issue #%d: %s",
-                        spec.issue_number,
-                        exc,
-                    )
+                await self._post_comment(
+                    spec.issue_number,
+                    "Fix pipeline exhausted all retries. "
+                    "The issue could not be resolved automatically. "
+                    f"Manual intervention is required. (run: `{self._run_id}`)",
+                )
                 return False
 
             # Set up feedback for next coder attempt
@@ -1041,17 +1025,10 @@ class FixPipeline:
         workspace = await self._setup_workspace(spec)
 
         # Post progress comment
-        try:
-            await self._platform.add_issue_comment(  # type: ignore[attr-defined]
-                issue.number,
-                f"Starting fix session on branch `{spec.branch_name}`... (run: `{self._run_id}`)",
-            )
-        except Exception as exc:
-            logger.warning(
-                "Failed to post starting comment for issue #%d: %s",
-                issue.number,
-                exc,
-            )
+        await self._post_comment(
+            issue.number,
+            f"Starting fix session on branch `{spec.branch_name}`... (run: `{self._run_id}`)",
+        )
 
         try:
             # 82-REQ-7.1: run triage first
@@ -1096,17 +1073,10 @@ class FixPipeline:
 
         except Exception as exc:
             # 61-REQ-6.E1: post comment on failure
-            try:
-                await self._platform.add_issue_comment(  # type: ignore[attr-defined]
-                    issue.number,
-                    f"Fix session failed: {exc}\n\nBranch: `{spec.branch_name}` (run: `{self._run_id}`)",
-                )
-            except Exception as comment_exc:
-                logger.warning(
-                    "Failed to post failure comment for issue #%d: %s",
-                    issue.number,
-                    comment_exc,
-                )
+            await self._post_comment(
+                issue.number,
+                f"Fix session failed: {exc}\n\nBranch: `{spec.branch_name}` (run: `{self._run_id}`)",
+            )
             logger.warning(
                 "Fix session failed for issue #%d: %s",
                 issue.number,
@@ -1118,19 +1088,12 @@ class FixPipeline:
             await self._cleanup_workspace(workspace)
 
         if harvest_result == "error":
-            try:
-                await self._platform.add_issue_comment(  # type: ignore[attr-defined]
-                    issue.number,
-                    f"Fix sessions completed but changes from branch "
-                    f"`{spec.branch_name}` could not be merged into `develop`. "
-                    f"Manual investigation is required. (run: `{self._run_id}`)",
-                )
-            except Exception as exc:
-                logger.warning(
-                    "Failed to post merge failure comment for issue #%d: %s",
-                    issue.number,
-                    exc,
-                )
+            await self._post_comment(
+                issue.number,
+                f"Fix sessions completed but changes from branch "
+                f"`{spec.branch_name}` could not be merged into `develop`. "
+                f"Manual investigation is required. (run: `{self._run_id}`)",
+            )
             self._try_complete_run("completed")
             return metrics
 
@@ -1141,19 +1104,12 @@ class FixPipeline:
                 issue.number,
                 spec.branch_name,
             )
-            try:
-                await self._platform.add_issue_comment(  # type: ignore[attr-defined]
-                    issue.number,
-                    f"Fix attempt on branch `{spec.branch_name}` produced no new commits. "
-                    "The issue has been left open for human review. "
-                    f"(run: `{self._run_id}`)",
-                )
-            except Exception as exc:
-                logger.warning(
-                    "Failed to post no-change comment for issue #%d: %s",
-                    issue.number,
-                    exc,
-                )
+            await self._post_comment(
+                issue.number,
+                f"Fix attempt on branch `{spec.branch_name}` produced no new commits. "
+                "The issue has been left open for human review. "
+                f"(run: `{self._run_id}`)",
+            )
             try:
                 await self._platform.assign_label(  # type: ignore[attr-defined]
                     issue.number,

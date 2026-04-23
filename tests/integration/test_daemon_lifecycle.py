@@ -284,23 +284,24 @@ class TestSmokeFixPipeline:
     async def test_fix_pipeline_e2e(self) -> None:
         """engine._drain_issues called, cost reported."""
         from agent_fox.nightshift.daemon import SharedBudget
-        from agent_fox.nightshift.streams import FixPipelineStream
+        from agent_fox.nightshift.streams import EngineWorkStream
 
         budget = SharedBudget(max_cost=10.0)
         engine = MagicMock()
         engine.state = MagicMock()
-        engine.state.total_cost = 3.0
-        engine._drain_issues = AsyncMock()
-
-        fix_stream = FixPipelineStream(engine=engine, budget=budget)
-        # Record initial cost
-        initial_cost = 0.0
-        engine.state.total_cost = initial_cost
+        engine.state.total_cost = 0.0
 
         async def drain_with_cost() -> None:
             engine.state.total_cost = 3.0
 
         engine._drain_issues = AsyncMock(side_effect=drain_with_cost)
+
+        fix_stream = EngineWorkStream(
+            stream_name="fix-pipeline",
+            engine=engine,
+            method_name="_drain_issues",
+            budget=budget,
+        )
         await fix_stream.run_once()
         assert engine._drain_issues.call_count == 1
         assert budget.total_cost == 3.0
@@ -318,7 +319,7 @@ class TestSmokeHuntScan:
     async def test_hunt_scan_e2e(self) -> None:
         """engine._run_hunt_scan called."""
         from agent_fox.nightshift.daemon import SharedBudget
-        from agent_fox.nightshift.streams import HuntScanStream
+        from agent_fox.nightshift.streams import EngineWorkStream
 
         budget = SharedBudget(max_cost=10.0)
         engine = MagicMock()
@@ -326,7 +327,12 @@ class TestSmokeHuntScan:
         engine.state.total_cost = 0.0
         engine._run_hunt_scan = AsyncMock()
 
-        hunt_stream = HuntScanStream(engine=engine, budget=budget)
+        hunt_stream = EngineWorkStream(
+            stream_name="hunt-scan",
+            engine=engine,
+            method_name="_run_hunt_scan",
+            budget=budget,
+        )
         await hunt_stream.run_once()
         assert engine._run_hunt_scan.call_count == 1
 
