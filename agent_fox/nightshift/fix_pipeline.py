@@ -16,17 +16,13 @@ from __future__ import annotations
 
 import logging
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from agent_fox.core.config import AgentFoxConfig
 from agent_fox.engine.audit_helpers import emit_audit_event
 from agent_fox.knowledge.audit import AuditEventType, generate_run_id
-from agent_fox.nightshift.fix_types import (
-    FixReviewResult,
-    TriageResult,
-)
 from agent_fox.nightshift.spec_builder import InMemorySpec, build_in_memory_spec
 from agent_fox.platform.labels import LABEL_FIXED, LABEL_NO_CHANGE
 from agent_fox.platform.protocol import IssueResult
@@ -39,6 +35,50 @@ if TYPE_CHECKING:
     from agent_fox.knowledge.sink import SinkDispatcher
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Data types for triage and review workflow (formerly nightshift/fix_types)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class AcceptanceCriterion:
+    """A single acceptance criterion from the triage agent."""
+
+    id: str
+    description: str
+    preconditions: str
+    expected: str
+    assertion: str
+
+
+@dataclass(frozen=True)
+class TriageResult:
+    """Parsed triage output."""
+
+    summary: str = ""
+    affected_files: list[str] = field(default_factory=list)
+    criteria: list[AcceptanceCriterion] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class FixReviewVerdict:
+    """A single per-criterion verdict from the fix reviewer."""
+
+    criterion_id: str
+    verdict: str
+    evidence: str
+
+
+@dataclass(frozen=True)
+class FixReviewResult:
+    """Parsed fix reviewer output."""
+
+    verdicts: list[FixReviewVerdict] = field(default_factory=list)
+    overall_verdict: str = "FAIL"
+    summary: str = ""
+    is_parse_failure: bool = False
 
 
 @dataclass

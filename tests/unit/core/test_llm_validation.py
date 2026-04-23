@@ -6,7 +6,7 @@ deserialized without schema validation.
 
 from __future__ import annotations
 
-from agent_fox.core.llm_validation import (
+from agent_fox.session.review_parser import (
     MAX_CONTENT_LENGTH,
     truncate_field,
 )

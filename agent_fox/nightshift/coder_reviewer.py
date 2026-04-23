@@ -16,7 +16,7 @@ from typing import Any
 
 from agent_fox.engine.audit_helpers import emit_audit_event
 from agent_fox.knowledge.audit import AuditEventType
-from agent_fox.nightshift.fix_types import FixReviewResult, TriageResult
+from agent_fox.nightshift.fix_pipeline import FixReviewResult, TriageResult
 from agent_fox.nightshift.spec_builder import InMemorySpec
 from agent_fox.ui.progress import TaskEvent
 from agent_fox.workspace import WorkspaceInfo

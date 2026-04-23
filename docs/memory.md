@@ -2,6 +2,13 @@
 
 _3176 facts | last updated: 2026-04-23_
 
+**2026-04-23 simplification pass 3:** Inlined core/llm_validation.py into
+session/review_parser.py (single consumer), core/retry.py into core/client.py
+(single consumer), merged nightshift/fix_types.py into nightshift/fix_pipeline.py,
+and extracted shared _iter_valid_items() generator to deduplicate parse loop in
+review_parser.py's three typed parse functions. Net: −3 source files, −73 LOC.
+All 4342 tests pass.
+
 **2026-04-23 state transition validation (issue #523):** Added
 `VALID_TRANSITIONS` table and `_transition()` validation method to
 `GraphSync` in `engine/graph_sync.py`. All `mark_*()` methods now validate

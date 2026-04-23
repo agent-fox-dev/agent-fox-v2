@@ -20,21 +20,15 @@ import json
 import logging
 import re
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from agent_fox.nightshift.fix_types import FixReviewResult, TriageResult
+    from agent_fox.nightshift.fix_pipeline import FixReviewResult, TriageResult
     from agent_fox.session.convergence import AuditResult
 
 from agent_fox.core.json_extraction import extract_json_array
-from agent_fox.core.llm_validation import (
-    MAX_CONTENT_LENGTH,
-    MAX_EVIDENCE_LENGTH,
-    MAX_REF_LENGTH,
-    truncate_field,
-)
 from agent_fox.knowledge.audit import AuditEvent, AuditEventType, AuditSeverity
 from agent_fox.knowledge.review_store import (
     VALID_VERDICTS,
@@ -49,6 +43,35 @@ from agent_fox.knowledge.review_store import (
 __all__ = ["extract_json_array"]
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Field-level validation constants and helper (formerly core/llm_validation)
+# ---------------------------------------------------------------------------
+
+MAX_RAW_RESPONSE_BYTES = 500_000
+MAX_CONTENT_LENGTH = 5_000
+MAX_KEYWORD_LENGTH = 100
+MAX_KEYWORDS = 20
+MAX_REF_LENGTH = 500
+MAX_EVIDENCE_LENGTH = 10_000
+
+
+def truncate_field(value: str, *, max_length: int, field_name: str) -> str:
+    """Truncate a string field to *max_length* characters.
+
+    Logs a warning when truncation occurs so callers can audit
+    excessively large LLM outputs.
+    """
+    if len(value) <= max_length:
+        return value
+    logger.warning(
+        "Truncating %s from %d to %d chars",
+        field_name,
+        len(value),
+        max_length,
+    )
+    return value[:max_length]
+
 
 # ---------------------------------------------------------------------------
 # Multi-category keyword classification for automatic category detection
@@ -214,6 +237,33 @@ def _normalize_keys(obj: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 
+def _iter_valid_items(
+    json_objects: list[dict],
+    required_fields: tuple[str, ...],
+    label: str,
+) -> Iterator[dict]:
+    """Validate, normalize keys, and yield dicts that have all required fields.
+
+    Shared loop for parse_review_findings, parse_verification_results,
+    and parse_drift_findings.
+    """
+    for obj in json_objects:
+        if not isinstance(obj, dict):
+            logger.warning("Skipping non-dict item in %s: %r", label, type(obj).__name__)
+            continue
+        obj = _normalize_keys(obj)
+        missing = [f for f in required_fields if f not in obj]
+        if missing:
+            logger.warning(
+                "Skipping %s: missing required field(s) (%s). Got keys: %s",
+                label,
+                ", ".join(missing),
+                list(obj.keys()),
+            )
+            continue
+        yield obj
+
+
 def parse_review_findings(
     json_objects: list[dict],
     spec_name: str,
@@ -224,22 +274,11 @@ def parse_review_findings(
 
     Required fields: ``severity``, ``description``.
     Optional fields: ``requirement_ref``.
-    Objects missing required fields are skipped with a warning log.
 
     Requirements: 53-REQ-4.2
     """
     results: list[ReviewFinding] = []
-    for obj in json_objects:
-        if not isinstance(obj, dict):
-            logger.warning("Skipping non-dict item in review findings: %r", type(obj).__name__)
-            continue
-        obj = _normalize_keys(obj)
-        if "severity" not in obj or "description" not in obj:
-            logger.warning(
-                "Skipping review finding: missing required field(s) (severity, description). Got keys: %s",
-                list(obj.keys()),
-            )
-            continue
+    for obj in _iter_valid_items(json_objects, ("severity", "description"), "review finding"):
         description = truncate_field(
             obj["description"],
             max_length=MAX_CONTENT_LENGTH,
@@ -248,7 +287,6 @@ def parse_review_findings(
         req_ref = obj.get("requirement_ref")
         if isinstance(req_ref, str):
             req_ref = truncate_field(req_ref, max_length=MAX_REF_LENGTH, field_name="finding.requirement_ref")
-        category = _classify_category(description)
         results.append(
             ReviewFinding(
                 id=str(uuid.uuid4()),
@@ -258,7 +296,7 @@ def parse_review_findings(
                 spec_name=spec_name,
                 task_group=task_group,  # type: ignore[arg-type]
                 session_id=session_id,
-                category=category,
+                category=_classify_category(description),
             )
         )
     return results
@@ -276,37 +314,15 @@ def parse_verification_results(
 
     Required fields: ``requirement_id``, ``verdict`` (PASS or FAIL).
     Optional fields: ``evidence``.
-    Objects missing required fields are skipped with a warning log.
 
-    Non-standard verdict values (e.g. ``PARTIAL``, ``CONDITIONAL``) are
-    normalized to ``FAIL`` rather than dropped. When *emit_audit_event* is
-    provided, a :data:`~agent_fox.knowledge.audit.AuditEventType.VERDICT_NORMALIZED`
-    event is emitted for each coerced verdict so operators can observe the
-    normalization.
+    Non-standard verdict values are normalized to ``FAIL``. When
+    *emit_audit_event* is provided, a VERDICT_NORMALIZED event is emitted
+    for each coerced verdict.
 
     Requirements: 53-REQ-4.2
     """
     results: list[VerificationResult] = []
-    for obj in json_objects:
-        if not isinstance(obj, dict):
-            logger.warning(
-                "Skipping non-dict item in verification results: %r",
-                type(obj).__name__,
-            )
-            continue
-        obj = _normalize_keys(obj)
-        if "requirement_id" not in obj:
-            logger.warning(
-                "Skipping verification result: missing required field 'requirement_id'. Got keys: %s",
-                list(obj.keys()),
-            )
-            continue
-        if "verdict" not in obj:
-            logger.warning(
-                "Skipping verification result: missing required field 'verdict'. Got keys: %s",
-                list(obj.keys()),
-            )
-            continue
+    for obj in _iter_valid_items(json_objects, ("requirement_id", "verdict"), "verification result"):
         raw_verdict = str(obj["verdict"])
         verdict_val = validate_verdict(raw_verdict)
         original_upper = raw_verdict.upper().strip()
@@ -364,22 +380,11 @@ def parse_drift_findings(
 
     Required fields: ``severity``, ``description``.
     Optional fields: ``spec_ref``, ``artifact_ref``.
-    Objects missing required fields are skipped with a warning log.
 
     Requirements: 53-REQ-4.2
     """
     results: list[DriftFinding] = []
-    for obj in json_objects:
-        if not isinstance(obj, dict):
-            logger.warning("Skipping non-dict item in drift findings: %r", type(obj).__name__)
-            continue
-        obj = _normalize_keys(obj)
-        if "severity" not in obj or "description" not in obj:
-            logger.warning(
-                "Skipping drift finding: missing required field(s) (severity, description). Got keys: %s",
-                list(obj.keys()),
-            )
-            continue
+    for obj in _iter_valid_items(json_objects, ("severity", "description"), "drift finding"):
         description = truncate_field(
             obj["description"],
             max_length=MAX_CONTENT_LENGTH,
@@ -870,7 +875,7 @@ def parse_triage_output(
 
     Requirements: 82-REQ-2.1, 82-REQ-2.2, 82-REQ-2.3, 82-REQ-2.E1
     """
-    from agent_fox.nightshift.fix_types import AcceptanceCriterion, TriageResult
+    from agent_fox.nightshift.fix_pipeline import AcceptanceCriterion, TriageResult
 
     data = _extract_json_dict(response)
 
@@ -934,7 +939,7 @@ def parse_fix_review_output(
 
     Requirements: 82-REQ-5.1
     """
-    from agent_fox.nightshift.fix_types import FixReviewResult, FixReviewVerdict
+    from agent_fox.nightshift.fix_pipeline import FixReviewResult, FixReviewVerdict
 
     _VALID_VERDICTS = {"PASS", "FAIL"}
 
