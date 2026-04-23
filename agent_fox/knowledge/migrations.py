@@ -736,6 +736,16 @@ def _migrate_v19(conn: duckdb.DuckDBPyConnection) -> None:
     """)
 
 
+def _migrate_v20(conn: duckdb.DuckDBPyConnection) -> None:
+    """Add coverage_data column to session_outcomes for trend tracking."""
+    tables = {
+        r[0]
+        for r in conn.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'main'").fetchall()
+    }
+    if "session_outcomes" in tables:
+        conn.execute("ALTER TABLE session_outcomes ADD COLUMN IF NOT EXISTS coverage_data TEXT")
+
+
 # Registry of all migrations, ordered by version.
 MIGRATIONS: list[Migration] = [
     Migration(
@@ -828,6 +838,11 @@ MIGRATIONS: list[Migration] = [
         description="add errata table for lightweight errata generation",
         apply=_migrate_v19,
     ),
+    Migration(
+        version=20,
+        description="add coverage_data column to session_outcomes for trend tracking",
+        apply=_migrate_v20,
+    ),
 ]
 
 
@@ -861,7 +876,8 @@ CREATE TABLE IF NOT EXISTS session_outcomes (
     commit_sha          VARCHAR,
     error_message       TEXT,
     is_transport_error  BOOLEAN DEFAULT FALSE,
-    retrieval_summary   TEXT
+    retrieval_summary   TEXT,
+    coverage_data       TEXT
 );
 
 CREATE TABLE IF NOT EXISTS plan_nodes (

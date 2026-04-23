@@ -15,6 +15,7 @@ from __future__ import annotations
 import logging
 import math
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 from agent_fox.archetypes import get_archetype
@@ -79,6 +80,10 @@ class SessionResultHandler:
         self._node_max_turns: dict[str, int | None] = {}
         self._node_timeout: dict[str, int] = {}
         self._original_node_timeout: dict[str, int] = {}  # per-node original timeouts
+
+        # Coverage regression gate state
+        self._coverage_baselines: dict[str, Any] = {}
+        self._coverage_tool: Any = None  # None = not checked, False = no tool
         self._max_timeout_retries: int = max_timeout_retries
         self._timeout_multiplier: float = timeout_multiplier
         self._timeout_ceiling_factor: float = timeout_ceiling_factor
@@ -99,6 +104,125 @@ class SessionResultHandler:
     def _get_predecessors(self, node_id: str) -> list[str]:
         """Get predecessor node IDs for a given node."""
         return self._graph_sync.predecessors(node_id)
+
+    def _get_coverage_tool(self, cwd: Path) -> Any:
+        """Lazy-detect the coverage tool once per run."""
+        if self._coverage_tool is None:
+            from agent_fox.engine.coverage import detect_coverage_tool
+
+            tool = detect_coverage_tool(cwd)
+            self._coverage_tool = tool if tool is not None else False
+        return self._coverage_tool if self._coverage_tool is not False else None
+
+    def capture_coverage_baseline(self, node_id: str, cwd: Path) -> None:
+        """Measure and store baseline coverage before a coder session."""
+        tool = self._get_coverage_tool(cwd)
+        if tool is None:
+            return
+        try:
+            from agent_fox.engine.coverage import measure_coverage
+
+            result = measure_coverage(cwd, tool)
+            if result is not None:
+                self._coverage_baselines[node_id] = result
+                logger.debug("Captured coverage baseline for %s (%d files)", node_id, len(result.files))
+        except Exception:
+            logger.debug("Failed to capture coverage baseline for %s", node_id, exc_info=True)
+
+    def check_coverage_regression(
+        self,
+        record: SessionRecord,
+        state: ExecutionState,
+        cwd: Path,
+    ) -> str | None:
+        """Check for coverage regression after a successful coder session.
+
+        Returns JSON coverage data for storage, or None if no measurement
+        was possible. Emits a blocking finding if coverage regressed.
+        """
+        baseline = self._coverage_baselines.pop(record.node_id, None)
+        if baseline is None:
+            return None
+
+        tool = self._get_coverage_tool(cwd)
+        if tool is None:
+            return None
+
+        try:
+            from agent_fox.engine.coverage import find_regressions, measure_coverage
+
+            current = measure_coverage(cwd, tool)
+            if current is None:
+                return None
+
+            modified_files = record.files_touched or []
+            regressions = find_regressions(baseline, current, modified_files)
+
+            if regressions:
+                self._emit_coverage_regression(record, regressions, state)
+
+            return current.to_json()
+        except Exception:
+            logger.debug("Coverage regression check failed for %s", record.node_id, exc_info=True)
+            return None
+
+    def _emit_coverage_regression(
+        self,
+        record: SessionRecord,
+        regressions: list[Any],
+        state: ExecutionState,
+    ) -> None:
+        """Record a coverage regression finding and block the node."""
+        details = "; ".join(
+            f"{r.file_path}: {r.baseline_pct:.1f}% → {r.current_pct:.1f}% ({r.delta:+.1f}%)" for r in regressions
+        )
+        reason = f"Coverage regression on {len(regressions)} file(s): {details}"
+        logger.warning("Coverage regression for %s: %s", record.node_id, reason)
+
+        emit_audit_event(
+            self._sink,
+            self._run_id,
+            AuditEventType.TASK_STATUS_CHANGE,
+            node_id=record.node_id,
+            payload={
+                "from_status": "completed",
+                "to_status": "blocked",
+                "reason": reason,
+                "regressions": [
+                    {
+                        "file": r.file_path,
+                        "baseline": r.baseline_pct,
+                        "current": r.current_pct,
+                        "delta": r.delta,
+                    }
+                    for r in regressions
+                ],
+            },
+        )
+
+        if self._knowledge_db_conn is not None:
+            try:
+                from agent_fox.core.node_id import parse_node_id
+
+                parsed = parse_node_id(record.node_id)
+                self._knowledge_db_conn.execute(
+                    """
+                    INSERT INTO review_findings
+                        (id, severity, description, spec_name, task_group, session_id, category)
+                    VALUES
+                        (gen_random_uuid(), 'critical', ?, ?, ?, ?, 'coverage_regression')
+                    """,
+                    [
+                        reason,
+                        parsed.spec_name,
+                        str(parsed.group_number) if parsed.group_number else "1",
+                        f"{record.node_id}:{record.attempt}",
+                    ],
+                )
+            except Exception:
+                logger.debug("Failed to persist coverage regression finding", exc_info=True)
+
+        self._block_task(record.node_id, state, reason)
 
     def check_skeptic_blocking(
         self,
@@ -267,6 +391,11 @@ class SessionResultHandler:
         """Process a completed session record and persist state."""
         update_state_with_session(state, record)
 
+        # Compute coverage data for successful coder sessions before DB write
+        coverage_data: str | None = None
+        if record.status == "completed" and self._get_node_archetype(record.node_id) == "coder":
+            coverage_data = self.check_coverage_regression(record, state, Path.cwd())
+
         # 105-REQ-3.2: Record session outcome to DB (unified single source of truth).
         # 105-REQ-4.3: Accumulate run token/cost totals.
         if self._knowledge_db_conn is not None:
@@ -306,6 +435,7 @@ class SessionResultHandler:
                     error_message=record.error_message,
                     is_transport_error=record.is_transport_error,
                     retrieval_summary=record.retrieval_summary,  # 113-REQ-7.2
+                    coverage_data=coverage_data,
                 )
                 _record_session_db(self._knowledge_db_conn, outcome)
                 _update_run_totals(
