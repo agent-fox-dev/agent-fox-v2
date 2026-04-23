@@ -22,12 +22,16 @@ Requirements: 77-REQ-2.1, 77-REQ-2.2, 77-REQ-2.3, 77-REQ-2.4,
 
 from __future__ import annotations
 
+import asyncio
 import copy
 import logging
 import os
+import time
+from collections.abc import Callable, Coroutine
 from typing import Any
 
 import anthropic
+from anthropic import APIStatusError, RateLimitError
 
 from agent_fox.core.config import CachePolicy
 
@@ -235,6 +239,79 @@ def cached_messages_create_sync(
         raise
 
 
+# ---------------------------------------------------------------------------
+# Retry helpers (formerly core/retry)
+# ---------------------------------------------------------------------------
+
+_RETRY_DELAYS: tuple[float, ...] = (2.0, 30.0, 60.0)
+
+
+def _is_retryable(exc: Exception) -> bool:
+    if isinstance(exc, RateLimitError):
+        return True
+    if isinstance(exc, APIStatusError) and exc.status_code >= 500:
+        return True
+    if isinstance(exc, OSError):
+        return True
+    return False
+
+
+async def retry_api_call_async[T](
+    fn: Callable[[], Coroutine[object, object, T]],
+    *,
+    context: str = "API call",
+) -> T:
+    """Execute *fn* with retry on transient Anthropic errors.
+
+    Returns the result of *fn* on success.
+    Raises the original exception after all retries are exhausted.
+    """
+    max_attempts = len(_RETRY_DELAYS) + 1
+    for attempt in range(max_attempts):
+        try:
+            return await fn()
+        except (RateLimitError, APIStatusError, OSError) as exc:
+            if not _is_retryable(exc) or attempt == max_attempts - 1:
+                raise
+            delay = _RETRY_DELAYS[attempt]
+            logger.warning(
+                "%s: transient error (attempt %d/%d), retrying in %.0fs — %s",
+                context,
+                attempt + 1,
+                max_attempts,
+                delay,
+                exc,
+            )
+            await asyncio.sleep(delay)
+    raise AssertionError("unreachable")  # pragma: no cover
+
+
+def retry_api_call[T](
+    fn: Callable[[], T],
+    *,
+    context: str = "API call",
+) -> T:
+    """Synchronous version of :func:`retry_api_call_async`."""
+    max_attempts = len(_RETRY_DELAYS) + 1
+    for attempt in range(max_attempts):
+        try:
+            return fn()
+        except (RateLimitError, APIStatusError, OSError) as exc:
+            if not _is_retryable(exc) or attempt == max_attempts - 1:
+                raise
+            delay = _RETRY_DELAYS[attempt]
+            logger.warning(
+                "%s: transient error (attempt %d/%d), retrying in %.0fs — %s",
+                context,
+                attempt + 1,
+                max_attempts,
+                delay,
+                exc,
+            )
+            time.sleep(delay)
+    raise AssertionError("unreachable")  # pragma: no cover
+
+
 def _check_vertex_deps() -> None:
     """Fail fast if the Vertex extras are missing."""
     try:
@@ -331,7 +408,6 @@ async def ai_call(
         check for None text and handle accordingly.
     """
     from agent_fox.core.models import resolve_model
-    from agent_fox.core.retry import retry_api_call_async
     from agent_fox.core.token_tracker import track_response_usage
 
     model_entry = resolve_model(model_tier)
@@ -372,7 +448,6 @@ def ai_call_sync(
         A tuple of (response_text_or_none, raw_response).
     """
     from agent_fox.core.models import resolve_model
-    from agent_fox.core.retry import retry_api_call
     from agent_fox.core.token_tracker import track_response_usage
 
     model_entry = resolve_model(model_tier)
