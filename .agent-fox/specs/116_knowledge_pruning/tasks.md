@@ -158,9 +158,9 @@ imports and config, (5) verify wiring end-to-end.
     - [x] Property tests pass: TS-116-P1, TS-116-P2, TS-116-P3
     - [x] Smoke tests pass: TS-116-SMOKE-1, TS-116-SMOKE-2, TS-116-SMOKE-3
 
-- [ ] 6. Wiring verification
+- [x] 6. Wiring verification
 
-  - [ ] 6.1 Trace every execution path from design.md end-to-end
+  - [x] 6.1 Trace every execution path from design.md end-to-end
     - Path 1 (pre-session retrieval): verify `run.py` creates
       `FoxKnowledgeProvider`, `session_lifecycle.py` calls `retrieve()`,
       `fox_provider.py` calls `review_store.query_active_findings()`
@@ -170,34 +170,34 @@ imports and config, (5) verify wiring end-to-end.
       `review_store.insert_findings()` without `_insert_causal_links()`
     - _Requirements: all_
 
-  - [ ] 6.2 Verify return values propagate correctly
+  - [x] 6.2 Verify return values propagate correctly
     - `retrieve()` returns `list[str]` consumed by `_build_prompts()`
     - `insert_findings()` returns `int` consumed by `_persist_review_findings()`
     - _Requirements: all_
 
-  - [ ] 6.3 Run the integration smoke tests
+  - [x] 6.3 Run the integration smoke tests
     - All `TS-116-SMOKE-*` tests pass using real components
     - _Test Spec: TS-116-SMOKE-1 through TS-116-SMOKE-3_
 
-  - [ ] 6.4 Stub / dead-code audit
+  - [x] 6.4 Stub / dead-code audit
     - Search all files touched by this spec for: `return []`, `return None`
       on non-Optional returns, `pass` in non-abstract methods, `# TODO`,
       `# stub`, `NotImplementedError`
     - Each hit must be justified or replaced
     - Exception: `ingest()` returning `None` is intentional (protocol no-op)
 
-  - [ ] 6.5 Cross-spec entry point verification
+  - [x] 6.5 Cross-spec entry point verification
     - Verify `FoxKnowledgeProvider` is instantiated in `engine/run.py`
     - Verify `session_lifecycle.py` calls both `retrieve()` and `ingest()`
     - Verify `result_handler.py` no longer imports `blocking_history`
     - _Requirements: all_
 
-  - [ ] 6.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live (traceable in code)
-    - [ ] All cross-spec entry points are called from production code
-    - [ ] All existing tests still pass: `uv run pytest -q`
+  - [x] 6.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] All cross-spec entry points are called from production code
+    - [x] All existing tests still pass: `uv run pytest -q`
 
 ## Traceability
 
