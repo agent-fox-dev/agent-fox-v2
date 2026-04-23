@@ -151,87 +151,41 @@ class SpecExecutorStream:
 
 
 # ---------------------------------------------------------------------------
-# FixPipelineStream
+# EngineWorkStream — unified wrapper for engine-method-based streams
 # ---------------------------------------------------------------------------
 
 
-class FixPipelineStream:
-    """Wraps NightShiftEngine._drain_issues() as a work stream.
+class EngineWorkStream:
+    """Wraps a NightShiftEngine method as a work stream.
 
-    Requirements: 85-REQ-1.1
-    """
-
-    def __init__(
-        self,
-        engine: object,
-        budget: SharedBudget,
-        *,
-        enabled: bool = True,
-        interval: int = 900,
-    ) -> None:
-        self._engine = engine
-        self._budget = budget
-        self._enabled = enabled
-        self._interval = interval
-
-    @property
-    def name(self) -> str:
-        return "fix-pipeline"
-
-    @property
-    def interval(self) -> int:
-        return self._interval
-
-    @property
-    def enabled(self) -> bool:
-        return self._enabled
-
-    @enabled.setter
-    def enabled(self, value: bool) -> None:
-        self._enabled = value
-
-    async def run_once(self) -> None:
-        """Run one drain-issues cycle and report cost delta."""
-        cost_before = getattr(getattr(self._engine, "state", None), "total_cost", 0.0)
-        await self._engine._drain_issues()  # type: ignore[attr-defined]
-        cost_after = getattr(getattr(self._engine, "state", None), "total_cost", 0.0)
-        delta = cost_after - cost_before
-        if delta > 0:
-            self._budget.add_cost(delta)
-
-    async def shutdown(self) -> None:
-        """No resources to clean up."""
-
-
-# ---------------------------------------------------------------------------
-# HuntScanStream
-# ---------------------------------------------------------------------------
-
-
-class HuntScanStream:
-    """Wraps NightShiftEngine._run_hunt_scan() as a work stream.
+    Replaces the former FixPipelineStream and HuntScanStream, which were
+    near-identical except for the stream name and delegated method name.
 
     Requirements: 85-REQ-1.1, 85-REQ-6.3
     """
 
     def __init__(
         self,
+        stream_name: str,
         engine: object,
+        method_name: str,
         budget: SharedBudget,
         *,
         enabled: bool = True,
+        interval: int = 900,
         auto_fix: bool = False,
-        interval: int = 14400,
     ) -> None:
+        self._name = stream_name
         self._engine = engine
+        self._method_name = method_name
         self._budget = budget
         self._enabled = enabled
-        self.auto_fix = auto_fix
         self._interval = interval
+        self.auto_fix = auto_fix
 
     @property
     def name(self) -> str:
-        return "hunt-scan"
+        return self._name
 
     @property
     def interval(self) -> int:
@@ -246,9 +200,10 @@ class HuntScanStream:
         self._enabled = value
 
     async def run_once(self) -> None:
-        """Run one hunt scan cycle and report cost delta."""
+        """Run one cycle via the configured engine method and report cost delta."""
         cost_before = getattr(getattr(self._engine, "state", None), "total_cost", 0.0)
-        await self._engine._run_hunt_scan()  # type: ignore[attr-defined]
+        method = getattr(self._engine, self._method_name)
+        await method()
         cost_after = getattr(getattr(self._engine, "state", None), "total_cost", 0.0)
         delta = cost_after - cost_before
         if delta > 0:
@@ -342,8 +297,10 @@ def build_streams(
     )
 
     streams.append(
-        FixPipelineStream(
+        EngineWorkStream(
+            stream_name="fix-pipeline",
             engine=engine,
+            method_name="_drain_issues",
             budget=budget,
             enabled="fixes" in final_enabled,
             interval=issue_check_interval,
@@ -351,8 +308,10 @@ def build_streams(
     )
 
     streams.append(
-        HuntScanStream(
+        EngineWorkStream(
+            stream_name="hunt-scan",
             engine=engine,
+            method_name="_run_hunt_scan",
             budget=budget,
             enabled="hunts" in final_enabled,
             auto_fix=auto,

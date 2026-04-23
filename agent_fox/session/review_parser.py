@@ -449,6 +449,25 @@ def _resolve_wrapper_key(data: dict, canonical_key: str) -> str | None:
 _FENCE_RE = re.compile(r"```(?:json)?\s*\n(.*?)\n\s*```", re.DOTALL)
 
 
+def _extract_json_dict(response: str) -> dict | None:
+    """Extract the first JSON dict from a response string."""
+    stripped = response.strip()
+    try:
+        parsed = json.loads(stripped)
+        if isinstance(parsed, dict):
+            return parsed
+    except json.JSONDecodeError:
+        pass
+    for block in _extract_json_blocks(response):
+        try:
+            parsed = json.loads(block)
+            if isinstance(parsed, dict):
+                return parsed
+        except json.JSONDecodeError:
+            continue
+    return None
+
+
 def _extract_json_blocks(text: str) -> list[str]:
     """Extract JSON blocks from mixed prose/JSON agent output.
 
@@ -853,27 +872,7 @@ def parse_triage_output(
     """
     from agent_fox.nightshift.fix_types import AcceptanceCriterion, TriageResult
 
-    # Try direct JSON parse first, then regex fallback via _extract_json_blocks
-    data: dict | None = None
-    stripped = response.strip()
-    try:
-        parsed = json.loads(stripped)
-        if isinstance(parsed, dict):
-            data = parsed
-    except json.JSONDecodeError:
-        pass
-
-    if data is None:
-        # Fallback: extract from fenced code blocks or bare JSON
-        blocks = _extract_json_blocks(response)
-        for block in blocks:
-            try:
-                parsed = json.loads(block)
-                if isinstance(parsed, dict):
-                    data = parsed
-                    break
-            except json.JSONDecodeError:
-                continue
+    data = _extract_json_dict(response)
 
     if data is None:
         logger.warning(
@@ -939,26 +938,7 @@ def parse_fix_review_output(
 
     _VALID_VERDICTS = {"PASS", "FAIL"}
 
-    # Try direct JSON parse first, then regex fallback
-    data: dict | None = None
-    stripped = response.strip()
-    try:
-        parsed = json.loads(stripped)
-        if isinstance(parsed, dict):
-            data = parsed
-    except json.JSONDecodeError:
-        pass
-
-    if data is None:
-        blocks = _extract_json_blocks(response)
-        for block in blocks:
-            try:
-                parsed = json.loads(block)
-                if isinstance(parsed, dict):
-                    data = parsed
-                    break
-            except json.JSONDecodeError:
-                continue
+    data = _extract_json_dict(response)
 
     if data is None:
         logger.warning(
