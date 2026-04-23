@@ -2,6 +2,9 @@
 
 Test Spec: TS-37-5, TS-37-6, TS-37-E3
 Requirements: 37-REQ-2.1, 37-REQ-2.2, 37-REQ-2.3, 37-REQ-2.E1
+
+Note: These tests apply migrations only up to v5 (the confidence migration)
+because v18 drops the memory_facts table entirely (spec 116).
 """
 
 from __future__ import annotations
@@ -9,6 +12,8 @@ from __future__ import annotations
 import uuid
 
 import duckdb
+
+from agent_fox.knowledge.migrations import MIGRATIONS, record_version
 
 # Pre-migration schema with TEXT confidence for testing v5 migration.
 # This deliberately uses the OLD column type so that the migration
@@ -41,6 +46,20 @@ INSERT INTO schema_version (version, description)
     SELECT 1, 'initial schema'
     WHERE NOT EXISTS (SELECT 1 FROM schema_version WHERE version = 1);
 """
+
+
+def _apply_migrations_up_to(conn: duckdb.DuckDBPyConnection, max_version: int) -> None:
+    """Apply migrations up to and including *max_version*."""
+    from agent_fox.knowledge.migrations import get_current_version
+
+    current = get_current_version(conn)
+    for migration in MIGRATIONS:
+        if migration.version <= current:
+            continue
+        if migration.version > max_version:
+            break
+        migration.apply(conn)
+        record_version(conn, migration.version, migration.description)
 
 
 class TestConfidenceMigration:
@@ -82,9 +101,7 @@ class TestConfidenceMigration:
         self._insert_fact(conn, confidence="medium")
         self._insert_fact(conn, confidence="low")
 
-        from agent_fox.knowledge.migrations import apply_pending_migrations
-
-        apply_pending_migrations(conn)
+        _apply_migrations_up_to(conn, 5)
 
         # Check column type
         cols = conn.execute(
@@ -103,9 +120,7 @@ class TestConfidenceMigration:
         self._insert_fact(conn, confidence="medium")
         self._insert_fact(conn, confidence="low")
 
-        from agent_fox.knowledge.migrations import apply_pending_migrations
-
-        apply_pending_migrations(conn)
+        _apply_migrations_up_to(conn, 5)
 
         rows = conn.execute("SELECT confidence FROM memory_facts").fetchall()
         values = {row[0] for row in rows}
@@ -123,9 +138,7 @@ class TestConfidenceMigration:
 
         count_before = conn.execute("SELECT COUNT(*) FROM memory_facts").fetchone()[0]  # type: ignore[index]
 
-        from agent_fox.knowledge.migrations import apply_pending_migrations
-
-        apply_pending_migrations(conn)
+        _apply_migrations_up_to(conn, 5)
 
         count_after = conn.execute("SELECT COUNT(*) FROM memory_facts").fetchone()[0]  # type: ignore[index]
         assert count_before == count_after
@@ -137,9 +150,7 @@ class TestConfidenceMigration:
         conn = self._make_pre_migration_db()
         fid = self._insert_fact(conn, confidence=None)
 
-        from agent_fox.knowledge.migrations import apply_pending_migrations
-
-        apply_pending_migrations(conn)
+        _apply_migrations_up_to(conn, 5)
 
         row = conn.execute(
             "SELECT confidence FROM memory_facts WHERE CAST(id AS VARCHAR) = ?",

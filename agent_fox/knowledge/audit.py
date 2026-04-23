@@ -90,6 +90,7 @@ class AuditEventType(StrEnum):
     SLEEP_COMPUTE_COMPLETE = "SLEEP_COMPUTE_COMPLETE"
     KNOWLEDGE_RETRIEVAL = "knowledge.retrieval"  # 113-REQ-7.1
     PREFLIGHT_SKIP = "preflight.skip"
+    ERRATA_GENERATED = "errata.generated"
 
 
 # ---------------------------------------------------------------------------

@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from anthropic import APIStatusError, RateLimitError
 
-from agent_fox.core.retry import (
+from agent_fox.core.client import (
     _RETRY_DELAYS,
     retry_api_call,
     retry_api_call_async,
@@ -55,7 +55,7 @@ class TestRetryApiCallAsync:
         exc = _make_rate_limit_error()
         fn = AsyncMock(side_effect=[exc, exc, "ok"])
 
-        with patch("agent_fox.core.retry.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+        with patch("agent_fox.core.client.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
             result = await retry_api_call_async(fn, context="test")
 
         assert result == "ok"
@@ -69,7 +69,7 @@ class TestRetryApiCallAsync:
         exc = _make_server_error(502)
         fn = AsyncMock(side_effect=[exc, "ok"])
 
-        with patch("agent_fox.core.retry.asyncio.sleep", new_callable=AsyncMock):
+        with patch("agent_fox.core.client.asyncio.sleep", new_callable=AsyncMock):
             result = await retry_api_call_async(fn, context="test")
 
         assert result == "ok"
@@ -80,7 +80,7 @@ class TestRetryApiCallAsync:
         exc = _make_rate_limit_error()
         fn = AsyncMock(side_effect=exc)
 
-        with patch("agent_fox.core.retry.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+        with patch("agent_fox.core.client.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
             with pytest.raises(RateLimitError):
                 await retry_api_call_async(fn, context="test")
 
@@ -108,7 +108,7 @@ class TestRetryApiCallAsyncNetworkErrors:
         exc = OSError(50, "Network is down")
         fn = AsyncMock(side_effect=[exc, "ok"])
 
-        with patch("agent_fox.core.retry.asyncio.sleep", new_callable=AsyncMock):
+        with patch("agent_fox.core.client.asyncio.sleep", new_callable=AsyncMock):
             result = await retry_api_call_async(fn, context="test")
 
         assert result == "ok"
@@ -119,7 +119,7 @@ class TestRetryApiCallAsyncNetworkErrors:
         exc = ConnectionError("Connection refused")
         fn = AsyncMock(side_effect=[exc, "ok"])
 
-        with patch("agent_fox.core.retry.asyncio.sleep", new_callable=AsyncMock):
+        with patch("agent_fox.core.client.asyncio.sleep", new_callable=AsyncMock):
             result = await retry_api_call_async(fn, context="test")
 
         assert result == "ok"
@@ -130,7 +130,7 @@ class TestRetryApiCallAsyncNetworkErrors:
         exc = TimeoutError("Connection timed out")
         fn = AsyncMock(side_effect=[exc, "ok"])
 
-        with patch("agent_fox.core.retry.asyncio.sleep", new_callable=AsyncMock):
+        with patch("agent_fox.core.client.asyncio.sleep", new_callable=AsyncMock):
             result = await retry_api_call_async(fn, context="test")
 
         assert result == "ok"
@@ -141,7 +141,7 @@ class TestRetryApiCallAsyncNetworkErrors:
         exc = OSError(50, "Network is down")
         fn = AsyncMock(side_effect=exc)
 
-        with patch("agent_fox.core.retry.asyncio.sleep", new_callable=AsyncMock):
+        with patch("agent_fox.core.client.asyncio.sleep", new_callable=AsyncMock):
             with pytest.raises(OSError):
                 await retry_api_call_async(fn, context="test")
 
@@ -168,7 +168,7 @@ class TestRetryApiCallSync:
         exc = _make_rate_limit_error()
         fn = MagicMock(side_effect=[exc, "ok"])
 
-        with patch("agent_fox.core.retry.time.sleep") as mock_sleep:
+        with patch("agent_fox.core.client.time.sleep") as mock_sleep:
             result = retry_api_call(fn, context="test")
 
         assert result == "ok"
@@ -179,7 +179,7 @@ class TestRetryApiCallSync:
         exc = _make_rate_limit_error()
         fn = MagicMock(side_effect=exc)
 
-        with patch("agent_fox.core.retry.time.sleep"):
+        with patch("agent_fox.core.client.time.sleep"):
             with pytest.raises(RateLimitError):
                 retry_api_call(fn, context="test")
 
@@ -202,7 +202,7 @@ class TestRetryApiCallSyncNetworkErrors:
         exc = OSError(50, "Network is down")
         fn = MagicMock(side_effect=[exc, "ok"])
 
-        with patch("agent_fox.core.retry.time.sleep"):
+        with patch("agent_fox.core.client.time.sleep"):
             result = retry_api_call(fn, context="test")
 
         assert result == "ok"
@@ -212,7 +212,7 @@ class TestRetryApiCallSyncNetworkErrors:
         exc = ConnectionError("Connection refused")
         fn = MagicMock(side_effect=[exc, "ok"])
 
-        with patch("agent_fox.core.retry.time.sleep"):
+        with patch("agent_fox.core.client.time.sleep"):
             result = retry_api_call(fn, context="test")
 
         assert result == "ok"
@@ -222,7 +222,7 @@ class TestRetryApiCallSyncNetworkErrors:
         exc = OSError(50, "Network is down")
         fn = MagicMock(side_effect=exc)
 
-        with patch("agent_fox.core.retry.time.sleep"):
+        with patch("agent_fox.core.client.time.sleep"):
             with pytest.raises(OSError):
                 retry_api_call(fn, context="test")
 

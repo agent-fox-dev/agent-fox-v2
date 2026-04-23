@@ -1,4 +1,4 @@
-"""Session result processing: retry decisions, escalation, blocking.
+"""Session result processing: retry decisions, escalation, timeout handling.
 
 Extracted from engine.py to reduce the Orchestrator class size. Handles
 the outcome of each completed session: marking success, deciding retries,
@@ -15,14 +15,12 @@ from __future__ import annotations
 import logging
 import math
 from collections.abc import Callable
-from dataclasses import dataclass
 from typing import Any
 
 from agent_fox.archetypes import get_archetype
-from agent_fox.core.config import ArchetypesConfig
 from agent_fox.core.models import ModelTier
-from agent_fox.core.node_id import parse_node_id
 from agent_fox.engine.audit_helpers import emit_audit_event
+from agent_fox.engine.blocking import evaluate_review_blocking
 from agent_fox.engine.graph_sync import GraphSync
 from agent_fox.engine.state import ExecutionState, SessionRecord, update_state_with_session
 from agent_fox.knowledge.audit import AuditEventType
@@ -30,236 +28,6 @@ from agent_fox.knowledge.sink import SinkDispatcher
 from agent_fox.ui.progress import TaskCallback, TaskEvent
 
 logger = logging.getLogger(__name__)
-
-
-# ---------------------------------------------------------------------------
-# Blocking logic (inlined from former engine/blocking.py)
-# Requirements: 26-REQ-9.3, 30-REQ-2.3
-# ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class BlockDecision:
-    """Result of evaluating whether a review session should block a task."""
-
-    should_block: bool
-    coder_node_id: str = ""
-    reason: str = ""
-
-
-def _format_block_reason(
-    archetype: str,
-    findings: list[Any],
-    threshold: int,
-    spec_name: str,
-    task_group: str,
-) -> str:
-    """Format an enriched blocking reason string with finding IDs and descriptions.
-
-    Includes the count of critical findings, up to 3 finding IDs as `F-<8hex>`
-    short prefixes, truncated descriptions (max 60 chars each), and "and N more"
-    when there are more than 3 critical findings.
-
-    Requirements: 84-REQ-3.1, 84-REQ-3.E1
-    """
-    critical_findings = [f for f in findings if f.severity.lower() == "critical"]
-    n = len(critical_findings)
-
-    header = (
-        f"{archetype.capitalize()} found {n} critical finding(s) (threshold: {threshold}) for {spec_name}:{task_group}"
-    )
-
-    if n == 0:
-        return header
-
-    shown = critical_findings[:3]
-    parts = []
-    for finding in shown:
-        # Build F-<8hex> short ID from the UUID
-        raw_id = finding.id.replace("-", "")[:8]
-        short_id = f"F-{raw_id}"
-        desc = finding.description[:60]
-        if len(finding.description) > 60:
-            desc += "…"
-        parts.append(f"{short_id}: {desc}")
-
-    detail = ", ".join(parts)
-    if n > 3:
-        detail += f", and {n - 3} more"
-
-    return f"{header} — {detail}"
-
-
-def evaluate_review_blocking(
-    record: SessionRecord,
-    archetypes_config: ArchetypesConfig | None,
-    knowledge_db_conn: Any | None,
-    *,
-    mode: str | None = None,
-    sink: Any | None = None,
-    run_id: str = "",
-) -> BlockDecision:
-    """Evaluate whether a reviewer session should block its downstream task.
-
-    Supports the consolidated reviewer archetype with modes (pre-review,
-    drift-review) as well as legacy archetype names for backward compat.
-
-    Queries persisted review findings from DuckDB, counts critical findings,
-    applies the configured (or learned) block threshold.
-
-    Critical findings with category='security' always trigger blocking,
-    regardless of the numeric threshold, because security vulnerabilities
-    must be remediated before downstream work can proceeded.
-
-    Returns a BlockDecision indicating whether blocking should occur and why.
-    """
-    archetype = record.archetype
-
-    # Only reviewer pre-review and drift-review modes can block.
-    # Audit-review and fix-review do not participate in blocking.
-    if archetype == "reviewer":
-        if mode not in ("pre-review", "drift-review"):
-            return BlockDecision(should_block=False)
-    elif archetype not in ("skeptic", "oracle"):
-        # Legacy names kept for backward compat with old session records
-        return BlockDecision(should_block=False)
-
-    if knowledge_db_conn is None:
-        return BlockDecision(should_block=False)
-
-    parsed = parse_node_id(record.node_id)
-    spec_name = parsed.spec_name
-    task_group = str(parsed.group_number) if parsed.group_number else "1"
-    coder_node_id = f"{spec_name}:{task_group}"
-
-    # Display label for log messages
-    display_name = f"reviewer:{mode}" if archetype == "reviewer" and mode else archetype
-
-    try:
-        from agent_fox.knowledge.review_store import query_findings_by_session
-
-        session_id = f"{record.node_id}:{record.attempt}"
-        findings = query_findings_by_session(knowledge_db_conn, session_id)
-
-        critical_count = sum(1 for f in findings if f.severity.lower() == "critical")
-
-        if critical_count == 0:
-            return BlockDecision(should_block=False)
-
-        # Security bypass: critical findings with category='security' always block,
-        # regardless of the numeric threshold.
-        security_critical = [
-            f for f in findings if f.severity.lower() == "critical" and getattr(f, "category", None) == "security"
-        ]
-        if security_critical:
-            shown = security_critical[:3]
-            detail = ", ".join(
-                f"F-{f.id.replace('-', '')[:8]}: {f.description[:60]}" + ("…" if len(f.description) > 60 else "")
-                for f in shown
-            )
-            reason = (
-                f"[SECURITY] {display_name.capitalize()} found {len(security_critical)} critical "
-                f"security finding(s) for {spec_name}:{task_group} — {detail}"
-            )
-            logger.warning("SECURITY blocking %s: %s", coder_node_id, reason)
-            emit_audit_event(
-                sink,
-                run_id,
-                AuditEventType.SECURITY_FINDING_BLOCKED,
-                node_id=record.node_id,
-                session_id=session_id,
-                archetype=archetype,
-                payload={
-                    "spec_name": spec_name,
-                    "task_group": task_group,
-                    "security_critical_count": len(security_critical),
-                    "finding_ids": [str(f.id) for f in security_critical],
-                },
-            )
-            return BlockDecision(
-                should_block=True,
-                coder_node_id=coder_node_id,
-                reason=reason,
-            )
-
-        # Resolve threshold from ReviewerConfig by mode
-        configured_threshold = 3  # conservative default
-        if archetypes_config is not None:
-            if archetype == "reviewer":
-                rc = archetypes_config.reviewer_config
-                if mode == "pre-review":
-                    configured_threshold = rc.pre_review_block_threshold
-                elif mode == "drift-review":
-                    if rc.drift_review_block_threshold is None:
-                        # Drift-review is advisory-only when threshold is None
-                        return BlockDecision(should_block=False)
-                    configured_threshold = rc.drift_review_block_threshold
-
-        from agent_fox.session.convergence import resolve_block_threshold
-
-        effective_threshold = resolve_block_threshold(
-            configured_threshold,
-            archetype,
-            knowledge_db_conn,
-            learn_thresholds=False,
-        )
-
-        blocked = critical_count > effective_threshold
-
-        # Record the blocking decision for threshold learning
-        try:
-            from agent_fox.knowledge.blocking_history import (
-                BlockingDecision as HistoryDecision,
-            )
-            from agent_fox.knowledge.blocking_history import (
-                record_blocking_decision,
-            )
-
-            decision = HistoryDecision(
-                spec_name=spec_name,
-                archetype=archetype,
-                critical_count=critical_count,
-                threshold=effective_threshold,
-                blocked=blocked,
-                outcome="",  # outcome assessed later
-            )
-            record_blocking_decision(knowledge_db_conn, decision)
-        except Exception:
-            logger.debug(
-                "Failed to record blocking decision for %s",
-                record.node_id,
-                exc_info=True,
-            )
-
-        if blocked:
-            reason = _format_block_reason(
-                display_name,
-                findings,
-                effective_threshold,
-                spec_name,
-                task_group,
-            )
-            logger.warning(
-                "%s blocking %s: %s",
-                display_name.capitalize(),
-                coder_node_id,
-                reason,
-            )
-            return BlockDecision(
-                should_block=True,
-                coder_node_id=coder_node_id,
-                reason=reason,
-            )
-
-    except Exception:
-        logger.warning(
-            "Failed to evaluate %s blocking for %s",
-            display_name,
-            record.node_id,
-            exc_info=True,
-        )
-
-    return BlockDecision(should_block=False)
 
 
 class SessionResultHandler:
@@ -346,10 +114,147 @@ class SessionResultHandler:
             sink=self._sink,
             run_id=self._run_id,
         )
-        if decision.should_block:
-            self._block_task(decision.coder_node_id, state, decision.reason)
+        if not decision.should_block:
+            return False
+
+        node_archetype = self._get_node_archetype(record.node_id)
+        node_mode = self._get_node_mode(record.node_id)
+        archetype_entry = get_archetype(node_archetype)
+        if node_mode is not None:
+            from agent_fox.archetypes import resolve_effective_config
+
+            archetype_entry = resolve_effective_config(archetype_entry, node_mode)
+
+        if archetype_entry.retry_predecessor:
+            return self._retry_on_review_block(record, decision, state)
+
+        self._block_task(decision.coder_node_id, state, decision.reason)
+        self._generate_errata(record)
+        return True
+
+    def _retry_on_review_block(
+        self,
+        record: SessionRecord,
+        decision: Any,
+        state: ExecutionState,
+    ) -> bool:
+        """Convert a review block to a coder retry when retry_predecessor is set.
+
+        Instead of permanently blocking the coder, lets it proceed with review
+        findings injected as context. Uses the coder's escalation ladder to
+        prevent infinite retries; permanently blocks when the ladder is exhausted.
+
+        Returns True if the coder was permanently blocked (ladder exhausted),
+        False if converted to a retry.
+        """
+        from agent_fox.routing.escalation import EscalationLadder
+
+        coder_node_id = decision.coder_node_id
+
+        pred_ladder = self._routing_ladders.get(coder_node_id)
+        if pred_ladder is None:
+            coder_archetype = self._get_node_archetype(coder_node_id)
+            coder_entry = get_archetype(coder_archetype)
+            pred_ladder = EscalationLadder(
+                starting_tier=ModelTier(coder_entry.default_model_tier),
+                tier_ceiling=ModelTier.ADVANCED,
+                retries_before_escalation=self._retries_before_escalation,
+            )
+            self._routing_ladders[coder_node_id] = pred_ladder
+
+        pred_ladder.record_failure()
+
+        if pred_ladder.is_exhausted:
+            logger.warning(
+                "Review retry-predecessor exhausted for %s, permanently blocking",
+                coder_node_id,
+            )
+            self._block_task(coder_node_id, state, decision.reason)
+            self._generate_errata(record)
             return True
+
+        logger.info(
+            "Review blocking converted to retry for %s (findings injected as context)",
+            coder_node_id,
+        )
+        coder_status = self._graph_sync.node_states.get(coder_node_id)
+        if coder_status == "completed":
+            self._graph_sync.node_states[coder_node_id] = "pending"
+            self._graph_sync.node_states[record.node_id] = "pending"
+
+        emit_audit_event(
+            self._sink,
+            self._run_id,
+            AuditEventType.TASK_STATUS_CHANGE,
+            node_id=record.node_id,
+            payload={
+                "from_status": "completed",
+                "to_status": "retry_predecessor",
+                "reason": decision.reason,
+                "coder_node_id": coder_node_id,
+            },
+        )
+
+        if self._task_callback is not None:
+            self._task_callback(
+                TaskEvent(
+                    node_id=record.node_id,
+                    status="disagreed",
+                    duration_s=0,
+                    archetype=self._get_node_archetype(record.node_id),
+                    predecessor_node=coder_node_id,
+                )
+            )
+
+        self._generate_errata(record)
         return False
+
+    def _generate_errata(self, record: SessionRecord) -> None:
+        """Generate errata from critical/major findings that caused blocking."""
+        if self._knowledge_db_conn is None:
+            return
+        try:
+            from agent_fox.core.node_id import parse_node_id
+            from agent_fox.knowledge.errata import (
+                generate_errata_from_findings,
+                persist_erratum_markdown,
+                store_errata,
+            )
+            from agent_fox.knowledge.review_store import query_findings_by_session
+
+            parsed = parse_node_id(record.node_id)
+            spec_name = parsed.spec_name
+            task_group = str(parsed.group_number) if parsed.group_number else "1"
+            session_id = f"{record.node_id}:{record.attempt}"
+
+            findings = query_findings_by_session(self._knowledge_db_conn, session_id)
+            errata = generate_errata_from_findings(findings, spec_name, task_group)
+            if not errata:
+                return
+
+            stored = store_errata(self._knowledge_db_conn, errata)
+
+            from pathlib import Path
+
+            persist_erratum_markdown(errata, Path.cwd())
+
+            emit_audit_event(
+                self._sink,
+                self._run_id,
+                AuditEventType.ERRATA_GENERATED,
+                node_id=record.node_id,
+                payload={
+                    "spec_name": spec_name,
+                    "task_group": task_group,
+                    "count": stored,
+                },
+            )
+        except Exception:
+            logger.warning(
+                "Failed to generate errata for %s",
+                record.node_id,
+                exc_info=True,
+            )
 
     def process(
         self,

@@ -134,7 +134,7 @@ class TestEnrichedBlockingReasonE2E:
     """
 
     def test_enriched_reason_from_real_db(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
-        from agent_fox.engine.result_handler import evaluate_review_blocking
+        from agent_fox.engine.blocking import evaluate_review_blocking
         from agent_fox.engine.state import SessionRecord
 
         findings = [
@@ -173,13 +173,10 @@ class TestEnrichedBlockingReasonE2E:
         )
 
         config = MagicMock()
-        config.skeptic_config.block_threshold = 0
+        config.reviewer_config.pre_review_block_threshold = 0
+        config.reviewer_config.drift_review_block_threshold = 0
 
-        with patch(
-            "agent_fox.session.convergence.resolve_block_threshold",
-            return_value=0,
-        ):
-            decision = evaluate_review_blocking(record, config, knowledge_conn)
+        decision = evaluate_review_blocking(record, config, knowledge_conn)
 
         assert decision.should_block
         assert "F-" in decision.reason

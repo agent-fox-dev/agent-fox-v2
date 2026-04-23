@@ -11,11 +11,11 @@ from __future__ import annotations
 
 import re
 import uuid
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import duckdb
 
-from agent_fox.engine.result_handler import evaluate_review_blocking
+from agent_fox.engine.blocking import evaluate_review_blocking
 from agent_fox.engine.state import SessionRecord
 from agent_fox.knowledge.review_store import ReviewFinding, insert_findings
 
@@ -63,7 +63,8 @@ def _make_session_record(
 def _make_archetypes_config(block_threshold: int = 0):
     """Create a mock ArchetypesConfig with given block threshold."""
     config = MagicMock()
-    config.skeptic_config.block_threshold = block_threshold
+    config.reviewer_config.pre_review_block_threshold = block_threshold
+    config.reviewer_config.drift_review_block_threshold = block_threshold
     return config
 
 
@@ -81,11 +82,7 @@ class TestEnrichedBlockingReason:
         record = _make_session_record()
         config = _make_archetypes_config(block_threshold=0)
 
-        with patch(
-            "agent_fox.session.convergence.resolve_block_threshold",
-            return_value=0,
-        ):
-            decision = evaluate_review_blocking(record, config, knowledge_conn)
+        decision = evaluate_review_blocking(record, config, knowledge_conn)
 
         assert decision.should_block is True
         assert "2 critical" in decision.reason
@@ -103,11 +100,7 @@ class TestEnrichedBlockingReason:
         record = _make_session_record()
         config = _make_archetypes_config(block_threshold=0)
 
-        with patch(
-            "agent_fox.session.convergence.resolve_block_threshold",
-            return_value=0,
-        ):
-            decision = evaluate_review_blocking(record, config, knowledge_conn)
+        decision = evaluate_review_blocking(record, config, knowledge_conn)
 
         assert decision.should_block is True
         # Description should appear (possibly truncated) in the reason
@@ -125,11 +118,7 @@ class TestBlockingReasonFindingIdCap:
         record = _make_session_record()
         config = _make_archetypes_config(block_threshold=0)
 
-        with patch(
-            "agent_fox.session.convergence.resolve_block_threshold",
-            return_value=0,
-        ):
-            decision = evaluate_review_blocking(record, config, knowledge_conn)
+        decision = evaluate_review_blocking(record, config, knowledge_conn)
 
         assert decision.should_block is True
         # Count F- prefixed IDs in the reason string

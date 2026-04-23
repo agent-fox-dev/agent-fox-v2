@@ -97,7 +97,7 @@ def converge_skeptic(
         if severity == "critical" and count >= majority_threshold:
             majority_critical_count += 1
 
-    blocked = majority_critical_count > block_threshold
+    blocked = majority_critical_count > 0 and majority_critical_count >= block_threshold
 
     return merged, blocked
 
@@ -191,7 +191,7 @@ def converge_skeptic_records(
         if severity == "critical" and count >= majority_threshold:
             majority_critical_count += 1
 
-    blocked = majority_critical_count > block_threshold
+    blocked = majority_critical_count > 0 and majority_critical_count >= block_threshold
 
     return merged, blocked
 
@@ -250,38 +250,6 @@ def converge_verifier_records(
         )
 
     return merged
-
-
-# ---------------------------------------------------------------------------
-# Learned blocking threshold integration (spec 39)
-# Requirements: 39-REQ-10.2, 39-REQ-10.3
-# ---------------------------------------------------------------------------
-
-
-def resolve_block_threshold(
-    configured_threshold: int,
-    archetype: str,
-    conn: Any = None,
-    *,
-    learn_thresholds: bool = False,
-) -> int:
-    """Resolve the effective blocking threshold.
-
-    Returns the statically configured threshold.  The learned-threshold
-    infrastructure (learned_thresholds table) was never wired into production
-    and has been removed.  The signature is preserved for backward
-    compatibility with callers.
-
-    Args:
-        configured_threshold: The statically configured threshold.
-        archetype: The archetype type ("skeptic" or "oracle").
-        conn: Unused, kept for call-site compatibility.
-        learn_thresholds: Unused, kept for call-site compatibility.
-
-    Returns:
-        The configured blocking threshold.
-    """
-    return configured_threshold
 
 
 # ---------------------------------------------------------------------------

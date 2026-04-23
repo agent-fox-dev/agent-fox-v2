@@ -102,12 +102,12 @@ class TestAutoFlag:
 
     def test_auto_fix_configured(self) -> None:
         """Hunt scan stream has auto_fix=True when --auto is passed."""
-        from agent_fox.nightshift.streams import HuntScanStream, build_streams
+        from agent_fox.nightshift.streams import EngineWorkStream, build_streams
 
         config = _make_config()
         streams = build_streams(config, auto=True)
         hunt = next(s for s in streams if s.name == "hunt-scan")
-        assert isinstance(hunt, HuntScanStream)
+        assert isinstance(hunt, EngineWorkStream)
         assert hunt.auto_fix is True
 
 

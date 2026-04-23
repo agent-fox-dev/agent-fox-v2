@@ -1,4 +1,4 @@
-# Coding Session Architecture
+# Coding Session Architecture 2
 
 How agent-fox turns a collection of specifications into committed code through
 autonomous, parallel, knowledge-accumulating coding sessions.

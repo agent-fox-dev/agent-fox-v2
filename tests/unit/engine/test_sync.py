@@ -8,6 +8,8 @@ Requirements: 04-REQ-1.1, 04-REQ-3.1, 04-REQ-3.2, 04-REQ-3.E1,
 
 from __future__ import annotations
 
+import logging
+
 from agent_fox.engine.graph_sync import GraphSync
 
 
@@ -437,3 +439,109 @@ class TestPromoteDeferred:
 
         assert "C" in ready
         assert "B" not in ready
+
+
+class TestTransitionValidation:
+    """Tests for state transition validation (issue #523)."""
+
+    def test_valid_transition_pending_to_in_progress(self) -> None:
+        node_states = {"A": "pending"}
+        sync = GraphSync(node_states, {})
+        sync.mark_in_progress("A")
+        assert sync.node_states["A"] == "in_progress"
+
+    def test_valid_transition_in_progress_to_completed(self) -> None:
+        node_states = {"A": "in_progress"}
+        sync = GraphSync(node_states, {})
+        sync.mark_completed("A")
+        assert sync.node_states["A"] == "completed"
+
+    def test_valid_transition_pending_to_blocked(self) -> None:
+        node_states = {"A": "pending"}
+        sync = GraphSync(node_states, {})
+        sync.mark_blocked("A", "test")
+        assert sync.node_states["A"] == "blocked"
+
+    def test_valid_transition_deferred_to_pending(self) -> None:
+        node_states = {"A": "deferred"}
+        sync = GraphSync(node_states, {})
+        promoted = sync.promote_deferred(limit=1)
+        assert promoted == ["A"]
+        assert sync.node_states["A"] == "pending"
+
+    def test_invalid_transition_completed_to_pending_warns(
+        self, caplog: logging.LogRecordArgs
+    ) -> None:
+        """Completed is terminal — transitioning away logs a warning."""
+        node_states = {"A": "completed"}
+        sync = GraphSync(node_states, {})
+        with caplog.at_level(logging.WARNING, logger="agent_fox.engine.graph_sync"):  # type: ignore[union-attr]
+            sync._transition("A", "pending", reason="reset attempt")
+        assert sync.node_states["A"] == "pending"
+        assert any("Invalid state transition" in r.message for r in caplog.records)
+
+    def test_invalid_transition_completed_to_in_progress_warns(
+        self, caplog: logging.LogRecordArgs
+    ) -> None:
+        node_states = {"A": "completed"}
+        sync = GraphSync(node_states, {})
+        with caplog.at_level(logging.WARNING, logger="agent_fox.engine.graph_sync"):  # type: ignore[union-attr]
+            sync.mark_in_progress("A")
+        assert sync.node_states["A"] == "in_progress"
+        assert any("Invalid state transition" in r.message for r in caplog.records)
+
+    def test_invalid_transition_pending_to_completed_warns(
+        self, caplog: logging.LogRecordArgs
+    ) -> None:
+        """pending -> completed is not valid (must go via in_progress)."""
+        node_states = {"A": "pending"}
+        sync = GraphSync(node_states, {})
+        with caplog.at_level(logging.WARNING, logger="agent_fox.engine.graph_sync"):  # type: ignore[union-attr]
+            sync.mark_completed("A")
+        assert sync.node_states["A"] == "completed"
+        assert any("Invalid state transition" in r.message for r in caplog.records)
+
+    def test_unknown_source_state_no_crash(self) -> None:
+        """Unknown source states do not crash — no entry in VALID_TRANSITIONS."""
+        node_states = {"A": "mystery"}
+        sync = GraphSync(node_states, {})
+        sync._transition("A", "pending", reason="recovery")
+        assert sync.node_states["A"] == "pending"
+
+    def test_transition_table_completed_is_terminal(self) -> None:
+        """Completed has an empty set — no outbound transitions."""
+        assert GraphSync.VALID_TRANSITIONS["completed"] == set()
+
+
+class TestTransitionLogging:
+    """Tests for structured transition event logging (issue #523)."""
+
+    def test_transition_log_recorded(self) -> None:
+        node_states = {"A": "pending"}
+        sync = GraphSync(node_states, {})
+        sync.mark_in_progress("A")
+        assert len(sync._transition_log) == 1
+        entry = sync._transition_log[0]
+        assert entry["node_id"] == "A"
+        assert entry["from_status"] == "pending"
+        assert entry["to_status"] == "in_progress"
+        assert entry["reason"] == "dispatched"
+
+    def test_cascade_blocking_logs_all_transitions(self) -> None:
+        node_states = {"A": "pending", "B": "pending", "C": "pending"}
+        edges = {"B": ["A"], "C": ["B"]}
+        sync = GraphSync(node_states, edges)
+        sync.mark_blocked("A", "retries exhausted")
+        assert len(sync._transition_log) == 3
+        node_ids = [e["node_id"] for e in sync._transition_log]
+        assert node_ids == ["A", "B", "C"]
+
+    def test_structured_log_message_emitted(
+        self, caplog: logging.LogRecordArgs
+    ) -> None:
+        node_states = {"X": "pending"}
+        sync = GraphSync(node_states, {})
+        with caplog.at_level(logging.INFO, logger="agent_fox.engine.graph_sync"):  # type: ignore[union-attr]
+            sync.mark_in_progress("X")
+        info_messages = [r.message for r in caplog.records if r.levelno == logging.INFO]
+        assert any("State transition:" in m and "node=X" in m for m in info_messages)

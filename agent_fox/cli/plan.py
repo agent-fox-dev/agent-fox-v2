@@ -59,7 +59,7 @@ def plan_cmd(
     # Resolve spec root from config with backward compatibility
     from agent_fox.core.config import resolve_spec_root
 
-    specs_dir = Path(specs_dir) if specs_dir else resolve_spec_root(config, project_root)
+    specs_path: Path = Path(specs_dir) if specs_dir else resolve_spec_root(config, project_root)
 
     # Always rebuild the plan from specs directory (63-REQ-1.1)
     json_mode = ctx.obj.get("json", False)
@@ -69,7 +69,7 @@ def plan_cmd(
     if not json_mode:
         spinner.start()
     try:
-        graph = build_plan(specs_dir, filter_spec, fast, config)
+        graph = build_plan(specs_path, filter_spec, fast, config)
     except PlanError as exc:
         spinner.stop()
         if json_mode:
@@ -95,7 +95,7 @@ def plan_cmd(
 
     # Re-discover specs for summary display
     try:
-        specs = discover_specs(specs_dir, filter_spec=filter_spec)
+        specs = discover_specs(specs_path, filter_spec=filter_spec)
     except PlanError:
         specs = []
 

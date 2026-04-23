@@ -156,7 +156,7 @@ class TestCostMonotonicity:
     )
     @settings(max_examples=50)
     def test_cost_monotonicity(self, costs: list[float]) -> None:
-        from agent_fox.nightshift.state import NightShiftState
+        from agent_fox.nightshift.engine import NightShiftState
 
         state = NightShiftState()
         previous = 0.0

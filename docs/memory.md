@@ -1,6 +1,50 @@
 # Agent-Fox Memory
 
-_3174 facts | last updated: 2026-04-22_
+_3176 facts | last updated: 2026-04-23_
+
+**2026-04-23 verifier checklist enforcement (issue #521):** Added
+`spec/verification_checklist.py` — builds a structured verification
+checklist from tasks.md checkboxes, requirements.md acceptance criteria,
+and errata. Injected into verifier context via `assemble_context()`
+(new `archetype` parameter). Verifier profile updated with hard gates:
+unchecked subtasks without errata → FAIL, uncovered requirements → FAIL.
+Requirement-to-test mapping scans test files for req ID references
+(string match + normalized function name match). +22 tests (4364 total pass).
+
+**2026-04-23 simplification pass 3:** Inlined core/llm_validation.py into
+session/review_parser.py (single consumer), core/retry.py into core/client.py
+(single consumer), merged nightshift/fix_types.py into nightshift/fix_pipeline.py,
+and extracted shared _iter_valid_items() generator to deduplicate parse loop in
+review_parser.py's three typed parse functions. Net: −3 source files, −73 LOC.
+All 4342 tests pass.
+
+**2026-04-23 state transition validation (issue #523):** Added
+`VALID_TRANSITIONS` table and `_transition()` validation method to
+`GraphSync` in `engine/graph_sync.py`. All `mark_*()` methods now validate
+transitions (warning on invalid, never crashing) and emit structured log
+entries for debugging. `_transition_log` list provides an in-memory audit
+trail. +12 tests (4342 total pass).
+
+**2026-04-23 errata generation (issue #522):** Added lightweight errata
+auto-generation from reviewer blocking. When a reviewer blocks a coder task
+with critical/major findings, errata are stored in DuckDB (migration v19:
+`errata` table) and written to `docs/errata/`. FoxKnowledgeProvider.retrieve()
+now includes `[ERRATA]`-prefixed strings in coder context alongside `[REVIEW]`
+findings. +1 new module (knowledge/errata.py), +27 tests. All 4319 tests pass.
+
+**2026-04-23 strategy extraction (issue #518):** Extracted collaborator classes
+from the three largest files: blocking logic from result_handler.py to
+engine/blocking.py, dispatch strategies from engine.py to engine/dispatch.py
+(SerialDispatcher, ParallelDispatcher), and coder-reviewer loop from
+fix_pipeline.py to nightshift/coder_reviewer.py (CoderReviewerLoop). Net:
+engine.py 2051→1817, fix_pipeline.py 1237→980, result_handler.py 793→590;
++3 new focused modules (851 LOC total). All 4292 tests pass unchanged.
+
+**2026-04-23 simplification pass:** Deleted dead code (nightshift/extraction.py,
+nightshift/ignore_ingest.py, unused llm_validation functions) and consolidated
+small single-consumer files (_text_utils→prompt_safety, assessment→engine,
+nightshift/state→nightshift/engine, improve_report→report,
+validators/finding→validators/_helpers). Net: −7 source files, −323 LOC.
 
 ## Gotchas
 
@@ -967,3 +1011,4 @@ _3174 facts | last updated: 2026-04-22_
 - Fragile area: agent_fox/__init__.py was modified in 44 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
 - Fragile area: .agent-fox/memory.jsonl was modified in 99 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
 - Fragile area: .agent-fox/config.toml was modified in 35 commits over the past 365 days, indicating high churn. _(spec: onboard, confidence: 0.60)_
+- `resolve_block_threshold()` in `convergence.py` was a passthrough that masked a bug: legacy archetype names ("skeptic", "oracle") from old session records need explicit mapping to `ReviewerConfig` thresholds. Tests that patched this function were hiding the gap. After removal, threshold resolution for legacy archetypes was added directly to `evaluate_review_blocking()`. _(confidence: 0.95)_

@@ -12,11 +12,11 @@ Test Spec: AC-1 through AC-9
 from __future__ import annotations
 
 import uuid
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import duckdb
 
-from agent_fox.engine.result_handler import evaluate_review_blocking
+from agent_fox.engine.blocking import evaluate_review_blocking
 from agent_fox.engine.state import SessionRecord
 from agent_fox.knowledge.review_store import (
     ReviewFinding,
@@ -73,7 +73,8 @@ def _make_session_record(
 
 def _make_archetypes_config(block_threshold: int = 3):
     config = MagicMock()
-    config.skeptic_config.block_threshold = block_threshold
+    config.reviewer_config.pre_review_block_threshold = block_threshold
+    config.reviewer_config.drift_review_block_threshold = block_threshold
     return config
 
 
@@ -244,11 +245,7 @@ class TestSecurityCriticalAlwaysBlocks:
         record = _make_session_record()
         config = _make_archetypes_config(block_threshold=3)
 
-        with patch(
-            "agent_fox.session.convergence.resolve_block_threshold",
-            return_value=3,
-        ):
-            decision = evaluate_review_blocking(record, config, knowledge_conn)
+        decision = evaluate_review_blocking(record, config, knowledge_conn)
 
         assert decision.should_block is True
         assert decision.coder_node_id == "test_spec:1"
@@ -277,11 +274,7 @@ class TestNonSecurityCriticalRespectsThreshold:
         record = _make_session_record()
         config = _make_archetypes_config(block_threshold=3)
 
-        with patch(
-            "agent_fox.session.convergence.resolve_block_threshold",
-            return_value=3,
-        ):
-            decision = evaluate_review_blocking(record, config, knowledge_conn)
+        decision = evaluate_review_blocking(record, config, knowledge_conn)
 
         assert decision.should_block is False
 
@@ -307,11 +300,7 @@ class TestSecurityBlockingReasonLabel:
         record = _make_session_record()
         config = _make_archetypes_config(block_threshold=3)
 
-        with patch(
-            "agent_fox.session.convergence.resolve_block_threshold",
-            return_value=3,
-        ):
-            decision = evaluate_review_blocking(record, config, knowledge_conn)
+        decision = evaluate_review_blocking(record, config, knowledge_conn)
 
         assert decision.should_block is True
         assert "security" in decision.reason.lower()
@@ -334,11 +323,7 @@ class TestSecurityBlockingReasonLabel:
         record = _make_session_record()
         config = _make_archetypes_config(block_threshold=3)
 
-        with patch(
-            "agent_fox.session.convergence.resolve_block_threshold",
-            return_value=3,
-        ):
-            decision = evaluate_review_blocking(record, config, knowledge_conn)
+        decision = evaluate_review_blocking(record, config, knowledge_conn)
 
         assert decision.should_block is True
         assert "SECURITY" not in decision.reason
@@ -370,11 +355,7 @@ class TestSecurityBlockingAuditEvent:
 
         mock_sink = MagicMock(spec=SinkDispatcher)
 
-        with patch(
-            "agent_fox.session.convergence.resolve_block_threshold",
-            return_value=3,
-        ):
-            decision = evaluate_review_blocking(record, config, knowledge_conn, sink=mock_sink, run_id="test-run")
+        decision = evaluate_review_blocking(record, config, knowledge_conn, sink=mock_sink, run_id="test-run")
 
         assert decision.should_block is True
         # Verify emit_audit_event was called on the sink
@@ -404,11 +385,7 @@ class TestSecurityBlockingAuditEvent:
         config = _make_archetypes_config(block_threshold=3)
         mock_sink = MagicMock(spec=SinkDispatcher)
 
-        with patch(
-            "agent_fox.session.convergence.resolve_block_threshold",
-            return_value=3,
-        ):
-            decision = evaluate_review_blocking(record, config, knowledge_conn, sink=mock_sink, run_id="test-run")
+        decision = evaluate_review_blocking(record, config, knowledge_conn, sink=mock_sink, run_id="test-run")
 
         assert decision.should_block is True
         # Verify NO security-specific event was emitted

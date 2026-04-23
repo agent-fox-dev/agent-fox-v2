@@ -91,6 +91,7 @@ ARCHETYPE_REGISTRY: dict[str, ArchetypeEntry] = {
             "pre-review": ModeConfig(
                 injection="auto_pre",
                 allowlist=[],  # no shell access
+                retry_predecessor=True,
             ),
             "drift-review": ModeConfig(
                 injection="auto_pre",

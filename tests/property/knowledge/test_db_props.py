@@ -19,32 +19,20 @@ from agent_fox.knowledge.db import KnowledgeDB
 
 EXPECTED_TABLES = {
     "schema_version",
-    "memory_facts",
-    "memory_embeddings",
     "session_outcomes",
-    "fact_causes",
     "tool_calls",
     "tool_errors",
     "review_findings",
     "verification_results",
     "drift_findings",
     "audit_events",
-    # Added by migration v8 (spec 95: entity graph)
-    "entity_graph",
-    "entity_edges",
-    "fact_entities",
     # Added by migration v11 (spec 105: DB-based plan state)
     "plan_nodes",
     "plan_edges",
     "plan_meta",
     "runs",
-    # Added by migration v13 (issue #449: blocking history)
-    "blocking_history",
-    # Added by migration v15 (spec 112: sleep-time compute)
-    "sleep_artifacts",
-    # Added by migration v17 (spec 115: pluggable knowledge provider)
-    "gotchas",
-    "errata_index",
+    # Added by migration v19 (issue #522: errata generation)
+    "errata",
 }
 
 
@@ -79,7 +67,7 @@ class TestSchemaInitializationIdempotency:
 
             version_count = db.connection.execute("SELECT COUNT(*) FROM schema_version").fetchone()
             assert version_count is not None
-            assert version_count[0] == 17
+            assert version_count[0] == 19
 
             tables = {r[0] for r in db.connection.execute("SHOW TABLES").fetchall()}
             assert tables == EXPECTED_TABLES

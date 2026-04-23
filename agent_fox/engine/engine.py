@@ -33,11 +33,11 @@ from agent_fox.core.config import (
     load_config,
 )
 from agent_fox.core.errors import ConfigError, PlanError
-from agent_fox.core.models import content_hash
-from agent_fox.engine.assessment import AssessmentManager
+from agent_fox.core.models import ModelTier, content_hash
 from agent_fox.engine.audit_helpers import emit_audit_event
 from agent_fox.engine.barrier import _count_node_status, run_sync_barrier_sequence
 from agent_fox.engine.circuit import CircuitBreaker
+from agent_fox.engine.dispatch import ParallelDispatcher, SerialDispatcher
 from agent_fox.engine.graph_sync import GraphSync, _is_auto_pre
 from agent_fox.engine.hot_load import (
     _build_nodes_and_edges,
@@ -69,6 +69,55 @@ from agent_fox.knowledge.sink import SinkDispatcher
 from agent_fox.ui.progress import TaskCallback, TaskEvent
 
 logger = logging.getLogger(__name__)
+
+
+class AssessmentManager:
+    """Manages escalation ladders for nodes based on archetype default tiers."""
+
+    def __init__(
+        self,
+        retries_before_escalation: int,
+        config: AgentFoxConfig,
+    ) -> None:
+        self.ladders: dict[str, Any] = {}
+        self.retries_before_escalation = retries_before_escalation
+        self._config = config
+
+    async def assess_node(
+        self,
+        node_id: str,
+        archetype: str,
+        *,
+        mode: str | None = None,
+    ) -> None:
+        """Create an escalation ladder from the resolved model tier."""
+        if node_id in self.ladders:
+            return
+
+        from agent_fox.engine.sdk_params import resolve_model_tier
+        from agent_fox.routing.escalation import EscalationLadder
+
+        tier_ceiling = ModelTier.ADVANCED
+
+        try:
+            resolved = resolve_model_tier(self._config, archetype, mode=mode)
+            starting_tier = ModelTier(resolved)
+        except Exception:
+            starting_tier = ModelTier.STANDARD
+
+        ladder = EscalationLadder(
+            starting_tier=starting_tier,
+            tier_ceiling=tier_ceiling,
+            retries_before_escalation=self.retries_before_escalation,
+        )
+        self.ladders[node_id] = ladder
+
+        logger.debug(
+            "Created escalation ladder for %s: starting_tier=%s ceiling=%s",
+            node_id,
+            starting_tier,
+            tier_ceiling,
+        )
 
 
 class SerialRunner:
@@ -243,6 +292,11 @@ class Orchestrator:
                 max_parallelism=config.parallel,
                 inter_session_delay=float(config.inter_session_delay),
             )
+
+        self._serial_dispatcher = SerialDispatcher(self)
+        self._parallel_dispatcher: ParallelDispatcher | None = None
+        if self._is_parallel:
+            self._parallel_dispatcher = ParallelDispatcher(self)
 
     @property
     def _repo_root(self) -> Path:
@@ -894,6 +948,14 @@ class Orchestrator:
             return "blocked"
         return "limited"
 
+    def _get_parallel_dispatcher(self) -> ParallelDispatcher:
+        """Return the parallel dispatcher, creating one lazily if needed."""
+        dispatcher = getattr(self, "_parallel_dispatcher", None)
+        if dispatcher is None:
+            dispatcher = ParallelDispatcher(self)
+            self._parallel_dispatcher = dispatcher
+        return dispatcher
+
     async def _dispatch_serial(
         self,
         ready: list[str],
@@ -902,78 +964,17 @@ class Orchestrator:
         error_tracker: dict[str, str | None],
         first_dispatch: bool,
     ) -> bool:
-        """Dispatch one ready task serially. Returns updated first_dispatch."""
-        assert self._graph_sync is not None  # noqa: S101
-
-        for node_id in ready:
-            if self._signal.interrupted:
-                break
-
-            launch = await self._prepare_launch(
-                node_id,
-                state,
-                attempt_tracker,
-                error_tracker,
-            )
-            if launch is None:
-                # _check_launch returned blocked or limited; the serial
-                # path can't distinguish, so just skip to re-evaluate.
-                continue
-
-            (
-                _,
-                attempt,
-                previous_error,
-                node_archetype,
-                node_instances,
-                assessed_tier,
-                node_mode,
-            ) = launch
-
-            if not first_dispatch:
-                await self._serial_runner.delay()
-            first_dispatch = False
-
-            self._graph_sync.mark_in_progress(node_id)
-
-            # 75-REQ-3.5: Pass per-node timeout/turns overrides if available
-            timeout_override: int | None = None
-            max_turns_override: int | None = None
-            if self._result_handler is not None:
-                timeout_override = self._result_handler._node_timeout.get(node_id)
-                if node_id in self._result_handler._node_max_turns:
-                    max_turns_override = self._result_handler._node_max_turns[node_id]
-
-            record = await self._serial_runner.execute(
-                node_id,
-                attempt,
-                previous_error,
-                archetype=node_archetype,
-                mode=node_mode,
-                instances=node_instances,
-                assessed_tier=assessed_tier,
-                run_id=self._run_id,
-                timeout_override=timeout_override,
-                max_turns_override=max_turns_override,
-            )
-
-            assert self._result_handler is not None  # noqa: S101
-            self._result_handler.process(
-                record,
-                attempt,
-                state,
-                attempt_tracker,
-                error_tracker,
-            )
-
-            # 06-REQ-6.1: Check sync barrier after task completion
-            if record.status == "completed":
-                await self._run_sync_barrier_if_needed(state)
-
-            # Re-evaluate ready tasks after each completion
-            break
-
-        return first_dispatch
+        """Dispatch one ready task serially. Delegates to SerialDispatcher."""
+        dispatcher = getattr(self, "_serial_dispatcher", None)
+        if dispatcher is None:
+            dispatcher = SerialDispatcher(self)
+        return await dispatcher.dispatch(
+            ready,
+            state,
+            attempt_tracker,
+            error_tracker,
+            first_dispatch,
+        )
 
     async def _dispatch_parallel(
         self,
@@ -982,104 +983,13 @@ class Orchestrator:
         attempt_tracker: dict[str, int],
         error_tracker: dict[str, str | None],
     ) -> None:
-        """Dispatch ready tasks using a streaming pool.
-
-        Maintains a pool of up to ``max_parallelism`` concurrent asyncio
-        tasks.  When a task completes, ``ready_tasks()`` is re-evaluated
-        and empty pool slots are filled with newly-unblocked work.
-
-        Only tasks that are *actually running* are marked ``in_progress``
-        — queued tasks remain ``pending`` until a pool slot opens.
-
-        This replaces the former batch-and-wait model which over-committed
-        all ready tasks as ``in_progress`` and delayed newly-unblocked
-        tasks until the entire batch completed.
-        """
-        assert self._graph_sync is not None  # noqa: S101
-        assert self._parallel_runner is not None  # noqa: S101
-
-        graph_sync = self._graph_sync
-        parallel_runner = self._parallel_runner
-
-        pool: set[asyncio.Task[SessionRecord]] = set()
-
-        await self._fill_parallel_pool(
-            pool,
+        """Dispatch ready tasks in parallel. Delegates to ParallelDispatcher."""
+        await self._get_parallel_dispatcher().dispatch(
             ready,
             state,
             attempt_tracker,
             error_tracker,
         )
-
-        if not pool:
-            return
-
-        parallel_runner.track_tasks(list(pool))
-
-        while pool:
-            if self._signal.interrupted:
-                break
-
-            # Wait for any task to complete
-            done, pool = await asyncio.wait(
-                pool,
-                return_when=asyncio.FIRST_COMPLETED,
-            )
-
-            barrier_needed = self._process_completed_parallel(
-                done,
-                state,
-                attempt_tracker,
-                error_tracker,
-            )
-
-            # 51-REQ-1.1, 51-REQ-1.2, 51-REQ-1.3: Drain remaining pool
-            # before entering the barrier sequence.
-            if barrier_needed and pool:
-                if self._signal.interrupted:
-                    break
-                logger.info(
-                    "Barrier triggered — draining %d in-flight tasks",
-                    len(pool),
-                )
-                try:
-                    drain_done, pool = await asyncio.wait(pool)
-                except asyncio.CancelledError:
-                    # 51-REQ-1.E2: SIGINT during drain
-                    break
-                self._process_completed_parallel(
-                    drain_done,
-                    state,
-                    attempt_tracker,
-                    error_tracker,
-                )
-
-            # Run the barrier after draining
-            if barrier_needed:
-                await self._run_sync_barrier_if_needed(state)
-
-            # Re-evaluate ready tasks and fill empty pool slots
-            if not self._signal.interrupted:
-                new_ready = graph_sync.ready_tasks()
-                if not new_ready and len(pool) < parallel_runner.max_parallelism:
-                    promoted = graph_sync.promote_deferred(
-                        parallel_runner.max_parallelism - len(pool),
-                    )
-                    if promoted:
-                        logger.info(
-                            "Promoted %d deferred review node(s)",
-                            len(promoted),
-                        )
-                        new_ready = graph_sync.ready_tasks()
-                await self._fill_parallel_pool(
-                    pool,
-                    new_ready,
-                    state,
-                    attempt_tracker,
-                    error_tracker,
-                )
-
-            parallel_runner.track_tasks(list(pool))
 
     async def _fill_parallel_pool(
         self,
@@ -1089,92 +999,14 @@ class Orchestrator:
         attempt_tracker: dict[str, int],
         error_tracker: dict[str, str | None],
     ) -> None:
-        """Launch candidates into the parallel pool up to max_parallelism.
-
-        Review archetype sessions (excluding auto_pre group-0 nodes) are
-        capped at ``max(1, max_pool * max_review_fraction)`` concurrent
-        slots to prevent slot starvation when many review nodes become
-        ready simultaneously after a sync barrier.
-        """
-        assert self._graph_sync is not None  # noqa: S101
-        assert self._parallel_runner is not None  # noqa: S101
-
-        max_pool = self._parallel_runner.max_parallelism
-        max_review = max(1, int(max_pool * self._config.max_review_fraction))
-
-        review_in_pool = 0
-        for t in pool:
-            name = t.get_name()
-            if name.startswith("parallel-"):
-                pool_node_id = name[len("parallel-") :]
-                if not _is_auto_pre(pool_node_id):
-                    pool_archetype = self._get_node_archetype(pool_node_id)
-                    if pool_archetype in _REVIEW_ARCHETYPES:
-                        review_in_pool += 1
-
-        for node_id in candidates:
-            if len(pool) >= max_pool:
-                break
-            if self._signal.interrupted:
-                break
-
-            # Defense-in-depth: skip any candidate whose status changed to
-            # "blocked" between ready_tasks() evaluation and this dispatch
-            # point (issue #481).  The primary fix is in graph_sync.mark_blocked
-            # which now cascades through in-progress nodes to pre-block their
-            # pending dependents; this guard is a last-resort safety net.
-            if self._graph_sync.node_states.get(node_id) == "blocked":
-                continue
-
-            # Review concurrency cap: check BEFORE _prepare_launch to avoid
-            # incrementing the attempt counter for tasks that won't launch.
-            # _prepare_launch updates attempt_tracker on "allowed" verdicts,
-            # so skipping afterward would silently consume retry budget
-            # (issue #503).
-            candidate_archetype = self._get_node_archetype(node_id)
-            if candidate_archetype in _REVIEW_ARCHETYPES and not _is_auto_pre(node_id) and review_in_pool >= max_review:
-                continue
-
-            launch = await self._prepare_launch(
-                node_id,
-                state,
-                attempt_tracker,
-                error_tracker,
-            )
-            if launch is None:
-                continue
-
-            _, attempt, previous_error, archetype, instances, assessed_tier, node_mode = launch
-
-            self._graph_sync.mark_in_progress(node_id)
-
-            # 75-REQ-3.5: Pass per-node timeout/turns overrides if available
-            timeout_override_p: int | None = None
-            max_turns_override_p: int | None = None
-            if self._result_handler is not None:
-                timeout_override_p = self._result_handler._node_timeout.get(node_id)
-                if node_id in self._result_handler._node_max_turns:
-                    max_turns_override_p = self._result_handler._node_max_turns[node_id]
-
-            task = asyncio.create_task(
-                self._parallel_runner.execute_one(
-                    node_id,
-                    attempt,
-                    previous_error,
-                    archetype=archetype,
-                    mode=node_mode,
-                    instances=instances,
-                    assessed_tier=assessed_tier,
-                    run_id=self._run_id,
-                    timeout_override=timeout_override_p,
-                    max_turns_override=max_turns_override_p,
-                ),
-                name=f"parallel-{node_id}",
-            )
-            pool.add(task)
-
-            if archetype in _REVIEW_ARCHETYPES and not _is_auto_pre(node_id):
-                review_in_pool += 1
+        """Launch candidates into the parallel pool. Delegates to ParallelDispatcher."""
+        await self._get_parallel_dispatcher().fill_pool(
+            pool,
+            candidates,
+            state,
+            attempt_tracker,
+            error_tracker,
+        )
 
     def _process_completed_parallel(
         self,
@@ -1183,31 +1015,13 @@ class Orchestrator:
         attempt_tracker: dict[str, int],
         error_tracker: dict[str, str | None],
     ) -> bool:
-        """Process completed parallel tasks. Returns True if a barrier is needed."""
-        assert self._result_handler is not None  # noqa: S101
-
-        barrier_needed = False
-        for completed_task in done:
-            try:
-                record = completed_task.result()
-            except Exception as exc:
-                logger.error("Parallel task raised: %s", exc)
-                continue
-
-            self._result_handler.process(
-                record,
-                attempt_tracker.get(record.node_id, 1),
-                state,
-                attempt_tracker,
-                error_tracker,
-            )
-
-            # 06-REQ-6.1: Check sync barrier after task completion
-            if record.status == "completed":
-                if self._should_trigger_barrier(state):
-                    barrier_needed = True
-
-        return barrier_needed
+        """Process completed parallel tasks. Delegates to ParallelDispatcher."""
+        return self._get_parallel_dispatcher().process_completed(
+            done,
+            state,
+            attempt_tracker,
+            error_tracker,
+        )
 
     def _run_preflight(self, node_id: str) -> bool:
         """Run pre-flight check and skip the session if work is done.

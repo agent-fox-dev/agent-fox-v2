@@ -53,7 +53,7 @@ class TestFixPipelineUsesFix_CodingMd:
         Does NOT mock build_system_prompt or profile loading.
         """
         from agent_fox.nightshift.fix_pipeline import FixPipeline
-        from agent_fox.nightshift.fix_types import TriageResult
+        from agent_fox.nightshift.fix_pipeline import TriageResult
         from agent_fox.nightshift.spec_builder import InMemorySpec
 
         config = _make_config()
@@ -93,7 +93,7 @@ class TestFixPipelineUsesFix_CodingMd:
         actual execution.
         """
         from agent_fox.nightshift.fix_pipeline import FixPipeline
-        from agent_fox.nightshift.fix_types import TriageResult
+        from agent_fox.nightshift.fix_pipeline import TriageResult
         from agent_fox.nightshift.spec_builder import InMemorySpec
 
         config = _make_config()
@@ -140,7 +140,7 @@ class TestFixPipelineUsesFix_CodingMd:
     def test_system_prompt_does_not_contain_task_group_instructions(self) -> None:
         """System prompt does not contain spec-driven task group instructions (coding.md)."""
         from agent_fox.nightshift.fix_pipeline import FixPipeline
-        from agent_fox.nightshift.fix_types import TriageResult
+        from agent_fox.nightshift.fix_pipeline import TriageResult
         from agent_fox.nightshift.spec_builder import InMemorySpec
 
         config = _make_config()

@@ -15,7 +15,7 @@ import pytest
 from agent_fox.workspace import WorkspaceInfo
 
 if TYPE_CHECKING:
-    from agent_fox.nightshift.fix_types import TriageResult
+    from agent_fox.nightshift.fix_pipeline import TriageResult
     from agent_fox.nightshift.spec_builder import InMemorySpec
 
 
@@ -46,7 +46,7 @@ def _make_spec(task_prompt: str = "Fix the issue: test\n\nIssue #42\n\nSome body
 
 def _make_triage() -> TriageResult:
     """Return an empty TriageResult."""
-    from agent_fox.nightshift.fix_types import TriageResult
+    from agent_fox.nightshift.fix_pipeline import TriageResult
 
     return TriageResult()
 

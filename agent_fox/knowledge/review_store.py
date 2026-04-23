@@ -151,20 +151,6 @@ def _supersede_active_records(
     return superseded_ids
 
 
-def _insert_causal_links(
-    conn: duckdb.DuckDBPyConnection,
-    superseded_ids: list[str],
-    new_ids: list[str],
-) -> None:
-    """Insert causal links from superseded to new records (27-REQ-4.3)."""
-    for old_id in superseded_ids:
-        for new_id in new_ids:
-            conn.execute(
-                "INSERT OR IGNORE INTO fact_causes (cause_id, effect_id) VALUES (?::UUID, ?::UUID)",
-                [old_id, new_id],
-            )
-
-
 def _insert_with_supersession(
     conn: duckdb.DuckDBPyConnection,
     table: str,
@@ -173,9 +159,13 @@ def _insert_with_supersession(
     value_extractor: Callable[..., list[Any]],
     record_type_label: str,
 ) -> int:
-    """Insert records with supersession and causal links.
+    """Insert records with supersession.
 
-    Shared logic for insert_findings and insert_verdicts.
+    Shared logic for insert_findings, insert_verdicts, and
+    insert_drift_findings.  Old records are marked via the
+    ``superseded_by`` column; no causal links are written.
+
+    Requirements: 116-REQ-5.1, 116-REQ-5.2
     """
     _validate_table_name(table)
     if not records:
@@ -194,9 +184,6 @@ def _insert_with_supersession(
             f"VALUES ({placeholders}, CURRENT_TIMESTAMP)",
             value_extractor(r),
         )
-
-    if superseded_ids:
-        _insert_causal_links(conn, superseded_ids, [r.id for r in records])
 
     logger.info(
         "Inserted %d %s for %s/%s (superseded %d)",

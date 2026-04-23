@@ -46,7 +46,7 @@ class TestAiCallClosesClient:
                 return_value=mock_client,
             ),
             patch("agent_fox.core.models.resolve_model") as mock_resolve,
-            patch("agent_fox.core.retry.retry_api_call_async", side_effect=fake_retry),
+            patch("agent_fox.core.client.retry_api_call_async", side_effect=fake_retry),
             patch("agent_fox.core.token_tracker.track_response_usage"),
         ):
             mock_resolve.return_value = MagicMock(model_id="claude-sonnet-4-6")
@@ -76,7 +76,7 @@ class TestAiCallClosesClient:
                 return_value=mock_client,
             ),
             patch("agent_fox.core.models.resolve_model") as mock_resolve,
-            patch("agent_fox.core.retry.retry_api_call_async", side_effect=fake_retry),
+            patch("agent_fox.core.client.retry_api_call_async", side_effect=fake_retry),
             patch("agent_fox.core.token_tracker.track_response_usage"),
         ):
             mock_resolve.return_value = MagicMock(model_id="claude-sonnet-4-6")

@@ -240,17 +240,16 @@ class PlatformConfig(BaseModel):
 class KnowledgeProviderConfig(BaseModel):
     """Configuration for the pluggable knowledge provider.
 
-    Controls retrieval limits, gotcha TTL, and the LLM model tier used for
-    gotcha extraction.
+    Controls retrieval limits only. Gotcha TTL and model tier fields were
+    removed in spec 116 (knowledge system pruning). Unknown fields are
+    silently ignored for backward compatibility with existing config files.
 
-    Requirements: 115-REQ-8.1, 115-REQ-8.3
+    Requirements: 116-REQ-7.1, 116-REQ-7.2, 116-REQ-7.3, 116-REQ-7.E1
     """
 
     model_config = ConfigDict(extra="ignore")
 
     max_items: int = Field(default=10, description="Max total retrieval items")
-    gotcha_ttl_days: int = Field(default=90, description="Days before gotcha expiry")
-    model_tier: str = Field(default="SIMPLE", description="LLM tier for gotcha extraction")
 
 
 class KnowledgeConfig(BaseModel):
@@ -371,38 +370,6 @@ class ArchetypeInstancesConfig(BaseModel):
         return 1
 
 
-class SkepticConfig(BaseModel):
-    """Skeptic-specific configuration.
-
-    Requirements: 26-REQ-8.4
-    """
-
-    model_config = ConfigDict(extra="ignore")
-
-    block_threshold: Annotated[int, Clamped(ge=0)] = Field(default=3, description="Finding count to block merge")
-
-    _auto_clamp = _auto_clamp_validator()
-
-
-class OracleSettings(BaseModel):
-    """Oracle-specific configuration.
-
-    Requirements: 32-REQ-10.2, 32-REQ-10.E1
-    """
-
-    model_config = ConfigDict(extra="ignore")
-
-    block_threshold: int | None = Field(default=None, description="Drift count to block (None = advisory)")
-
-    @field_validator("block_threshold")
-    @classmethod
-    def clamp_threshold(cls, v: int | None) -> int | None:
-        if v is not None and v < 1:
-            logger.warning("oracle block_threshold clamped to 1")
-            return 1
-        return v
-
-
 class AuditorConfig(BaseModel):
     """Auditor-specific configuration.
 
@@ -432,7 +399,7 @@ class ReviewerConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     pre_review_block_threshold: Annotated[int, Clamped(ge=0)] = Field(
-        default=3,
+        default=1,
         description="Finding count to block merge for pre-review mode",
     )
     drift_review_block_threshold: int | None = Field(
@@ -683,30 +650,6 @@ class PlanningConfig(BaseModel):
     _auto_clamp = _auto_clamp_validator()
 
 
-class BlockingConfig(BaseModel):
-    """Blocking threshold learning configuration.
-
-    Requirements: 39-REQ-10.2, 39-REQ-10.3
-    """
-
-    model_config = ConfigDict(extra="ignore")
-
-    learn_thresholds: bool = Field(
-        default=False,
-        description="Learn blocking thresholds from history",
-    )
-    min_decisions_for_learning: Annotated[int, Clamped(ge=1, le=1000, cast=int)] = Field(
-        default=20,
-        description="Minimum blocking decisions before learning thresholds",
-    )
-    max_false_negative_rate: Annotated[float, Clamped(ge=0.0, le=1.0)] = Field(
-        default=0.1,
-        description="Maximum acceptable false negative rate",
-    )
-
-    _auto_clamp = _auto_clamp_validator()
-
-
 class CachePolicy(StrEnum):
     """Prompt caching strategy for auxiliary API calls.
 
@@ -934,7 +877,6 @@ class AgentFoxConfig(BaseModel):
     archetypes: ArchetypesConfig = Field(default_factory=ArchetypesConfig)
     pricing: PricingConfig = Field(default_factory=PricingConfig)
     planning: PlanningConfig = Field(default_factory=PlanningConfig)
-    blocking: BlockingConfig = Field(default_factory=BlockingConfig)
     caching: CachingConfig = Field(default_factory=CachingConfig)
     night_shift: NightShiftConfig = Field(default_factory=NightShiftConfig)
 

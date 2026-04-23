@@ -6,7 +6,7 @@ string length limits on LLM-provided fields.
 
 from __future__ import annotations
 
-from agent_fox.core.llm_validation import MAX_CONTENT_LENGTH, MAX_REF_LENGTH
+from agent_fox.session.review_parser import MAX_CONTENT_LENGTH, MAX_REF_LENGTH
 from agent_fox.session.review_parser import (
     parse_drift_findings,
     parse_review_findings,
@@ -56,7 +56,7 @@ class TestVerificationResultFieldValidation:
         assert len(results) == 1
 
     def test_oversized_evidence_truncated(self) -> None:
-        from agent_fox.core.llm_validation import MAX_EVIDENCE_LENGTH
+        from agent_fox.session.review_parser import MAX_EVIDENCE_LENGTH
 
         objs = [
             {

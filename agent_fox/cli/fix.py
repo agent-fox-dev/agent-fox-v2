@@ -27,8 +27,7 @@ from agent_fox.fix.checks import detect_checks
 from agent_fox.fix.events import CheckEvent, FixProgressEvent
 from agent_fox.fix.fix import FixSessionRunner, TerminationReason, run_fix_loop
 from agent_fox.fix.improve import ImproveResult, ImproveTermination, run_improve_loop
-from agent_fox.fix.improve_report import build_combined_json, render_combined_report
-from agent_fox.fix.report import render_fix_report
+from agent_fox.fix.report import build_combined_json, render_combined_report, render_fix_report
 from agent_fox.fix.spec_gen import FixSpec
 from agent_fox.session.session import run_session
 from agent_fox.ui.display import create_theme, render_banner

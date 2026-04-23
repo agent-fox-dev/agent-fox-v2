@@ -12,7 +12,7 @@ from rich.console import Console
 
 from agent_fox.fix.fix import FixResult, TerminationReason
 from agent_fox.fix.improve import ImproveResult, ImproveTermination
-from agent_fox.fix.improve_report import build_combined_json, render_combined_report
+from agent_fox.fix.report import build_combined_json, render_combined_report
 
 
 def _make_fix_result(

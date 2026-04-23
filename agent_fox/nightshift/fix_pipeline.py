@@ -16,17 +16,13 @@ from __future__ import annotations
 
 import logging
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from agent_fox.core.config import AgentFoxConfig
 from agent_fox.engine.audit_helpers import emit_audit_event
 from agent_fox.knowledge.audit import AuditEventType, generate_run_id
-from agent_fox.nightshift.fix_types import (
-    FixReviewResult,
-    TriageResult,
-)
 from agent_fox.nightshift.spec_builder import InMemorySpec, build_in_memory_spec
 from agent_fox.platform.labels import LABEL_FIXED, LABEL_NO_CHANGE
 from agent_fox.platform.protocol import IssueResult
@@ -39,6 +35,50 @@ if TYPE_CHECKING:
     from agent_fox.knowledge.sink import SinkDispatcher
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Data types for triage and review workflow (formerly nightshift/fix_types)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class AcceptanceCriterion:
+    """A single acceptance criterion from the triage agent."""
+
+    id: str
+    description: str
+    preconditions: str
+    expected: str
+    assertion: str
+
+
+@dataclass(frozen=True)
+class TriageResult:
+    """Parsed triage output."""
+
+    summary: str = ""
+    affected_files: list[str] = field(default_factory=list)
+    criteria: list[AcceptanceCriterion] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class FixReviewVerdict:
+    """A single per-criterion verdict from the fix reviewer."""
+
+    criterion_id: str
+    verdict: str
+    evidence: str
+
+
+@dataclass(frozen=True)
+class FixReviewResult:
+    """Parsed fix reviewer output."""
+
+    verdicts: list[FixReviewVerdict] = field(default_factory=list)
+    overall_verdict: str = "FAIL"
+    summary: str = ""
+    is_parse_failure: bool = False
 
 
 @dataclass
@@ -92,6 +132,16 @@ class FixPipeline:
         self._spinner_callback = spinner_callback
         self._conn = conn
         self._run_id: str = ""
+
+    async def _post_comment(self, issue_number: int, message: str) -> None:
+        """Post a comment on an issue, logging failures without raising."""
+        try:
+            await self._platform.add_issue_comment(  # type: ignore[attr-defined]
+                issue_number,
+                message,
+            )
+        except Exception as exc:
+            logger.warning("Failed to post comment for issue #%d: %s", issue_number, exc)
 
     def _update_spinner(self, text: str) -> None:
         """Update the spinner text with a phase hint.
@@ -662,22 +712,9 @@ class FixPipeline:
         # Post triage comment if we have results
         if triage.criteria or triage.summary:
             comment = self._format_triage_comment(triage) + f"\n(run: `{self._run_id}`)"
-            try:
-                await self._platform.add_issue_comment(  # type: ignore[attr-defined]
-                    spec.issue_number, comment
-                )
-            except Exception as exc:
-                logger.warning(
-                    "Failed to post triage comment for issue #%d: %s",
-                    spec.issue_number,
-                    exc,
-                )
+            await self._post_comment(spec.issue_number, comment)
 
         return triage
-
-    # ------------------------------------------------------------------
-    # Coder-reviewer loop (82-REQ-8.1 through 82-REQ-8.4, 82-REQ-8.E1)
-    # ------------------------------------------------------------------
 
     async def _coder_review_loop(
         self,
@@ -688,285 +725,15 @@ class FixPipeline:
     ) -> bool:
         """Coder-reviewer loop with retry and escalation.
 
+        Delegates to CoderReviewerLoop collaborator class.
         Returns True on PASS, False on exhaustion.
 
         Requirements: 82-REQ-7.1, 82-REQ-8.1, 82-REQ-8.2, 82-REQ-8.3,
                       82-REQ-8.4, 82-REQ-8.E1
         """
-        from agent_fox.core.models import ModelTier, resolve_model
-        from agent_fox.routing.escalation import EscalationLadder
-        from agent_fox.session.review_parser import parse_fix_review_output
+        from agent_fox.nightshift.coder_reviewer import CoderReviewerLoop
 
-        retries_before = getattr(
-            self._config.orchestrator,
-            "retries_before_escalation",
-            1,
-        )
-        max_retries = getattr(
-            self._config.orchestrator,
-            "max_retries",
-            3,
-        )
-
-        ladder = EscalationLadder(
-            starting_tier=ModelTier.STANDARD,
-            tier_ceiling=ModelTier.ADVANCED,
-            retries_before_escalation=retries_before,
-        )
-
-        review_feedback: FixReviewResult | None = None
-
-        for _attempt in range(max_retries + 1):
-            # Resolve model from current tier
-            tier = ladder.current_tier
-            model_entry = resolve_model(tier.value)
-            model_id: str | None = model_entry.model_id
-
-            # Build and run coder session
-            system_prompt, task_prompt = self._build_coder_prompt(spec, triage, review_feedback=review_feedback)
-
-            node_id = f"fix-issue-{spec.issue_number}:0:coder"
-            attempt_suffix = f" (attempt {_attempt + 1})" if _attempt > 0 else ""
-            self._update_spinner(f"Running coder for issue #{spec.issue_number}{attempt_suffix}\u2026")
-            t0 = time.monotonic()
-            try:
-                coder_outcome = await self._run_coder_session(
-                    workspace,
-                    spec,
-                    system_prompt,
-                    task_prompt,
-                    model_id=model_id,
-                )
-                self._accumulate_metrics(metrics, coder_outcome)
-                self._emit_session_event(
-                    coder_outcome,
-                    "coder",
-                    self._run_id,
-                    node_id=node_id,
-                    attempt=_attempt + 1,
-                )
-                duration = time.monotonic() - t0
-                if self._task_callback is not None:
-                    self._task_callback(
-                        TaskEvent(
-                            node_id=node_id,
-                            status="completed",
-                            duration_s=duration,
-                            archetype="coder",
-                        )
-                    )
-            except Exception as _coder_exc:
-                duration = time.monotonic() - t0
-                emit_audit_event(
-                    self._sink,
-                    self._run_id,
-                    AuditEventType.SESSION_FAIL,
-                    node_id=node_id,
-                    archetype="coder",
-                    payload={
-                        "archetype": "coder",
-                        "model_id": model_id or self._get_model_id("coder"),
-                        "error_message": str(_coder_exc),
-                        "attempt": _attempt + 1,
-                    },
-                )
-                if self._task_callback is not None:
-                    self._task_callback(
-                        TaskEvent(
-                            node_id=node_id,
-                            status="failed",
-                            duration_s=duration,
-                            archetype="coder",
-                        )
-                    )
-                raise
-
-            # Build and run reviewer session
-            reviewer_system, reviewer_task = self._build_reviewer_prompt(spec, triage)
-
-            reviewer_node_id = f"fix-issue-{spec.issue_number}:0:reviewer"
-            self._update_spinner(f"Reviewing fix for issue #{spec.issue_number}\u2026")
-            t0 = time.monotonic()
-            try:
-                reviewer_outcome = await self._run_session(
-                    "reviewer",
-                    workspace,
-                    spec=spec,
-                    system_prompt=reviewer_system,
-                    task_prompt=reviewer_task,
-                    mode="fix-review",
-                )
-                self._accumulate_metrics(metrics, reviewer_outcome)
-                self._emit_session_event(
-                    reviewer_outcome,
-                    "reviewer",
-                    self._run_id,
-                    node_id=reviewer_node_id,
-                    attempt=_attempt + 1,
-                )
-                duration = time.monotonic() - t0
-                if self._task_callback is not None:
-                    self._task_callback(
-                        TaskEvent(
-                            node_id=reviewer_node_id,
-                            status="completed",
-                            duration_s=duration,
-                            archetype="reviewer",
-                        )
-                    )
-            except Exception as _reviewer_exc:
-                duration = time.monotonic() - t0
-                emit_audit_event(
-                    self._sink,
-                    self._run_id,
-                    AuditEventType.SESSION_FAIL,
-                    node_id=reviewer_node_id,
-                    archetype="reviewer",
-                    payload={
-                        "archetype": "reviewer",
-                        "model_id": self._get_model_id("reviewer"),
-                        "error_message": str(_reviewer_exc),
-                        "attempt": _attempt + 1,
-                    },
-                )
-                if self._task_callback is not None:
-                    self._task_callback(
-                        TaskEvent(
-                            node_id=reviewer_node_id,
-                            status="failed",
-                            duration_s=duration,
-                            archetype="reviewer",
-                        )
-                    )
-                raise
-
-            # Parse reviewer output, retrying reviewer once on parse failure
-            reviewer_response = getattr(reviewer_outcome, "response", "") or ""
-            review_result = parse_fix_review_output(
-                reviewer_response,
-                f"fix-issue-{spec.issue_number}",
-                f"fix-issue-{spec.issue_number}:0:reviewer",
-            )
-
-            if review_result.is_parse_failure:
-                logger.info(
-                    "Reviewer output unparseable for issue #%d, retrying reviewer",
-                    spec.issue_number,
-                )
-                retry_node_id = f"fix-issue-{spec.issue_number}:0:reviewer_retry"
-                t0 = time.monotonic()
-                try:
-                    retry_outcome = await self._run_session(
-                        "reviewer",
-                        workspace,
-                        spec=spec,
-                        system_prompt=reviewer_system,
-                        task_prompt=reviewer_task,
-                        mode="fix-review",
-                    )
-                    self._accumulate_metrics(metrics, retry_outcome)
-                    self._emit_session_event(
-                        retry_outcome,
-                        "reviewer",
-                        self._run_id,
-                        node_id=retry_node_id,
-                        attempt=_attempt + 1,
-                    )
-                    duration = time.monotonic() - t0
-                    if self._task_callback is not None:
-                        self._task_callback(
-                            TaskEvent(
-                                node_id=retry_node_id,
-                                status="completed",
-                                duration_s=duration,
-                                archetype="reviewer",
-                            )
-                        )
-                    retry_response = getattr(retry_outcome, "response", "") or ""
-                    retry_result = parse_fix_review_output(
-                        retry_response,
-                        f"fix-issue-{spec.issue_number}",
-                        f"fix-issue-{spec.issue_number}:0:reviewer_retry",
-                    )
-                    if not retry_result.is_parse_failure:
-                        review_result = retry_result
-                    else:
-                        logger.warning(
-                            "Reviewer retry also unparseable for issue #%d, treating as FAIL",
-                            spec.issue_number,
-                        )
-                except Exception as _retry_exc:
-                    duration = time.monotonic() - t0
-                    emit_audit_event(
-                        self._sink,
-                        self._run_id,
-                        AuditEventType.SESSION_FAIL,
-                        node_id=retry_node_id,
-                        archetype="reviewer",
-                        payload={
-                            "archetype": "reviewer",
-                            "model_id": self._get_model_id("reviewer"),
-                            "error_message": str(_retry_exc),
-                            "attempt": _attempt + 1,
-                        },
-                    )
-                    if self._task_callback is not None:
-                        self._task_callback(
-                            TaskEvent(
-                                node_id=retry_node_id,
-                                status="failed",
-                                duration_s=duration,
-                                archetype="reviewer",
-                            )
-                        )
-                    logger.warning(
-                        "Reviewer retry failed for issue #%d, treating as FAIL",
-                        spec.issue_number,
-                        exc_info=True,
-                    )
-
-            # Post review comment
-            review_comment = self._format_review_comment(review_result) + f"\n(run: `{self._run_id}`)"
-            try:
-                await self._platform.add_issue_comment(  # type: ignore[attr-defined]
-                    spec.issue_number, review_comment
-                )
-            except Exception as exc:
-                logger.warning(
-                    "Failed to post review comment for issue #%d: %s",
-                    spec.issue_number,
-                    exc,
-                )
-
-            # Check verdict
-            if review_result.overall_verdict == "PASS":
-                return True
-
-            # FAIL: record and maybe escalate
-            ladder.record_failure()
-
-            if ladder.is_exhausted or _attempt >= max_retries:
-                # Post failure comment and stop
-                try:
-                    await self._platform.add_issue_comment(  # type: ignore[attr-defined]
-                        spec.issue_number,
-                        "Fix pipeline exhausted all retries. "
-                        "The issue could not be resolved automatically. "
-                        f"Manual intervention is required. (run: `{self._run_id}`)",
-                    )
-                except Exception as exc:
-                    logger.warning(
-                        "Failed to post exhaustion comment for issue #%d: %s",
-                        spec.issue_number,
-                        exc,
-                    )
-                return False
-
-            # Set up feedback for next coder attempt
-            review_feedback = review_result
-
-        # Should not reach here, but safety fallback
-        return False  # pragma: no cover
+        return await CoderReviewerLoop(self).run(spec, triage, metrics, workspace)
 
     # ------------------------------------------------------------------
     # Main entry point
@@ -1041,17 +808,10 @@ class FixPipeline:
         workspace = await self._setup_workspace(spec)
 
         # Post progress comment
-        try:
-            await self._platform.add_issue_comment(  # type: ignore[attr-defined]
-                issue.number,
-                f"Starting fix session on branch `{spec.branch_name}`... (run: `{self._run_id}`)",
-            )
-        except Exception as exc:
-            logger.warning(
-                "Failed to post starting comment for issue #%d: %s",
-                issue.number,
-                exc,
-            )
+        await self._post_comment(
+            issue.number,
+            f"Starting fix session on branch `{spec.branch_name}`... (run: `{self._run_id}`)",
+        )
 
         try:
             # 82-REQ-7.1: run triage first
@@ -1096,17 +856,10 @@ class FixPipeline:
 
         except Exception as exc:
             # 61-REQ-6.E1: post comment on failure
-            try:
-                await self._platform.add_issue_comment(  # type: ignore[attr-defined]
-                    issue.number,
-                    f"Fix session failed: {exc}\n\nBranch: `{spec.branch_name}` (run: `{self._run_id}`)",
-                )
-            except Exception as comment_exc:
-                logger.warning(
-                    "Failed to post failure comment for issue #%d: %s",
-                    issue.number,
-                    comment_exc,
-                )
+            await self._post_comment(
+                issue.number,
+                f"Fix session failed: {exc}\n\nBranch: `{spec.branch_name}` (run: `{self._run_id}`)",
+            )
             logger.warning(
                 "Fix session failed for issue #%d: %s",
                 issue.number,
@@ -1118,19 +871,12 @@ class FixPipeline:
             await self._cleanup_workspace(workspace)
 
         if harvest_result == "error":
-            try:
-                await self._platform.add_issue_comment(  # type: ignore[attr-defined]
-                    issue.number,
-                    f"Fix sessions completed but changes from branch "
-                    f"`{spec.branch_name}` could not be merged into `develop`. "
-                    f"Manual investigation is required. (run: `{self._run_id}`)",
-                )
-            except Exception as exc:
-                logger.warning(
-                    "Failed to post merge failure comment for issue #%d: %s",
-                    issue.number,
-                    exc,
-                )
+            await self._post_comment(
+                issue.number,
+                f"Fix sessions completed but changes from branch "
+                f"`{spec.branch_name}` could not be merged into `develop`. "
+                f"Manual investigation is required. (run: `{self._run_id}`)",
+            )
             self._try_complete_run("completed")
             return metrics
 
@@ -1141,19 +887,12 @@ class FixPipeline:
                 issue.number,
                 spec.branch_name,
             )
-            try:
-                await self._platform.add_issue_comment(  # type: ignore[attr-defined]
-                    issue.number,
-                    f"Fix attempt on branch `{spec.branch_name}` produced no new commits. "
-                    "The issue has been left open for human review. "
-                    f"(run: `{self._run_id}`)",
-                )
-            except Exception as exc:
-                logger.warning(
-                    "Failed to post no-change comment for issue #%d: %s",
-                    issue.number,
-                    exc,
-                )
+            await self._post_comment(
+                issue.number,
+                f"Fix attempt on branch `{spec.branch_name}` produced no new commits. "
+                "The issue has been left open for human review. "
+                f"(run: `{self._run_id}`)",
+            )
             try:
                 await self._platform.assign_label(  # type: ignore[attr-defined]
                     issue.number,

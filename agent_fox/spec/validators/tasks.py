@@ -23,8 +23,8 @@ from agent_fox.spec.validators._helpers import (
     MAX_SUBTASKS_PER_GROUP,
     SEVERITY_ERROR,
     SEVERITY_WARNING,
+    Finding,
 )
-from agent_fox.spec.validators.finding import Finding
 
 
 def check_oversized_groups(

@@ -2,7 +2,7 @@
 
 Provides the KnowledgeProvider protocol, DuckDB knowledge store
 infrastructure, schema management, audit/sink infrastructure, review
-store, blocking history, and agent trace.
+store, and agent trace.
 """
 
 from agent_fox.knowledge.provider import KnowledgeProvider, NoOpKnowledgeProvider
