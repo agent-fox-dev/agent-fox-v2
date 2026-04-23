@@ -206,31 +206,6 @@ def evaluate_review_blocking(
 
         blocked = critical_count > effective_threshold
 
-        # Record the blocking decision for threshold learning
-        try:
-            from agent_fox.knowledge.blocking_history import (
-                BlockingDecision as HistoryDecision,
-            )
-            from agent_fox.knowledge.blocking_history import (
-                record_blocking_decision,
-            )
-
-            decision = HistoryDecision(
-                spec_name=spec_name,
-                archetype=archetype,
-                critical_count=critical_count,
-                threshold=effective_threshold,
-                blocked=blocked,
-                outcome="",  # outcome assessed later
-            )
-            record_blocking_decision(knowledge_db_conn, decision)
-        except Exception:
-            logger.debug(
-                "Failed to record blocking decision for %s",
-                record.node_id,
-                exc_info=True,
-            )
-
         if blocked:
             reason = _format_block_reason(
                 display_name,

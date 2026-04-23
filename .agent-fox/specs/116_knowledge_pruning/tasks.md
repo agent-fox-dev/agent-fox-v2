@@ -125,25 +125,25 @@ imports and config, (5) verify wiring end-to-end.
     - [x] All existing tests still pass: `uv run pytest -q`
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/`
 
-- [ ] 4. Clean up imports and external references
-  - [ ] 4.1 Remove blocking_history from result_handler.py
+- [x] 4. Clean up imports and external references
+  - [x] 4.1 Remove blocking_history from result_handler.py
     - Remove the `from agent_fox.knowledge.blocking_history import` block
     - Remove the `record_blocking_decision()` call and surrounding try/except
     - _Requirements: 116-REQ-3.2, 116-REQ-3.E1_
 
-  - [ ] 4.2 Update reset.py table list
+  - [x] 4.2 Update reset.py table list
     - Remove dropped table names from the reset table list
     - _Requirements: 116-REQ-8.2_
 
-  - [ ] 4.3 Verify no stale imports remain
+  - [x] 4.3 Verify no stale imports remain
     - Search all production code for imports of removed modules
     - Fix any remaining references
     - _Requirements: 116-REQ-8.1, 116-REQ-8.3_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Spec tests pass: TS-116-7, TS-116-8, TS-116-19, TS-116-20
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
+  - [x] 4.V Verify task group 4
+    - [x] Spec tests pass: TS-116-7, TS-116-8, TS-116-19, TS-116-20
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
 
 - [ ] 5. Delete existing tests for removed modules
   - [ ] 5.1 Remove test files for deleted modules
