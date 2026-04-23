@@ -13,11 +13,11 @@ from agent_fox.spec.validators._helpers import (
     _PROPERTY_HEADING,
     _REQUIREMENT_ID,
     SEVERITY_WARNING,
+    Finding,
     _extract_req_ids_from_text,
     _normalize_heading,
     _spec_prefix,
 )
-from agent_fox.spec.validators.finding import Finding
 
 # Pattern that matches only edge-case requirement IDs: [NN-REQ-N.EN]
 _EDGE_CASE_REQ_ID = re.compile(r"\[(\d+-REQ-\d+\.E\d+)\]")

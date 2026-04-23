@@ -13,14 +13,13 @@ from agent_fox.spec.parser import (
     TaskGroupDef,  # noqa: F401
     parse_tasks,
 )
-from agent_fox.spec.validators._helpers import SEVERITY_WARNING
+from agent_fox.spec.validators._helpers import SEVERITY_WARNING, Finding, sort_findings
 from agent_fox.spec.validators.dependencies import (
     _check_circular_dependency,
     _check_coarse_dependency,
     check_broken_dependencies,
 )
 from agent_fox.spec.validators.files import check_missing_files
-from agent_fox.spec.validators.finding import Finding, sort_findings
 from agent_fox.spec.validators.requirements import (
     check_inconsistent_req_id_format,
     check_missing_acceptance_criteria,

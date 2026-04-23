@@ -2,6 +2,12 @@
 
 _3175 facts | last updated: 2026-04-23_
 
+**2026-04-23 simplification pass:** Deleted dead code (nightshift/extraction.py,
+nightshift/ignore_ingest.py, unused llm_validation functions) and consolidated
+small single-consumer files (_text_utils→prompt_safety, assessment→engine,
+nightshift/state→nightshift/engine, improve_report→report,
+validators/finding→validators/_helpers). Net: −7 source files, −323 LOC.
+
 ## Gotchas
 
 - Auto-formatting tools (like ruff) may rewrite modified files and potentially revert hand-edited changes if they conflict with formatting rules, so verify formatting is applied after manual edits are complete. _(spec: 115_pluggable_knowledge, confidence: 0.90)_

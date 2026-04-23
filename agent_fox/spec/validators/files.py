@@ -4,8 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from agent_fox.spec.validators._helpers import EXPECTED_FILES, SEVERITY_ERROR
-from agent_fox.spec.validators.finding import Finding
+from agent_fox.spec.validators._helpers import EXPECTED_FILES, SEVERITY_ERROR, Finding
 
 
 def check_missing_files(spec_name: str, spec_path: Path) -> list[Finding]:

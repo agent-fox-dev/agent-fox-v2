@@ -12,7 +12,8 @@ from __future__ import annotations
 import re
 import secrets
 
-from agent_fox.core._text_utils import strip_ansi
+# Matches ANSI escape sequences (SGR and other CSI sequences).
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]?")
 
 # Matches C0 control characters except tab (0x09), newline (0x0a),
 # and carriage return (0x0d).
@@ -22,6 +23,11 @@ _CONTROL_RE = re.compile(
 
 # Default maximum characters for untrusted content in prompts.
 DEFAULT_MAX_PROMPT_CHARS = 100_000
+
+
+def strip_ansi(text: str) -> str:
+    """Remove ANSI escape codes from text."""
+    return _ANSI_RE.sub("", text)
 
 
 def strip_control_chars(text: str) -> str:

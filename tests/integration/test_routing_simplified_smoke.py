@@ -35,7 +35,7 @@ async def test_orchestrator_dispatch_creates_ladder_without_pipeline() -> None:
 
     Requirements: 89-REQ-1.1, 89-REQ-1.2, 89-REQ-1.3, 89-REQ-2.1
     """
-    from agent_fox.engine.assessment import AssessmentManager
+    from agent_fox.engine.engine import AssessmentManager
 
     config = AgentFoxConfig()
     manager = AssessmentManager(retries_before_escalation=1, config=config)
@@ -76,7 +76,7 @@ async def test_ladder_escalates_on_repeated_failure() -> None:
 
     Requirements: 89-REQ-1.1, 89-REQ-1.2
     """
-    from agent_fox.engine.assessment import AssessmentManager
+    from agent_fox.engine.engine import AssessmentManager
 
     # Use reviewer (no config mapping, starts at STANDARD) to test escalation
     config = AgentFoxConfig()
@@ -106,7 +106,7 @@ async def test_no_pipeline_modules_imported_after_assess() -> None:
     # Record which modules were loaded before the call
     before = set(sys.modules.keys())
 
-    from agent_fox.engine.assessment import AssessmentManager
+    from agent_fox.engine.engine import AssessmentManager
 
     config = AgentFoxConfig()
     manager = AssessmentManager(retries_before_escalation=1, config=config)
