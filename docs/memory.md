@@ -2,6 +2,15 @@
 
 _3176 facts | last updated: 2026-04-23_
 
+**2026-04-23 verifier checklist enforcement (issue #521):** Added
+`spec/verification_checklist.py` — builds a structured verification
+checklist from tasks.md checkboxes, requirements.md acceptance criteria,
+and errata. Injected into verifier context via `assemble_context()`
+(new `archetype` parameter). Verifier profile updated with hard gates:
+unchecked subtasks without errata → FAIL, uncovered requirements → FAIL.
+Requirement-to-test mapping scans test files for req ID references
+(string match + normalized function name match). +22 tests (4364 total pass).
+
 **2026-04-23 simplification pass 3:** Inlined core/llm_validation.py into
 session/review_parser.py (single consumer), core/retry.py into core/client.py
 (single consumer), merged nightshift/fix_types.py into nightshift/fix_pipeline.py,
