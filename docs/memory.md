@@ -2,6 +2,13 @@
 
 _3175 facts | last updated: 2026-04-23_
 
+**2026-04-23 errata generation (issue #522):** Added lightweight errata
+auto-generation from reviewer blocking. When a reviewer blocks a coder task
+with critical/major findings, errata are stored in DuckDB (migration v19:
+`errata` table) and written to `docs/errata/`. FoxKnowledgeProvider.retrieve()
+now includes `[ERRATA]`-prefixed strings in coder context alongside `[REVIEW]`
+findings. +1 new module (knowledge/errata.py), +27 tests. All 4319 tests pass.
+
 **2026-04-23 strategy extraction (issue #518):** Extracted collaborator classes
 from the three largest files: blocking logic from result_handler.py to
 engine/blocking.py, dispatch strategies from engine.py to engine/dispatch.py

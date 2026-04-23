@@ -714,6 +714,28 @@ def _migrate_v18(conn: duckdb.DuckDBPyConnection) -> None:
     """)
 
 
+def _migrate_v19(conn: duckdb.DuckDBPyConnection) -> None:
+    """Add errata table for lightweight errata generation from blocking findings.
+
+    Stores errata auto-generated when reviewer blocking occurs: the finding
+    summary, optional requirement reference, and optional fix summary.
+    Scoped by spec_name for retrieval during future coder sessions.
+
+    Uses CREATE TABLE IF NOT EXISTS for idempotency.
+    """
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS errata (
+            id              VARCHAR PRIMARY KEY,
+            spec_name       VARCHAR NOT NULL,
+            task_group      VARCHAR NOT NULL,
+            finding_summary TEXT NOT NULL,
+            requirement_ref VARCHAR,
+            fix_summary     TEXT,
+            created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+
 # Registry of all migrations, ordered by version.
 MIGRATIONS: list[Migration] = [
     Migration(
@@ -800,6 +822,11 @@ MIGRATIONS: list[Migration] = [
         version=18,
         description="drop unused knowledge tables",
         apply=_migrate_v18,
+    ),
+    Migration(
+        version=19,
+        description="add errata table for lightweight errata generation",
+        apply=_migrate_v19,
     ),
 ]
 
