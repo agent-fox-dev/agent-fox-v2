@@ -446,6 +446,7 @@ class TestImportBoundary:
             "agent_trace",
             "migrations",
             "fox_provider",
+            "errata",
         }
 
         # knowledge_harvest.py is the knowledge-engine integration pipeline
