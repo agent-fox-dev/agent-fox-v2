@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from pathlib import Path
 from typing import Any
 
 from agent_fox.engine.graph_sync import _is_auto_pre
@@ -66,6 +67,10 @@ class SerialDispatcher:
             first_dispatch = False
 
             orch._graph_sync.mark_in_progress(node_id)
+
+            # Capture coverage baseline before coder sessions
+            if node_archetype == "coder" and orch._result_handler is not None:
+                orch._result_handler.capture_coverage_baseline(node_id, Path.cwd())
 
             timeout_override: int | None = None
             max_turns_override: int | None = None
@@ -234,6 +239,10 @@ class ParallelDispatcher:
             _, attempt, previous_error, archetype, instances, assessed_tier, node_mode = launch
 
             orch._graph_sync.mark_in_progress(node_id)
+
+            # Capture coverage baseline before coder sessions
+            if archetype == "coder" and orch._result_handler is not None:
+                orch._result_handler.capture_coverage_baseline(node_id, Path.cwd())
 
             timeout_override_p: int | None = None
             max_turns_override_p: int | None = None
