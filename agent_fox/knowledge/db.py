@@ -90,36 +90,18 @@ class KnowledgeDB:
         Uses IF NOT EXISTS on all CREATE TABLE statements for
         idempotency. Records schema version 1 only if no version
         row exists yet.
+
+        Note: Tables like memory_facts, memory_embeddings, and
+        fact_causes were removed in spec 116 (migration v18).
+        They are created by earlier migrations and dropped by v18.
         """
         assert self._conn is not None
-        # Embedding dimensions hardcoded to 384 for backward compatibility.
-        # The embedding pipeline was removed in spec 114 but the table
-        # schema must remain consistent for existing databases.
-        dim = 384
 
-        ddl = f"""
+        ddl = """
         CREATE TABLE IF NOT EXISTS schema_version (
             version     INTEGER PRIMARY KEY,
             applied_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             description TEXT
-        );
-
-        CREATE TABLE IF NOT EXISTS memory_facts (
-            id            UUID PRIMARY KEY,
-            content       TEXT NOT NULL,
-            category      TEXT,
-            spec_name     TEXT,
-            session_id    TEXT,
-            commit_sha    TEXT,
-            confidence    DOUBLE DEFAULT 0.6,
-            created_at    TIMESTAMP,
-            superseded_by UUID,
-            keywords      TEXT[] DEFAULT []
-        );
-
-        CREATE TABLE IF NOT EXISTS memory_embeddings (
-            id        UUID PRIMARY KEY REFERENCES memory_facts(id),
-            embedding FLOAT[{dim}]
         );
 
         CREATE TABLE IF NOT EXISTS session_outcomes (
@@ -133,12 +115,6 @@ class KnowledgeDB:
             output_tokens INTEGER,
             duration_ms   INTEGER,
             created_at    TIMESTAMP
-        );
-
-        CREATE TABLE IF NOT EXISTS fact_causes (
-            cause_id  UUID,
-            effect_id UUID,
-            PRIMARY KEY (cause_id, effect_id)
         );
 
         CREATE TABLE IF NOT EXISTS tool_calls (

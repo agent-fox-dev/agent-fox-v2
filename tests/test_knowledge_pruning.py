@@ -23,9 +23,9 @@ from hypothesis import strategies as st
 from agent_fox.core.config import KnowledgeProviderConfig
 from agent_fox.knowledge.db import KnowledgeDB
 from agent_fox.knowledge.migrations import (
-    _BASE_SCHEMA_DDL,
-    apply_pending_migrations,
+    MIGRATIONS,
     get_current_version,
+    record_version,
     run_migrations,
 )
 from agent_fox.knowledge.provider import KnowledgeProvider
@@ -66,6 +66,86 @@ _RETAINED_TABLES = [
     "runs",
     "schema_version",
 ]
+
+
+# Base schema DDL that includes tables to be dropped by v18.
+# Used only by tests that need to verify intermediate state (v17 → v18).
+_PRE_V18_BASE_SCHEMA_DDL = """
+CREATE TABLE IF NOT EXISTS schema_version (
+    version     INTEGER PRIMARY KEY,
+    applied_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    description TEXT
+);
+
+CREATE TABLE IF NOT EXISTS memory_facts (
+    id            UUID PRIMARY KEY,
+    content       TEXT NOT NULL,
+    category      TEXT,
+    spec_name     TEXT,
+    session_id    TEXT,
+    commit_sha    TEXT,
+    confidence    DOUBLE DEFAULT 0.6,
+    created_at    TIMESTAMP,
+    superseded_by UUID,
+    keywords      TEXT[] DEFAULT []
+);
+
+CREATE TABLE IF NOT EXISTS memory_embeddings (
+    id        UUID PRIMARY KEY REFERENCES memory_facts(id),
+    embedding FLOAT[384]
+);
+
+CREATE TABLE IF NOT EXISTS session_outcomes (
+    id            UUID PRIMARY KEY,
+    spec_name     TEXT,
+    task_group    TEXT,
+    node_id       TEXT,
+    touched_path  TEXT,
+    status        TEXT,
+    input_tokens  INTEGER,
+    output_tokens INTEGER,
+    duration_ms   INTEGER,
+    created_at    TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS fact_causes (
+    cause_id  UUID,
+    effect_id UUID,
+    PRIMARY KEY (cause_id, effect_id)
+);
+
+CREATE TABLE IF NOT EXISTS tool_calls (
+    id         UUID PRIMARY KEY,
+    session_id TEXT,
+    node_id    TEXT,
+    tool_name  TEXT,
+    called_at  TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS tool_errors (
+    id        UUID PRIMARY KEY,
+    session_id TEXT,
+    node_id    TEXT,
+    tool_name  TEXT,
+    failed_at  TIMESTAMP
+);
+
+INSERT INTO schema_version (version, description)
+    SELECT 1, 'initial schema'
+    WHERE NOT EXISTS (SELECT 1 FROM schema_version WHERE version = 1);
+"""
+
+
+def _apply_migrations_up_to(conn: duckdb.DuckDBPyConnection, max_version: int) -> None:
+    """Apply all migrations up to and including *max_version*."""
+    current = get_current_version(conn)
+    for migration in MIGRATIONS:
+        if migration.version <= current:
+            continue
+        if migration.version > max_version:
+            break
+        migration.apply(conn)
+        record_version(conn, migration.version, migration.description)
 
 
 def _table_exists(conn: duckdb.DuckDBPyConnection, table_name: str) -> bool:
@@ -314,20 +394,26 @@ class TestMigrationV18DropsTables:
     def test_migration_v18_drops_tables(self) -> None:
         """Migration v18 should drop all 10 specified tables."""
         conn = duckdb.connect(":memory:")
-        conn.execute(_BASE_SCHEMA_DDL)
-        apply_pending_migrations(conn)
+        # Use the pre-v18 base schema which includes dropped tables
+        conn.execute(_PRE_V18_BASE_SCHEMA_DDL)
+        _apply_migrations_up_to(conn, 17)
 
-        # Verify current version is at least 17
+        # Verify intermediate state: all dropped tables exist at v17
         current_version = get_current_version(conn)
-        assert current_version >= 17
+        assert current_version == 17
+        for table in _DROPPED_TABLES:
+            assert _table_exists(conn, table), f"Table {table} should exist at v17"
 
-        # Verify that after all migrations (including v18), dropped tables are gone
+        # Apply v18
+        _apply_migrations_up_to(conn, 18)
+
+        # Verify that after v18, dropped tables are gone
         for table in _DROPPED_TABLES:
             assert not _table_exists(conn, table), f"Table {table} should have been dropped"
 
         # Verify schema_version records v18
         version = conn.execute("SELECT MAX(version) FROM schema_version").fetchone()[0]
-        assert version >= 18
+        assert version == 18
 
         conn.close()
 
@@ -346,10 +432,11 @@ class TestMigrationV18PreservesRetained:
     def test_migration_v18_preserves_retained(self) -> None:
         """Retained tables and their data should survive migration v18."""
         conn = duckdb.connect(":memory:")
-        conn.execute(_BASE_SCHEMA_DDL)
-        apply_pending_migrations(conn)
+        # Use pre-v18 schema and apply migrations only to v17
+        conn.execute(_PRE_V18_BASE_SCHEMA_DDL)
+        _apply_migrations_up_to(conn, 17)
 
-        # Insert test data into retained tables
+        # Insert test data into retained tables BEFORE v18
         finding = _make_finding(spec_name="test_spec", severity="critical")
         insert_findings(conn, [finding])
 
@@ -358,12 +445,15 @@ class TestMigrationV18PreservesRetained:
             "VALUES (gen_random_uuid(), 'test_spec', 'completed')"
         )
 
+        # Apply v18
+        _apply_migrations_up_to(conn, 18)
+
         # Verify retained tables exist and data is intact
         for table in _RETAINED_TABLES:
             assert _table_exists(conn, table), f"Table {table} should still exist"
 
-        assert _count_rows(conn, "review_findings") >= 1
-        assert _count_rows(conn, "session_outcomes") >= 1
+        assert _count_rows(conn, "review_findings") == 1
+        assert _count_rows(conn, "session_outcomes") == 1
 
         conn.close()
 
@@ -385,7 +475,7 @@ class TestMigrationV18FreshDb:
         run_migrations(conn)
 
         version = conn.execute("SELECT MAX(version) FROM schema_version").fetchone()[0]
-        assert version >= 18
+        assert version == 18
 
         conn.close()
 
@@ -947,11 +1037,28 @@ class TestSmokeMigrationWithData:
     def test_smoke_migration_with_data(self) -> None:
         """Migrations v1-v18 on a DB with data should produce correct state."""
         conn = duckdb.connect(":memory:")
-        run_migrations(conn)
+        # Apply migrations up to v17 using pre-v18 schema (includes dropped tables)
+        conn.execute(_PRE_V18_BASE_SCHEMA_DDL)
+        _apply_migrations_up_to(conn, 17)
 
-        # Insert test data into retained tables
+        # Insert test data into to-be-dropped tables BEFORE v18
+        conn.execute(
+            "INSERT INTO gotchas (id, spec_name, text, content_hash, session_id) "
+            "VALUES ('g1', 'test_spec', 'test gotcha', 'hash1', 's1')"
+        )
+        conn.execute(
+            "INSERT INTO memory_facts (id, content, spec_name) "
+            "VALUES (gen_random_uuid(), 'test memory fact', 'test_spec')"
+        )
+        assert _count_rows(conn, "gotchas") == 1
+        assert _count_rows(conn, "memory_facts") == 1
+
+        # Insert test data into retained tables BEFORE v18
         finding = _make_finding(spec_name="test_spec", severity="critical")
         insert_findings(conn, [finding])
+
+        # Apply v18
+        _apply_migrations_up_to(conn, 18)
 
         # All dropped tables should be gone
         for table in _DROPPED_TABLES:
@@ -961,10 +1068,10 @@ class TestSmokeMigrationWithData:
         assert _table_exists(conn, "review_findings")
         assert _count_rows(conn, "review_findings") == 1
 
-        # Schema version should be at least 18
+        # Schema version should be exactly 18
         version = conn.execute(
             "SELECT MAX(version) FROM schema_version"
         ).fetchone()[0]
-        assert version >= 18
+        assert version == 18
 
         conn.close()

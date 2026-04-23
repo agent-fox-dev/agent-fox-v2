@@ -112,10 +112,10 @@ class TestMigrationIdempotency:
         for _ in range(n_runs):
             apply_pending_migrations(conn)
 
-        # Version should be 17 (latest migration: v17 add gotchas and errata_index)
+        # Version should be 18 (latest migration: v18 drop unused knowledge tables)
         version = conn.execute("SELECT MAX(version) FROM schema_version").fetchone()
         assert version is not None
-        assert version[0] == 17
+        assert version[0] == 18
 
         # Tables should exist (v2 + v4 migrations; v3 tables dropped by v14)
         tables = conn.execute(

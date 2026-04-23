@@ -239,7 +239,12 @@ class TestMarkerAlreadyPresent:
         assert len(platform.update_issue_calls) == 0
 
     async def test_ingested_issue_produces_no_fact(self, knowledge_conn: object) -> None:
-        """Already-ingested issue creates no fact in knowledge store."""
+        """Already-ingested issue creates no fact in knowledge store.
+
+        Note: ingest_ignore_signals is a no-op since spec 114 and the
+        memory_facts table was dropped in spec 116 (migration v18).
+        We verify the function returns 0 without side effects.
+        """
         import duckdb
 
         conn: duckdb.DuckDBPyConnection = knowledge_conn  # type: ignore[assignment]
@@ -248,13 +253,8 @@ class TestMarkerAlreadyPresent:
         platform = _MockPlatform(ignore_issues=[issue])
         embedder = _SameVectorEmbedder()
 
-        await ingest_ignore_signals(platform, conn, embedder)  # type: ignore[arg-type]
-
-        facts = conn.execute(
-            "SELECT COUNT(*) FROM memory_facts WHERE spec_name = 'nightshift:ignore'"
-        ).fetchone()
-        assert facts is not None
-        assert facts[0] == 0
+        result = await ingest_ignore_signals(platform, conn, embedder)  # type: ignore[arg-type]
+        assert result == 0
 
 
 class TestUpdateIssueFailure:

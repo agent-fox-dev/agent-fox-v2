@@ -691,6 +691,29 @@ def _migrate_v17(conn: duckdb.DuckDBPyConnection) -> None:
     """)
 
 
+def _migrate_v18(conn: duckdb.DuckDBPyConnection) -> None:
+    """Drop unused knowledge tables.
+
+    Removes tables that produced no demonstrated value during real coding
+    sessions.  Uses ``DROP TABLE IF EXISTS`` so the migration is safe on
+    fresh databases where some tables may never have been created.
+
+    Requirements: 116-REQ-4.1, 116-REQ-4.2, 116-REQ-4.3, 116-REQ-4.E1
+    """
+    conn.execute("""
+        DROP TABLE IF EXISTS gotchas;
+        DROP TABLE IF EXISTS errata_index;
+        DROP TABLE IF EXISTS blocking_history;
+        DROP TABLE IF EXISTS sleep_artifacts;
+        DROP TABLE IF EXISTS memory_embeddings;
+        DROP TABLE IF EXISTS memory_facts;
+        DROP TABLE IF EXISTS entity_edges;
+        DROP TABLE IF EXISTS fact_entities;
+        DROP TABLE IF EXISTS entity_graph;
+        DROP TABLE IF EXISTS fact_causes;
+    """)
+
+
 # Registry of all migrations, ordered by version.
 MIGRATIONS: list[Migration] = [
     Migration(
@@ -773,6 +796,11 @@ MIGRATIONS: list[Migration] = [
         description="add gotchas and errata_index tables for pluggable knowledge provider",
         apply=_migrate_v17,
     ),
+    Migration(
+        version=18,
+        description="drop unused knowledge tables",
+        apply=_migrate_v18,
+    ),
 ]
 
 
@@ -785,24 +813,6 @@ CREATE TABLE IF NOT EXISTS schema_version (
     version     INTEGER PRIMARY KEY,
     applied_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     description TEXT
-);
-
-CREATE TABLE IF NOT EXISTS memory_facts (
-    id            UUID PRIMARY KEY,
-    content       TEXT NOT NULL,
-    category      TEXT,
-    spec_name     TEXT,
-    session_id    TEXT,
-    commit_sha    TEXT,
-    confidence    DOUBLE DEFAULT 0.6,
-    created_at    TIMESTAMP,
-    superseded_by UUID,
-    keywords      TEXT[] DEFAULT []
-);
-
-CREATE TABLE IF NOT EXISTS memory_embeddings (
-    id        UUID PRIMARY KEY REFERENCES memory_facts(id),
-    embedding FLOAT[384]
 );
 
 CREATE TABLE IF NOT EXISTS session_outcomes (
@@ -874,12 +884,6 @@ CREATE TABLE IF NOT EXISTS runs (
     total_sessions      INTEGER NOT NULL DEFAULT 0
 );
 
-CREATE TABLE IF NOT EXISTS fact_causes (
-    cause_id  UUID,
-    effect_id UUID,
-    PRIMARY KEY (cause_id, effect_id)
-);
-
 CREATE TABLE IF NOT EXISTS tool_calls (
     id         UUID PRIMARY KEY,
     session_id TEXT,
@@ -894,34 +898,6 @@ CREATE TABLE IF NOT EXISTS tool_errors (
     node_id    TEXT,
     tool_name  TEXT,
     failed_at  TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS blocking_history (
-    id            VARCHAR PRIMARY KEY,
-    spec_name     VARCHAR NOT NULL,
-    archetype     VARCHAR NOT NULL,
-    critical_count INTEGER NOT NULL,
-    threshold     INTEGER NOT NULL,
-    blocked       BOOLEAN NOT NULL,
-    outcome       VARCHAR,
-    created_at    TIMESTAMP DEFAULT current_timestamp
-);
-
-CREATE TABLE IF NOT EXISTS gotchas (
-    id           VARCHAR PRIMARY KEY,
-    spec_name    VARCHAR NOT NULL,
-    category     VARCHAR NOT NULL DEFAULT 'gotcha',
-    text         VARCHAR NOT NULL,
-    content_hash VARCHAR NOT NULL,
-    session_id   VARCHAR NOT NULL,
-    created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS errata_index (
-    spec_name  VARCHAR NOT NULL,
-    file_path  VARCHAR NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (spec_name, file_path)
 );
 
 INSERT INTO schema_version (version, description)

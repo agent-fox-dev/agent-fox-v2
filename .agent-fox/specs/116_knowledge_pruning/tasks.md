@@ -71,28 +71,28 @@ imports and config, (5) verify wiring end-to-end.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/test_knowledge_pruning.py`
 
-- [ ] 2. Add migration v18 and remove causal links
-  - [ ] 2.1 Add migration v18 to migrations.py
+- [x] 2. Add migration v18 and remove causal links
+  - [x] 2.1 Add migration v18 to migrations.py
     - Add `_migrate_v18()` function with DROP TABLE IF EXISTS for all 10 tables
     - Register in migration list with description "drop unused knowledge tables"
     - _Requirements: 116-REQ-4.1, 116-REQ-4.2, 116-REQ-4.3, 116-REQ-4.E1_
 
-  - [ ] 2.2 Remove `_insert_causal_links()` from review_store.py
+  - [x] 2.2 Remove `_insert_causal_links()` from review_store.py
     - Delete the `_insert_causal_links()` function
     - Remove all calls to `_insert_causal_links()` from `insert_findings()`,
       `insert_verdicts()`, and `insert_drift_findings()`
     - Supersession via `superseded_by` column continues to work unchanged
     - _Requirements: 116-REQ-5.1, 116-REQ-5.2_
 
-  - [ ] 2.3 Update `db.py` bootstrap schema
+  - [x] 2.3 Update `db.py` bootstrap schema
     - Remove `fact_causes` table from the bootstrap `CREATE TABLE IF NOT
       EXISTS` block in `db.py` (if present)
     - _Requirements: 116-REQ-5.1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests pass: TS-116-9, TS-116-10, TS-116-11, TS-116-12
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/knowledge/`
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests pass: TS-116-9, TS-116-10, TS-116-11, TS-116-12
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/knowledge/`
 
 - [ ] 3. Delete files and simplify FoxKnowledgeProvider
   - [ ] 3.1 Delete removed modules

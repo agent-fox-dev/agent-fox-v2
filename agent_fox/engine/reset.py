@@ -41,7 +41,6 @@ _SESSION_TABLES_ALL = (
     "review_findings",
     "verification_results",
     "drift_findings",
-    "blocking_history",
 )
 
 

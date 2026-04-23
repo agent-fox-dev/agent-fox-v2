@@ -88,19 +88,19 @@ class TestFixtureIsolation:
 
         for i in range(n):
             conn1.execute(
-                "INSERT INTO memory_facts "
-                "(id, content, category, confidence, "
-                "created_at) VALUES ("
-                "gen_random_uuid(), ?, 'decision', "
-                "0.9, CURRENT_TIMESTAMP)",
-                [f"fact_{i}"],
+                "INSERT INTO tool_calls "
+                "(id, session_id, node_id, tool_name, "
+                "called_at) VALUES ("
+                "gen_random_uuid(), 'test', ?, 'test_tool', "
+                "CURRENT_TIMESTAMP)",
+                [f"node_{i}"],
             )
-        count1 = conn1.execute("SELECT COUNT(*) FROM memory_facts").fetchone()[0]  # type: ignore[index]
+        count1 = conn1.execute("SELECT COUNT(*) FROM tool_calls").fetchone()[0]  # type: ignore[index]
         assert count1 == n
         conn1.close()
 
         # Create fixture 2 — should be empty
         conn2 = _create_fresh_conn()
-        count2 = conn2.execute("SELECT COUNT(*) FROM memory_facts").fetchone()[0]  # type: ignore[index]
+        count2 = conn2.execute("SELECT COUNT(*) FROM tool_calls").fetchone()[0]  # type: ignore[index]
         assert count2 == 0
         conn2.close()
