@@ -12,9 +12,9 @@ from agent_fox.spec.validators._helpers import (
     _TABLE_SEP_ROW,
     SEVERITY_HINT,
     SEVERITY_WARNING,
+    Finding,
     _normalize_heading,
 )
-from agent_fox.spec.validators.finding import Finding
 
 
 def check_design_completeness(

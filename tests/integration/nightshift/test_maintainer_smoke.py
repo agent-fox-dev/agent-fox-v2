@@ -2,10 +2,9 @@
 
 Verifies end-to-end execution paths from design.md:
   Path 1: Nightshift triage → resolve_model_tier("maintainer", mode="hunt") → AI call
-  Path 2: extract_knowledge(input) → ExtractionResult (stub)
 
-Test Spec: TS-100-SMOKE-1, TS-100-SMOKE-2
-Requirements: 100-REQ-2.2, 100-REQ-5.1, 100-REQ-5.2, 100-REQ-4.3, 100-REQ-4.E1
+Test Spec: TS-100-SMOKE-1
+Requirements: 100-REQ-2.2, 100-REQ-5.1, 100-REQ-5.2
 """
 
 from __future__ import annotations
@@ -114,100 +113,3 @@ class TestNightshiftTriageViaMaintainer:
         )
 
 
-# ===========================================================================
-# TS-100-SMOKE-2: Extraction Stub End-to-End
-# Execution Path 2 from design.md
-# Requirements: 100-REQ-4.3, 100-REQ-4.E1
-# ===========================================================================
-
-
-class TestExtractionStubEndToEnd:
-    """TS-100-SMOKE-2: Extraction stub is callable and returns a valid result.
-
-    Uses the real extract_knowledge function — it MUST NOT be mocked.
-    """
-
-    def test_extract_knowledge_returns_not_implemented(self) -> None:
-        """TS-100-SMOKE-2: extract_knowledge returns ExtractionResult with status='not_implemented'.
-
-        Requirements: 100-REQ-4.3, 100-REQ-4.E1
-        """
-        from agent_fox.nightshift.extraction import ExtractionInput, ExtractionResult, extract_knowledge
-
-        extraction_input = ExtractionInput(
-            session_id="test-session-001",
-            transcript="session content goes here",
-            spec_name="100_maintainer_archetype",
-            archetype="coder",
-        )
-
-        result = extract_knowledge(extraction_input)
-
-        assert isinstance(result, ExtractionResult), (
-            "extract_knowledge must return an ExtractionResult instance (100-REQ-4.3)"
-        )
-        assert result.status == "not_implemented", (
-            f"Stub must return status='not_implemented', got {result.status!r} (100-REQ-4.3)"
-        )
-        assert result.facts == [], f"Stub must return empty facts list, got {result.facts!r} (100-REQ-4.3)"
-        assert result.session_id == "test-session-001", (
-            f"ExtractionResult must propagate session_id from input, got {result.session_id!r}"
-        )
-
-    def test_extract_knowledge_never_raises(self) -> None:
-        """TS-100-SMOKE-2: extract_knowledge never raises even with edge-case inputs.
-
-        Requirement: 100-REQ-4.E1
-        """
-        from agent_fox.nightshift.extraction import ExtractionInput, extract_knowledge
-
-        edge_cases = [
-            ExtractionInput(session_id="", transcript="", spec_name="", archetype=""),
-            ExtractionInput(
-                session_id="x" * 10000,
-                transcript="y" * 50000,
-                spec_name="spec",
-                archetype="coder",
-                mode="fix",
-            ),
-            ExtractionInput(
-                session_id="s1",
-                transcript="unicode: 你好 🔥",
-                spec_name="spec",
-                archetype="reviewer",
-                mode=None,
-            ),
-        ]
-
-        for extraction_input in edge_cases:
-            try:
-                result = extract_knowledge(extraction_input)
-            except Exception as exc:  # noqa: BLE001
-                raise AssertionError(
-                    f"extract_knowledge raised {type(exc).__name__} with input "
-                    f"session_id={extraction_input.session_id!r}: {exc}\n"
-                    "The stub must NEVER raise (100-REQ-4.E1)"
-                ) from exc
-
-            assert result.status == "not_implemented", (
-                f"Stub must always return status='not_implemented', got {result.status!r}"
-            )
-
-    def test_extract_knowledge_propagates_session_id(self) -> None:
-        """TS-100-SMOKE-2: ExtractionResult.session_id is propagated from input.
-
-        Requirement: 100-REQ-4.3
-        """
-        from agent_fox.nightshift.extraction import ExtractionInput, extract_knowledge
-
-        for session_id in ["abc-123", "", "session/with/slashes", "unicode-🎯"]:
-            extraction_input = ExtractionInput(
-                session_id=session_id,
-                transcript="any content",
-                spec_name="spec",
-                archetype="coder",
-            )
-            result = extract_knowledge(extraction_input)
-            assert result.session_id == session_id, (
-                f"session_id not propagated correctly: expected {session_id!r}, got {result.session_id!r}"
-            )

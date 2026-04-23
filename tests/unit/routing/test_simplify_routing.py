@@ -30,7 +30,7 @@ from agent_fox.core.models import ModelTier
 @pytest.mark.asyncio
 async def test_ladder_from_archetype_default() -> None:
     """assess_node() creates an EscalationLadder at the config-resolved tier."""
-    from agent_fox.engine.assessment import AssessmentManager
+    from agent_fox.engine.engine import AssessmentManager
 
     config = AgentFoxConfig()
     manager = AssessmentManager(retries_before_escalation=1, config=config)
@@ -50,7 +50,7 @@ async def test_ladder_from_archetype_default() -> None:
 @pytest.mark.asyncio
 async def test_ladder_ceiling_advanced() -> None:
     """Escalation ladder tier_ceiling is always ADVANCED."""
-    from agent_fox.engine.assessment import AssessmentManager
+    from agent_fox.engine.engine import AssessmentManager
 
     config = AgentFoxConfig()
     manager = AssessmentManager(retries_before_escalation=1, config=config)
@@ -69,7 +69,7 @@ async def test_ladder_ceiling_advanced() -> None:
 @pytest.mark.asyncio
 async def test_ladder_created_without_pipeline() -> None:
     """assess_node() creates a ladder even when no pipeline exists."""
-    from agent_fox.engine.assessment import AssessmentManager
+    from agent_fox.engine.engine import AssessmentManager
 
     config = AgentFoxConfig()
     manager = AssessmentManager(retries_before_escalation=2, config=config)
@@ -241,7 +241,7 @@ def test_superseded_specs_have_banners(spec_dir: str) -> None:
 @pytest.mark.asyncio
 async def test_unknown_archetype_defaults_to_coder() -> None:
     """assess_node with unknown archetype creates ladder at STANDARD (coder fallback)."""
-    from agent_fox.engine.assessment import AssessmentManager
+    from agent_fox.engine.engine import AssessmentManager
 
     config = AgentFoxConfig()
     manager = AssessmentManager(retries_before_escalation=1, config=config)
@@ -262,7 +262,7 @@ async def test_unknown_archetype_defaults_to_coder() -> None:
 async def test_prop_archetype_tier_becomes_ladder() -> None:
     """For any archetype in the registry, assess_node creates a ladder at the resolved tier."""
     from agent_fox.archetypes import ARCHETYPE_REGISTRY
-    from agent_fox.engine.assessment import AssessmentManager
+    from agent_fox.engine.engine import AssessmentManager
     from agent_fox.engine.sdk_params import resolve_model_tier
 
     config = AgentFoxConfig()

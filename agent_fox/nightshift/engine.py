@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 import sys
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -25,13 +26,11 @@ from agent_fox.nightshift.finding import (
 )
 from agent_fox.nightshift.fix_pipeline import FixPipeline
 from agent_fox.nightshift.ignore_filter import filter_ignored
-from agent_fox.nightshift.ignore_ingest import ingest_ignore_signals
 from agent_fox.nightshift.reference_parser import (
     fetch_github_relationships,
     parse_text_references,
 )
 from agent_fox.nightshift.staleness import check_staleness
-from agent_fox.nightshift.state import NightShiftState
 from agent_fox.nightshift.triage import run_batch_triage
 from agent_fox.platform.labels import LABEL_FIX, LABEL_FIXED
 from agent_fox.ui.progress import ActivityCallback, SpinnerCallback, TaskCallback
@@ -42,6 +41,21 @@ if TYPE_CHECKING:
     from agent_fox.knowledge.sink import SinkDispatcher
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class NightShiftState:
+    """Runtime state for the daemon.
+
+    Mutable -- fields are updated during the daemon lifecycle.
+    """
+
+    total_cost: float = 0.0
+    total_sessions: int = 0
+    issues_created: int = 0
+    issues_fixed: int = 0
+    hunt_scans_completed: int = 0
+    is_shutting_down: bool = False
 
 
 def validate_night_shift_prerequisites(config: AgentFoxConfig) -> None:
@@ -411,24 +425,6 @@ class NightShiftEngine:
             return
 
         hunt_run_id = generate_run_id()
-
-        # 110-REQ-5.1: Pre-phase — ingest af:ignore signals into knowledge store.
-        # Fail-open: if conn is None or platform fails, returns 0 and logs warning.
-        try:
-            ingested = await ingest_ignore_signals(
-                self._platform,  # type: ignore[arg-type]
-                self._conn,
-                self._embedder,
-                sink=self._sink,
-                run_id=hunt_run_id,
-            )
-            if ingested:
-                logger.info("Ingested %d new af:ignore signal(s) into knowledge store", ingested)
-        except Exception:
-            logger.warning(
-                "af:ignore ingestion pre-phase failed; continuing without ingestion (fail-open)",
-                exc_info=True,
-            )
 
         # 110-REQ-6.3: Query knowledge store for anti_pattern facts to pass
         # as false_positives to the AI critic.

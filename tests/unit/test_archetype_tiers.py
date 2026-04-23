@@ -111,7 +111,7 @@ class TestCeilingAlwaysAdvanced:
     async def test_ceiling_always_advanced_skeptic(self) -> None:
         """Skeptic node: ceiling must be ADVANCED even though default is STANDARD."""
         from agent_fox.core.config import AgentFoxConfig
-        from agent_fox.engine.assessment import AssessmentManager
+        from agent_fox.engine.engine import AssessmentManager
 
         mgr = AssessmentManager(
             retries_before_escalation=1,
@@ -259,7 +259,7 @@ class TestPipelineFailureFallback:
     async def test_pipeline_failure_uses_default_with_advanced_ceiling(self) -> None:
         """Coder node with default config: starting=ADVANCED (config default), ceiling=ADVANCED."""
         from agent_fox.core.config import AgentFoxConfig
-        from agent_fox.engine.assessment import AssessmentManager
+        from agent_fox.engine.engine import AssessmentManager
 
         mgr = AssessmentManager(
             retries_before_escalation=1,

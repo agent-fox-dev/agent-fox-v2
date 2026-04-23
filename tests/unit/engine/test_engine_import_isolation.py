@@ -215,8 +215,8 @@ class TestNightshiftNoSleepStream:
 # ---------------------------------------------------------------------------
 
 
-class TestNightshiftIngestDedupFilter:
-    """Verify ignore_ingest.py, dedup.py, and ignore_filter.py do not import
+class TestNightshiftDedupFilter:
+    """Verify dedup.py and ignore_filter.py do not import
     from removed knowledge modules.
 
     Requirements: 114-REQ-6.4
@@ -227,12 +227,11 @@ class TestNightshiftIngestDedupFilter:
 
     def test_no_removed_imports(self) -> None:
         nightshift_dir = _REPO_ROOT / "agent_fox" / "nightshift"
-        for filename in ["ignore_ingest.py", "dedup.py", "ignore_filter.py"]:
+        for filename in ["dedup.py", "ignore_filter.py"]:
             filepath = nightshift_dir / filename
             if not filepath.exists():
                 continue
             source = filepath.read_text(encoding="utf-8")
-            # Check runtime imports only (not TYPE_CHECKING)
             lines = source.split("\n")
             in_type_checking = False
             for line in lines:
@@ -248,30 +247,6 @@ class TestNightshiftIngestDedupFilter:
                     assert mod not in line, (
                         f"Banned module {mod!r} found in {filename}: {line.strip()}"
                     )
-
-
-# ---------------------------------------------------------------------------
-# TS-114-20b: ignore_ingest.py ingest_ignore_signals Is No-Op
-# ---------------------------------------------------------------------------
-
-
-class TestIgnoreIngestNoOp:
-    """Verify ingest_ignore_signals() is a no-op without Fact or _write_fact.
-
-    Requirements: 114-REQ-6.5
-    """
-
-    def test_no_fact_import(self) -> None:
-        """No runtime import of Fact from knowledge.facts."""
-        path = _REPO_ROOT / "agent_fox" / "nightshift" / "ignore_ingest.py"
-        source = path.read_text(encoding="utf-8")
-        assert "from agent_fox.knowledge.facts import Fact" not in source
-
-    def test_no_write_fact_import(self) -> None:
-        """No runtime import of _write_fact from knowledge.git_mining."""
-        path = _REPO_ROOT / "agent_fox" / "nightshift" / "ignore_ingest.py"
-        source = path.read_text(encoding="utf-8")
-        assert "from agent_fox.knowledge.git_mining import _write_fact" not in source
 
 
 # ---------------------------------------------------------------------------

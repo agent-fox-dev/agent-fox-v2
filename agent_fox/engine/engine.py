@@ -33,8 +33,7 @@ from agent_fox.core.config import (
     load_config,
 )
 from agent_fox.core.errors import ConfigError, PlanError
-from agent_fox.core.models import content_hash
-from agent_fox.engine.assessment import AssessmentManager
+from agent_fox.core.models import ModelTier, content_hash
 from agent_fox.engine.audit_helpers import emit_audit_event
 from agent_fox.engine.barrier import _count_node_status, run_sync_barrier_sequence
 from agent_fox.engine.circuit import CircuitBreaker
@@ -69,6 +68,55 @@ from agent_fox.knowledge.sink import SinkDispatcher
 from agent_fox.ui.progress import TaskCallback, TaskEvent
 
 logger = logging.getLogger(__name__)
+
+
+class AssessmentManager:
+    """Manages escalation ladders for nodes based on archetype default tiers."""
+
+    def __init__(
+        self,
+        retries_before_escalation: int,
+        config: AgentFoxConfig,
+    ) -> None:
+        self.ladders: dict[str, Any] = {}
+        self.retries_before_escalation = retries_before_escalation
+        self._config = config
+
+    async def assess_node(
+        self,
+        node_id: str,
+        archetype: str,
+        *,
+        mode: str | None = None,
+    ) -> None:
+        """Create an escalation ladder from the resolved model tier."""
+        if node_id in self.ladders:
+            return
+
+        from agent_fox.engine.sdk_params import resolve_model_tier
+        from agent_fox.routing.escalation import EscalationLadder
+
+        tier_ceiling = ModelTier.ADVANCED
+
+        try:
+            resolved = resolve_model_tier(self._config, archetype, mode=mode)
+            starting_tier = ModelTier(resolved)
+        except Exception:
+            starting_tier = ModelTier.STANDARD
+
+        ladder = EscalationLadder(
+            starting_tier=starting_tier,
+            tier_ceiling=tier_ceiling,
+            retries_before_escalation=self.retries_before_escalation,
+        )
+        self.ladders[node_id] = ladder
+
+        logger.debug(
+            "Created escalation ladder for %s: starting_tier=%s ceiling=%s",
+            node_id,
+            starting_tier,
+            tier_ceiling,
+        )
 
 
 class SerialRunner:

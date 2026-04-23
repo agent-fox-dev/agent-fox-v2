@@ -15,8 +15,8 @@ from agent_fox.spec.validators._helpers import (
     SEVERITY_ERROR,
     SEVERITY_HINT,
     SEVERITY_WARNING,
+    Finding,
 )
-from agent_fox.spec.validators.finding import Finding
 
 
 def check_missing_acceptance_criteria(

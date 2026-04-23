@@ -17,7 +17,10 @@ from agent_fox.spec.validators._helpers import (
     SEVERITY_HINT,
     SEVERITY_ORDER,
     SEVERITY_WARNING,
+    Finding,
     _spec_prefix,
+    compute_exit_code,
+    sort_findings,
 )
 from agent_fox.spec.validators.dependencies import (  # noqa: F401
     _check_circular_dependency,
@@ -25,11 +28,6 @@ from agent_fox.spec.validators.dependencies import (  # noqa: F401
     check_broken_dependencies,
 )
 from agent_fox.spec.validators.files import check_missing_files  # noqa: F401
-from agent_fox.spec.validators.finding import (
-    Finding,
-    compute_exit_code,
-    sort_findings,
-)
 from agent_fox.spec.validators.requirements import (  # noqa: F401
     check_inconsistent_req_id_format,
     check_missing_acceptance_criteria,
