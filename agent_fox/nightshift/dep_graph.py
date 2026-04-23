@@ -96,16 +96,15 @@ def _break_all_cycles(
 
     Requirements: 71-REQ-4.3, 71-REQ-2.E2, 71-REQ-6.3
     """
-    working_edges = list(edges)
+    working_edges = set(edges)
 
     while True:
-        cycles = detect_cycles(working_edges)
+        cycles = detect_cycles(list(working_edges))
         if not cycles:
             break
 
         for cycle in cycles:
             oldest = min(cycle)
-            # Remove the edge pointing TO the oldest issue in this cycle
             edge_to_remove = None
             for e in working_edges:
                 if e.to_issue == oldest and e.from_issue in cycle:
@@ -119,11 +118,10 @@ def _break_all_cycles(
                     edge_to_remove.from_issue,
                     edge_to_remove.to_issue,
                 )
-                working_edges.remove(edge_to_remove)
-            # Only break one cycle per iteration, then re-detect
+                working_edges.discard(edge_to_remove)
             break
 
-    return working_edges
+    return list(working_edges)
 
 
 def detect_cycles(edges: list[DependencyEdge]) -> list[list[int]]:

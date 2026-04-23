@@ -129,6 +129,9 @@ def _unwrap_single_key_list(obj: object) -> list | None:
     return None
 
 
+_DECODER = json.JSONDecoder()
+
+
 def _scan_bracket_arrays(text: str) -> list[dict] | None:
     """Scan text left-to-right for bracket-delimited JSON arrays.
 
@@ -143,7 +146,7 @@ def _scan_bracket_arrays(text: str) -> list[dict] | None:
     This ensures prose string arrays (e.g. ``["req-1", "req-2"]``) are
     skipped when a real findings array of objects exists later in the text.
     """
-    decoder = json.JSONDecoder()
+    decoder = _DECODER
     pos = 0
     text_len = len(text)
     first_primitive_array: list | None = None  # fallback when no dict array found

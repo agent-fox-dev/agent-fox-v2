@@ -237,7 +237,6 @@ async def run_code(
             orch_kwargs.update(
                 {
                     "session_runner_factory": infra["session_runner_factory"],
-                    "barrier_callback": lambda: _barrier_sync(infra, config),
                     "sink_dispatcher": infra["sink_dispatcher"],
                     "audit_dir": infra["audit_dir"],
                     "audit_db_conn": infra["knowledge_db"].connection,
@@ -256,11 +255,6 @@ async def run_code(
     finally:
         if infra is not None:
             _cleanup_infrastructure(infra, config)
-
-
-def _barrier_sync(infra: dict[str, Any], config: Any) -> None:
-    """Run barrier callback (no-op after knowledge decoupling)."""
-    infra["_barrier_ingestion_ran"] = True
 
 
 def _cleanup_infrastructure(infra: dict[str, Any], config: Any) -> None:

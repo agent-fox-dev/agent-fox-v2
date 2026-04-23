@@ -20,6 +20,15 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _ts(v: Any) -> str | None:
+    """Format a timestamp value as ISO string."""
+    if v is None:
+        return None
+    if hasattr(v, "isoformat"):
+        return v.isoformat()
+    return str(v)
+
+
 class RunStatus(StrEnum):
     """Overall orchestrator run status."""
 
@@ -227,20 +236,13 @@ def load_state_from_db(
     # An empty result is normal (nightshift path); only a query failure
     # (missing table, corrupt DB) warrants returning None.
     try:
-        rows = conn.sql("SELECT id, status FROM plan_nodes").fetchall()
+        rows = conn.sql("SELECT id, status, blocked_reason FROM plan_nodes").fetchall()
     except Exception:
         return None
     # Empty plan_nodes is valid (nightshift path or pre-migration plan):
     # continue loading session_outcomes and runs rather than returning None.
     node_states = {row[0]: row[1] for row in rows}
-
-    # Load blocked reasons
-    blocked_reasons: dict[str, str] = {}
-    try:
-        br_rows = conn.sql("SELECT id, blocked_reason FROM plan_nodes WHERE blocked_reason IS NOT NULL").fetchall()
-        blocked_reasons = {row[0]: row[1] for row in br_rows}
-    except Exception:
-        pass
+    blocked_reasons: dict[str, str] = {row[0]: row[2] for row in rows if row[2] is not None}
 
     # Load session history from session_outcomes
     session_history: list[SessionRecord] = []
@@ -585,13 +587,6 @@ def load_run(
     if row is None:
         return None
 
-    def _ts(v: Any) -> str | None:
-        if v is None:
-            return None
-        if hasattr(v, "isoformat"):
-            return v.isoformat()
-        return str(v)
-
     return RunRecord(
         id=row[0],
         plan_content_hash=row[1],
@@ -627,13 +622,6 @@ def load_incomplete_run(
 
     if row is None:
         return None
-
-    def _ts(v: Any) -> str | None:
-        if v is None:
-            return None
-        if hasattr(v, "isoformat"):
-            return v.isoformat()
-        return str(v)
 
     return RunRecord(
         id=row[0],

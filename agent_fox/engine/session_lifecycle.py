@@ -62,6 +62,8 @@ logger = logging.getLogger(__name__)
 # when the extraction reliably returns zero facts.
 _REVIEW_ARCHETYPES: frozenset[str] = frozenset({"reviewer", "skeptic", "verifier", "oracle", "auditor"})
 
+_BUDGET_EXHAUST_RATIO: float = 0.9
+
 
 def extract_subtask_descriptions(spec_dir: Path, task_group: int) -> list[str]:
     """Extract the first non-metadata bullet from each subtask in a task group.
@@ -652,7 +654,6 @@ class NodeSessionRunner:
         # Detect budget exhaustion: SDK returns is_error=True with no message
         # when the max-budget-usd limit is hit.  The session did real work
         # (high token count) so retrying would just burn the same budget again.
-        _BUDGET_EXHAUST_RATIO = 0.9
         resolved_budget = resolve_max_budget(self._config)
         is_budget_exhausted = (
             outcome.status == "failed"

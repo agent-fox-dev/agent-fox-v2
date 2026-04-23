@@ -233,7 +233,6 @@ class Orchestrator:
         watch: bool = False,
         specs_dir: Path | None = None,
         task_callback: TaskCallback | None = None,
-        barrier_callback: Callable[[], None] | None = None,
         routing_config: RoutingConfig | None = None,
         archetypes_config: ArchetypesConfig | None = None,
         planning_config: PlanningConfig | None = None,
@@ -255,7 +254,6 @@ class Orchestrator:
         self._is_parallel = config.parallel > 1
         self._specs_dir = specs_dir
         self._task_callback = task_callback
-        self._barrier_callback = barrier_callback
         self._graph: TaskGraph | None = None
         self._archetypes_config = archetypes_config
         self._planning_config = planning_config or PlanningConfig()
@@ -303,7 +301,7 @@ class Orchestrator:
         """Return the repository root (parent of the .agent-fox directory).
 
         ``_agent_dir`` points to the ``.agent-fox`` subdirectory, but functions
-        such as ``MergeLock``, ``verify_worktrees``, and ``run_consolidation``
+        such as ``MergeLock`` and ``verify_worktrees``
         expect the *project root* (the parent) and append ``.agent-fox``
         themselves.  Using ``_agent_dir`` directly as ``repo_root`` produced a
         double-nested path (``.agent-fox/.agent-fox/merge.lock``).
@@ -644,7 +642,7 @@ class Orchestrator:
                         ready = self._graph_sync.ready_tasks()
 
                 if not ready:
-                    if self._graph_sync.is_stalled():
+                    if self._graph_sync.is_stalled(ready=ready):
                         state.run_status = RunStatus.STALLED
                         logger.warning(
                             "Execution stalled. Summary: %s",
@@ -965,10 +963,7 @@ class Orchestrator:
         first_dispatch: bool,
     ) -> bool:
         """Dispatch one ready task serially. Delegates to SerialDispatcher."""
-        dispatcher = getattr(self, "_serial_dispatcher", None)
-        if dispatcher is None:
-            dispatcher = SerialDispatcher(self)
-        return await dispatcher.dispatch(
+        return await self._serial_dispatcher.dispatch(
             ready,
             state,
             attempt_tracker,
@@ -1148,7 +1143,7 @@ class Orchestrator:
             hot_load_enabled=self._config.hot_load,
             hot_load_fn=self._hot_load_new_specs,
             sync_plan_fn=self._sync_plan_statuses,
-            barrier_callback=self._barrier_callback,
+            barrier_callback=None,
             knowledge_db_conn=self._knowledge_db_conn,
             reload_config_fn=self._reload_config,
         )
@@ -1178,7 +1173,7 @@ class Orchestrator:
                 hot_load_enabled=self._config.hot_load,
                 hot_load_fn=self._hot_load_new_specs,
                 sync_plan_fn=self._sync_plan_statuses,
-                barrier_callback=self._barrier_callback,
+                barrier_callback=None,
                 knowledge_db_conn=self._knowledge_db_conn,
                 reload_config_fn=self._reload_config,
             )
@@ -1186,7 +1181,8 @@ class Orchestrator:
             logger.error("End-of-run discovery barrier failed", exc_info=True)
             return False
 
-        assert self._graph_sync is not None  # noqa: S101
+        if self._graph_sync is None:
+            return False
         ready = self._graph_sync.ready_tasks()
         if ready:
             logger.info("End-of-run discovery found %d new ready task(s)", len(ready))
@@ -1556,22 +1552,21 @@ def _reset_blocked_tasks(
 
     Requirements: 105-REQ-5.3 (DB-only persistence)
     """
-    any_reset = False
+    reset_ids: list[str] = []
     for node_id, status in state.node_states.items():
         if status == "blocked":
             state.node_states[node_id] = "pending"
             state.blocked_reasons.pop(node_id, None)
-            any_reset = True
+            reset_ids.append(node_id)
             logger.info(
                 "Task %s was blocked from prior run; resetting to pending.",
                 node_id,
             )
-    if any_reset and conn is not None:
+    if reset_ids and conn is not None:
         from agent_fox.engine.state import persist_node_status
 
-        for node_id, status in state.node_states.items():
-            if status == "pending":
-                persist_node_status(conn, node_id, "pending")
+        for node_id in reset_ids:
+            persist_node_status(conn, node_id, "pending")
 
 
 def _defer_ready_reviews(
@@ -1632,9 +1627,16 @@ def _init_error_tracker(state: ExecutionState) -> dict[str, str | None]:
         if record.status == "failed" and record.error_message:
             tracker[record.node_id] = record.error_message
 
+    # Pre-group session history by node_id so lookups are O(1).
+    from collections import defaultdict
+
+    history_by_node: dict[str, list[SessionRecord]] = defaultdict(list)
+    for record in state.session_history:
+        history_by_node[record.node_id].append(record)
+
     for node_id, status in state.node_states.items():
         if status == "pending" and node_id not in tracker:
-            prior_attempts = [r for r in state.session_history if r.node_id == node_id]
+            prior_attempts = history_by_node.get(node_id, [])
             if prior_attempts:
                 last = prior_attempts[-1]
                 if last.error_message:

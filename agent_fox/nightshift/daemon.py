@@ -415,7 +415,7 @@ class DaemonRunner:
         _emit_audit_event(
             None,
             _daemon_run_id,
-            AuditEventType.NIGHT_SHIFT_START,
+            AuditEventType.NIGHT_SHIFT_STOP,
             payload={
                 "phase": "stop",
                 "total_cost": state.total_cost,

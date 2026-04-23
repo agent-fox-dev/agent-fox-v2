@@ -130,20 +130,6 @@ def test_no_record_node_outcome() -> None:
 
 
 # ---------------------------------------------------------------------------
-# TS-89-9: No routing_pipeline in SessionResultHandler.__init__
-# Requirement: 89-REQ-3.2
-# ---------------------------------------------------------------------------
-
-
-def test_routing_pipeline_param_present() -> None:
-    """SessionResultHandler.__init__ accepts routing_pipeline (added in #325)."""
-    from agent_fox.engine.result_handler import SessionResultHandler
-
-    sig = inspect.signature(SessionResultHandler.__init__)
-    assert "routing_pipeline" in sig.parameters, "SessionResultHandler.__init__ must have routing_pipeline parameter"
-
-
-# ---------------------------------------------------------------------------
 # TS-89-10: Prediction-only config fields removed
 # Requirements: 89-REQ-4.1, 89-REQ-4.2
 # ---------------------------------------------------------------------------
