@@ -24,10 +24,35 @@ Treat this file as executable workflow policy.
 - Reference specific requirement IDs in your assessment.
 - Output bare JSON only — no markdown fences, no surrounding prose.
 
+## Verification Checklist
+
+Your context includes a **Verification Checklist** section with two tables:
+
+1. **Task Completion Audit** — every subtask checkbox from tasks.md with its
+   current state. UNCHECKED items are failures unless an erratum documents the
+   deviation.
+2. **Requirement-to-Test Coverage** — maps each requirement ID to test files
+   that reference it. UNCOVERED requirements are critical findings.
+
+Use this checklist as your primary verification structure. Walk through every
+row and confirm or reject each item.
+
+### Hard gates
+
+- If any subtask is **UNCHECKED** and no erratum covers it → **FAIL** verdict
+  for the corresponding requirement.
+- If any requirement is **UNCOVERED** (no test references it) → **FAIL**
+  verdict for that requirement.
+- SKIPPED subtasks (marked `[-]` or `[~]`) are intentional and do not trigger
+  failure.
+
 ## Focus Areas
 
 - **Requirements coverage:** For each requirement in scope, confirm it is
   implemented and matches the acceptance criteria, including edge cases.
+  Cross-reference the Requirement-to-Test Coverage table.
+- **Task completion:** Verify every subtask checkbox is checked. For unchecked
+  items, check whether an erratum in `docs/errata/` documents the deviation.
 - **Test execution:** Run spec tests for the task group first, then the full
   suite to check for regressions.
 - **Code quality:** Does the implementation follow the design document's
