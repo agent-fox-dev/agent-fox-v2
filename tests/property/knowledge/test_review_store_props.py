@@ -115,7 +115,7 @@ class TestMigrationIdempotency:
         # Version should be 18 (latest migration: v18 drop unused knowledge tables)
         version = conn.execute("SELECT MAX(version) FROM schema_version").fetchone()
         assert version is not None
-        assert version[0] == 18
+        assert version[0] == 19
 
         # Tables should exist (v2 + v4 migrations; v3 tables dropped by v14)
         tables = conn.execute(

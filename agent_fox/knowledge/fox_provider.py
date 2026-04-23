@@ -48,8 +48,8 @@ class FoxKnowledgeProvider:
     ) -> list[str]:
         """Retrieve knowledge context for an upcoming session.
 
-        Queries active critical/major review findings for the given spec
-        and returns them as ``[REVIEW]``-prefixed strings, capped at
+        Queries active critical/major review findings and errata for the
+        given spec and returns them as prefixed strings, capped at
         ``max_items``.
 
         Args:
@@ -69,14 +69,18 @@ class FoxKnowledgeProvider:
             raise
 
         reviews = self._query_reviews(conn, spec_name)
+        errata = self._query_errata(conn, spec_name)
+
+        combined = reviews + errata
 
         logger.debug(
-            "Retrieved %d review items for %s",
+            "Retrieved %d review + %d errata items for %s",
             len(reviews),
+            len(errata),
             spec_name,
         )
 
-        return reviews[: self._config.max_items]
+        return combined[: self._config.max_items]
 
     def ingest(
         self,
@@ -133,3 +137,25 @@ class FoxKnowledgeProvider:
                 parts.append(f.description)
                 result.append(f"[REVIEW] {' '.join(parts)}")
         return result
+
+    def _query_errata(
+        self,
+        conn: Any,
+        spec_name: str,
+    ) -> list[str]:
+        """Query errata for the spec and format as prompt-ready strings.
+
+        Handles missing ``errata`` table gracefully by returning an
+        empty list.
+        """
+        try:
+            from agent_fox.knowledge.errata import format_errata_for_prompt, query_errata
+
+            errata = query_errata(conn, spec_name)
+            return format_errata_for_prompt(errata)
+        except Exception:
+            logger.debug(
+                "Could not query errata for %s",
+                spec_name,
+            )
+            return []
