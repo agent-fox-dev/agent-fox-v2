@@ -7,7 +7,10 @@ dependents, and detect stall conditions.
 
 from __future__ import annotations
 
+import logging
 from collections import Counter, deque
+
+logger = logging.getLogger(__name__)
 
 
 def _spec_name(node_id: str) -> str:
@@ -166,6 +169,15 @@ class GraphSync:
     dependents, and detect stall conditions.
     """
 
+    VALID_TRANSITIONS: dict[str, set[str]] = {
+        "pending": {"in_progress", "blocked"},
+        "in_progress": {"completed", "failed", "blocked"},
+        "deferred": {"pending", "blocked"},
+        "failed": {"pending"},
+        "blocked": {"pending"},
+        "completed": set(),  # terminal — no outbound transitions
+    }
+
     def __init__(
         self,
         node_states: dict[str, str],
@@ -191,6 +203,8 @@ class GraphSync:
         self._edges = edges
         self._node_archetypes = node_archetypes
 
+        self._transition_log: list[dict[str, str]] = []
+
         # Build reverse adjacency: node -> list of nodes that depend on it.
         # Used for cascade blocking (BFS forward through dependents).
         self._dependents: dict[str, list[str]] = {n: [] for n in node_states}
@@ -198,6 +212,39 @@ class GraphSync:
             for dep in deps:
                 if dep in self._dependents:
                     self._dependents[dep].append(node)
+
+    def _transition(self, node_id: str, to_status: str, *, reason: str = "") -> None:
+        """Validate and apply a state transition, logging the change.
+
+        Logs a warning on invalid transitions but always applies the
+        change — the orchestrator must remain resilient.
+        """
+        from_status = self.node_states.get(node_id, "unknown")
+        valid_targets = self.VALID_TRANSITIONS.get(from_status)
+        if valid_targets is not None and to_status not in valid_targets:
+            logger.warning(
+                "Invalid state transition for %s: %s -> %s (reason: %s)",
+                node_id,
+                from_status,
+                to_status,
+                reason or "none",
+            )
+        self.node_states[node_id] = to_status
+        logger.info(
+            "State transition: node=%s from=%s to=%s reason=%s",
+            node_id,
+            from_status,
+            to_status,
+            reason or "none",
+        )
+        self._transition_log.append(
+            {
+                "node_id": node_id,
+                "from_status": from_status,
+                "to_status": to_status,
+                "reason": reason,
+            }
+        )
 
     def ready_tasks(
         self,
@@ -258,7 +305,7 @@ class GraphSync:
 
     def mark_completed(self, node_id: str) -> None:
         """Mark a task as completed."""
-        self.node_states[node_id] = "completed"
+        self._transition(node_id, "completed", reason="session completed")
 
     def mark_blocked(self, node_id: str, reason: str) -> list[str]:
         """Mark a task as blocked and cascade-block all dependents.
@@ -274,7 +321,7 @@ class GraphSync:
             List of node_ids that were cascade-blocked (does not include
             the originally blocked node itself).
         """
-        self.node_states[node_id] = "blocked"
+        self._transition(node_id, "blocked", reason=reason)
 
         # BFS through dependents to cascade the block
         cascade_blocked: list[str] = []
@@ -301,7 +348,11 @@ class GraphSync:
                 if self.node_states.get(dependent) == "in_progress":
                     queue.append(dependent)
                     continue
-                self.node_states[dependent] = "blocked"
+                self._transition(
+                    dependent,
+                    "blocked",
+                    reason=f"cascade from {node_id}",
+                )
                 cascade_blocked.append(dependent)
                 queue.append(dependent)
 
@@ -309,7 +360,7 @@ class GraphSync:
 
     def mark_in_progress(self, node_id: str) -> None:
         """Mark a task as in_progress (being executed)."""
-        self.node_states[node_id] = "in_progress"
+        self._transition(node_id, "in_progress", reason="dispatched")
 
     def promote_deferred(self, limit: int = 1) -> list[str]:
         """Promote up to *limit* deferred nodes to pending.
@@ -322,7 +373,7 @@ class GraphSync:
                 continue
             deps = self._edges.get(node_id, [])
             if all(self.node_states.get(d) == "completed" for d in deps):
-                self.node_states[node_id] = "pending"
+                self._transition(node_id, "pending", reason="promoted from deferred")
                 promoted.append(node_id)
                 if len(promoted) >= limit:
                     break
