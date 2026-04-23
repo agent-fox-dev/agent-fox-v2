@@ -114,10 +114,99 @@ class SessionResultHandler:
             sink=self._sink,
             run_id=self._run_id,
         )
-        if decision.should_block:
-            self._block_task(decision.coder_node_id, state, decision.reason)
+        if not decision.should_block:
+            return False
+
+        node_archetype = self._get_node_archetype(record.node_id)
+        node_mode = self._get_node_mode(record.node_id)
+        archetype_entry = get_archetype(node_archetype)
+        if node_mode is not None:
+            from agent_fox.archetypes import resolve_effective_config
+
+            archetype_entry = resolve_effective_config(archetype_entry, node_mode)
+
+        if archetype_entry.retry_predecessor:
+            return self._retry_on_review_block(record, decision, state)
+
+        self._block_task(decision.coder_node_id, state, decision.reason)
+        self._generate_errata(record)
+        return True
+
+    def _retry_on_review_block(
+        self,
+        record: SessionRecord,
+        decision: Any,
+        state: ExecutionState,
+    ) -> bool:
+        """Convert a review block to a coder retry when retry_predecessor is set.
+
+        Instead of permanently blocking the coder, lets it proceed with review
+        findings injected as context. Uses the coder's escalation ladder to
+        prevent infinite retries; permanently blocks when the ladder is exhausted.
+
+        Returns True if the coder was permanently blocked (ladder exhausted),
+        False if converted to a retry.
+        """
+        from agent_fox.routing.escalation import EscalationLadder
+
+        coder_node_id = decision.coder_node_id
+
+        pred_ladder = self._routing_ladders.get(coder_node_id)
+        if pred_ladder is None:
+            coder_archetype = self._get_node_archetype(coder_node_id)
+            coder_entry = get_archetype(coder_archetype)
+            pred_ladder = EscalationLadder(
+                starting_tier=ModelTier(coder_entry.default_model_tier),
+                tier_ceiling=ModelTier.ADVANCED,
+                retries_before_escalation=self._retries_before_escalation,
+            )
+            self._routing_ladders[coder_node_id] = pred_ladder
+
+        pred_ladder.record_failure()
+
+        if pred_ladder.is_exhausted:
+            logger.warning(
+                "Review retry-predecessor exhausted for %s, permanently blocking",
+                coder_node_id,
+            )
+            self._block_task(coder_node_id, state, decision.reason)
             self._generate_errata(record)
             return True
+
+        logger.info(
+            "Review blocking converted to retry for %s (findings injected as context)",
+            coder_node_id,
+        )
+        coder_status = self._graph_sync.node_states.get(coder_node_id)
+        if coder_status == "completed":
+            self._graph_sync.node_states[coder_node_id] = "pending"
+            self._graph_sync.node_states[record.node_id] = "pending"
+
+        emit_audit_event(
+            self._sink,
+            self._run_id,
+            AuditEventType.TASK_STATUS_CHANGE,
+            node_id=record.node_id,
+            payload={
+                "from_status": "completed",
+                "to_status": "retry_predecessor",
+                "reason": decision.reason,
+                "coder_node_id": coder_node_id,
+            },
+        )
+
+        if self._task_callback is not None:
+            self._task_callback(
+                TaskEvent(
+                    node_id=record.node_id,
+                    status="disagreed",
+                    duration_s=0,
+                    archetype=self._get_node_archetype(record.node_id),
+                    predecessor_node=coder_node_id,
+                )
+            )
+
+        self._generate_errata(record)
         return False
 
     def _generate_errata(self, record: SessionRecord) -> None:
