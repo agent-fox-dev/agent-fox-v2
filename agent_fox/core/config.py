@@ -240,17 +240,16 @@ class PlatformConfig(BaseModel):
 class KnowledgeProviderConfig(BaseModel):
     """Configuration for the pluggable knowledge provider.
 
-    Controls retrieval limits, gotcha TTL, and the LLM model tier used for
-    gotcha extraction.
+    Controls retrieval limits only. Gotcha TTL and model tier fields were
+    removed in spec 116 (knowledge system pruning). Unknown fields are
+    silently ignored for backward compatibility with existing config files.
 
-    Requirements: 115-REQ-8.1, 115-REQ-8.3
+    Requirements: 116-REQ-7.1, 116-REQ-7.2, 116-REQ-7.3, 116-REQ-7.E1
     """
 
     model_config = ConfigDict(extra="ignore")
 
     max_items: int = Field(default=10, description="Max total retrieval items")
-    gotcha_ttl_days: int = Field(default=90, description="Days before gotcha expiry")
-    model_tier: str = Field(default="SIMPLE", description="LLM tier for gotcha extraction")
 
 
 class KnowledgeConfig(BaseModel):

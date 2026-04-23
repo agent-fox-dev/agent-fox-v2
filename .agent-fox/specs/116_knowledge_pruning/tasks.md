@@ -94,36 +94,36 @@ imports and config, (5) verify wiring end-to-end.
     - [x] All existing tests still pass: `uv run pytest -q`
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/knowledge/`
 
-- [ ] 3. Delete files and simplify FoxKnowledgeProvider
-  - [ ] 3.1 Delete removed modules
+- [x] 3. Delete files and simplify FoxKnowledgeProvider
+  - [x] 3.1 Delete removed modules
     - Delete `agent_fox/knowledge/gotcha_extraction.py`
     - Delete `agent_fox/knowledge/gotcha_store.py`
     - Delete `agent_fox/knowledge/errata_store.py`
     - Delete `agent_fox/knowledge/blocking_history.py`
     - _Requirements: 116-REQ-1.1, 116-REQ-1.2, 116-REQ-2.1, 116-REQ-3.1_
 
-  - [ ] 3.2 Simplify FoxKnowledgeProvider.ingest()
+  - [x] 3.2 Simplify FoxKnowledgeProvider.ingest()
     - Replace body with `return None` (no-op)
     - Remove imports of gotcha_extraction and gotcha_store
     - _Requirements: 116-REQ-1.3_
 
-  - [ ] 3.3 Simplify FoxKnowledgeProvider.retrieve()
+  - [x] 3.3 Simplify FoxKnowledgeProvider.retrieve()
     - Remove `_query_errata()` and `_query_gotchas()` methods
     - Remove `_compose_results()` method
     - `retrieve()` calls only `_query_reviews()` and returns the result
       directly (capped at `max_items`)
     - _Requirements: 116-REQ-1.4, 116-REQ-2.2, 116-REQ-6.1, 116-REQ-6.2_
 
-  - [ ] 3.4 Simplify KnowledgeProviderConfig
+  - [x] 3.4 Simplify KnowledgeProviderConfig
     - Remove `gotcha_ttl_days` and `model_tier` fields
     - Keep `max_items` with default 10
     - Ensure `model_config` has `extra = "ignore"` for backward compat
     - _Requirements: 116-REQ-7.1, 116-REQ-7.2, 116-REQ-7.3, 116-REQ-7.E1_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests pass: TS-116-1 through TS-116-6, TS-116-13 through TS-116-18, TS-116-E1, TS-116-E2, TS-116-E3
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/`
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests pass: TS-116-1 through TS-116-6, TS-116-13 through TS-116-18, TS-116-E1, TS-116-E2, TS-116-E3
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/`
 
 - [ ] 4. Clean up imports and external references
   - [ ] 4.1 Remove blocking_history from result_handler.py
