@@ -145,18 +145,18 @@ imports and config, (5) verify wiring end-to-end.
     - [x] All existing tests still pass: `uv run pytest -q`
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
 
-- [ ] 5. Delete existing tests for removed modules
-  - [ ] 5.1 Remove test files for deleted modules
+- [x] 5. Delete existing tests for removed modules
+  - [x] 5.1 Remove test files for deleted modules
     - Delete or update tests that import gotcha_extraction, gotcha_store,
       errata_store, or blocking_history
     - Remove test fixtures that create gotchas or errata data
     - _Requirements: 116-REQ-8.1_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] All tests pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/ tests/`
-    - [ ] Property tests pass: TS-116-P1, TS-116-P2, TS-116-P3
-    - [ ] Smoke tests pass: TS-116-SMOKE-1, TS-116-SMOKE-2, TS-116-SMOKE-3
+  - [x] 5.V Verify task group 5
+    - [x] All tests pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/ tests/`
+    - [x] Property tests pass: TS-116-P1, TS-116-P2, TS-116-P3
+    - [x] Smoke tests pass: TS-116-SMOKE-1, TS-116-SMOKE-2, TS-116-SMOKE-3
 
 - [ ] 6. Wiring verification
 

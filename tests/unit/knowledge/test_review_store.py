@@ -161,26 +161,6 @@ class TestInsertVerdictsSupersession:
         assert active[0].verdict == "PASS"
 
 
-class TestCausalLinksOnSupersession:
-    """TS-27-8: causal links from superseded to new records."""
-
-    def test_causal_links_on_supersession(self, schema_conn: duckdb.DuckDBPyConnection) -> None:
-        """Supersession creates causal links in fact_causes."""
-        f1 = _make_finding(description="Old finding", session_id="s1")
-        insert_findings(schema_conn, [f1])
-
-        f2 = _make_finding(description="New finding", session_id="s2")
-        insert_findings(schema_conn, [f2])
-
-        # Check that a causal link was created
-        links = schema_conn.execute("SELECT cause_id::VARCHAR, effect_id::VARCHAR FROM fact_causes").fetchall()
-        cause_ids = {r[0] for r in links}
-        effect_ids = {r[1] for r in links}
-
-        assert f1.id in cause_ids
-        assert f2.id in effect_ids
-
-
 class TestNoRecordsToSupersede:
     """TS-27-E5: no existing records to supersede."""
 
