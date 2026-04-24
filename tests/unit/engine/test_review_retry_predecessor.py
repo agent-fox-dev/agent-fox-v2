@@ -13,7 +13,7 @@ from unittest.mock import MagicMock
 
 import duckdb
 
-from agent_fox.engine.blocking import BlockDecision, evaluate_review_blocking
+from agent_fox.engine.blocking import evaluate_review_blocking
 from agent_fox.engine.result_handler import SessionResultHandler
 from agent_fox.engine.state import ExecutionState, SessionRecord
 from agent_fox.graph.types import Edge, Node, TaskGraph
@@ -378,3 +378,197 @@ class TestDefaultThreshold:
 
         rc = ReviewerConfig()
         assert rc.pre_review_block_threshold == 1
+
+
+# ---------------------------------------------------------------------------
+# AC-1: evaluate_review_blocking filters session findings to the coder's
+# task_group before counting critical findings.
+# ---------------------------------------------------------------------------
+
+
+class TestEvaluateReviewBlockingTaskGroupFilter:
+    """AC-1: only findings matching the coder's task_group count toward blocking."""
+
+    def test_cross_group_finding_excluded_from_critical_count(
+        self, knowledge_conn: duckdb.DuckDBPyConnection
+    ) -> None:
+        """A finding tagged task_group='1' does NOT block a coder for group 2."""
+        # Reviewer runs for group 2; its session has one finding for group 1 (cross-group)
+        session_id = "test_spec:2:reviewer:pre-review:1"
+        cross_finding = _make_finding(
+            severity="critical",
+            description="Cross-group finding",
+            spec_name="test_spec",
+            task_group="1",  # <-- belongs to group 1, not group 2
+            session_id=session_id,
+        )
+        insert_findings(knowledge_conn, [cross_finding])
+
+        record = _make_session_record(
+            node_id="test_spec:2:reviewer:pre-review",
+            archetype="reviewer",
+            attempt=1,
+        )
+        config = _make_archetypes_config(block_threshold=1)
+
+        decision = evaluate_review_blocking(
+            record, config, knowledge_conn, mode="pre-review"
+        )
+
+        assert decision.should_block is False, (
+            "Cross-group finding (task_group='1') must not block coder for group 2"
+        )
+
+    def test_same_group_finding_counts_toward_block(
+        self, knowledge_conn: duckdb.DuckDBPyConnection
+    ) -> None:
+        """A finding tagged task_group='2' DOES block a coder for group 2."""
+        session_id = "test_spec:2:reviewer:pre-review:1"
+        own_finding = _make_finding(
+            severity="critical",
+            description="Own-group finding",
+            spec_name="test_spec",
+            task_group="2",
+            session_id=session_id,
+        )
+        insert_findings(knowledge_conn, [own_finding])
+
+        record = _make_session_record(
+            node_id="test_spec:2:reviewer:pre-review",
+            archetype="reviewer",
+            attempt=1,
+        )
+        config = _make_archetypes_config(block_threshold=1)
+
+        decision = evaluate_review_blocking(
+            record, config, knowledge_conn, mode="pre-review"
+        )
+
+        assert decision.should_block is True
+
+    def test_mixed_groups_only_own_group_counts(
+        self, knowledge_conn: duckdb.DuckDBPyConnection
+    ) -> None:
+        """When session has findings for groups 1 and 2, only group-2 counts for group-2 coder."""
+        session_id = "test_spec:2:reviewer:pre-review:1"
+        findings = [
+            _make_finding(
+                severity="critical",
+                description="Finding for group 2",
+                spec_name="test_spec",
+                task_group="2",
+                session_id=session_id,
+            ),
+            _make_finding(
+                severity="critical",
+                description="Finding for group 1",
+                spec_name="test_spec",
+                task_group="1",
+                session_id=session_id,
+            ),
+        ]
+        # Insert group-2 finding first so supersession doesn't erase it
+        insert_findings(knowledge_conn, [findings[0]])
+        # Insert group-1 finding with different task_group (no supersession conflict)
+        knowledge_conn.execute(
+            """
+            INSERT INTO review_findings (id, severity, description, spec_name, task_group, session_id)
+            VALUES (gen_random_uuid(), 'critical', 'Finding for group 1', 'test_spec', '1', ?)
+            """,
+            [session_id],
+        )
+
+        record = _make_session_record(
+            node_id="test_spec:2:reviewer:pre-review",
+            archetype="reviewer",
+            attempt=1,
+        )
+        config = _make_archetypes_config(block_threshold=2)
+
+        # threshold=2, but only 1 finding for group 2 → should NOT block
+        decision = evaluate_review_blocking(
+            record, config, knowledge_conn, mode="pre-review"
+        )
+
+        assert decision.should_block is False, (
+            "Only the group-2 finding should count; cross-group finding should be excluded"
+        )
+
+
+# ---------------------------------------------------------------------------
+# AC-2: _retry_on_review_block does not reset coder when no findings match
+# the coder's task_group.
+# ---------------------------------------------------------------------------
+
+
+class TestRetryOnReviewBlockTaskGroupFilter:
+    """AC-2: review block with only cross-group findings does not reset the coder."""
+
+    def test_cross_group_only_findings_do_not_trigger_retry(
+        self, knowledge_conn: duckdb.DuckDBPyConnection
+    ) -> None:
+        """All session findings for group 0 → block decision is False → coder not reset."""
+        session_id = "test_spec:0:reviewer:pre-review:1"
+        # Only task_group='0' findings exist
+        finding = _make_finding(
+            severity="critical",
+            description="Spec-wide finding",
+            spec_name="test_spec",
+            task_group="0",
+            session_id=session_id,
+        )
+        insert_findings(knowledge_conn, [finding])
+
+        node_states = {
+            "test_spec:0:reviewer:pre-review": "completed",
+            "test_spec:1": "completed",
+        }
+        graph_sync = MagicMock()
+        graph_sync.node_states = node_states
+
+        graph = MagicMock()
+        graph.nodes = {
+            "test_spec:0:reviewer:pre-review": MagicMock(
+                archetype="reviewer", mode="pre-review"
+            ),
+            "test_spec:1": MagicMock(archetype="coder", mode=None),
+        }
+
+        block_task_fn = MagicMock()
+        archetypes_config = _make_archetypes_config(block_threshold=1)
+
+        handler = SessionResultHandler(
+            graph_sync=graph_sync,
+            routing_ladders={},
+            retries_before_escalation=2,
+            max_retries=3,
+            task_callback=None,
+            sink=None,
+            run_id="test-run",
+            graph=graph,
+            archetypes_config=archetypes_config,
+            knowledge_db_conn=knowledge_conn,
+            block_task_fn=block_task_fn,
+            check_block_budget_fn=MagicMock(),
+        )
+
+        state = ExecutionState(
+            plan_hash="test",
+            node_states=node_states,
+            started_at="2026-01-01",
+            updated_at="2026-01-01",
+        )
+
+        record = _make_session_record(
+            node_id="test_spec:0:reviewer:pre-review",
+            archetype="reviewer",
+            attempt=1,
+        )
+
+        # The reviewer runs for group 0, so task_group is mapped to '1' (group-0 targets group-1).
+        # But the finding is tagged task_group='0', which != '1'. So no block.
+        blocked = handler.check_skeptic_blocking(record, state)
+
+        assert blocked is False
+        block_task_fn.assert_not_called()
+        graph_sync._transition.assert_not_called()

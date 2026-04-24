@@ -253,6 +253,7 @@ class TestSkepticBlocking:
             finding = MagicMock()
             finding.severity = "critical"
             finding.description = f"Critical issue {i}"
+            finding.task_group = "1"  # must match skeptic's group_number
             mock_findings.append(finding)
 
         archetypes_config = ArchetypesConfig(

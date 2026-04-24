@@ -15,7 +15,7 @@ Complete reference for all `agent-fox` commands, options, and configuration.
 | `agent-fox night-shift` | Run autonomous maintenance daemon (hunt scans + issue fixes) |
 | `agent-fox reset` | Reset failed/blocked tasks for retry |
 | `agent-fox lint-specs` | Validate specification files |
-| `agent-fox findings` | Query review findings from the knowledge database |
+| `agent-fox insights` | Query review findings from the knowledge database |
 | `agent-fox onboard` | Populate the knowledge store for an existing codebase |
 
 ## Global Options
@@ -446,12 +446,12 @@ the original criteria are left unchanged.
 
 ---
 
-### findings
+### insights
 
 Query review findings from the knowledge database.
 
 ```
-agent-fox findings [OPTIONS]
+agent-fox insights [OPTIONS]
 ```
 
 | Option | Type | Default | Description |

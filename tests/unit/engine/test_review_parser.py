@@ -310,3 +310,53 @@ class TestParseDriftFindings:
         """Empty input list returns an empty result list."""
         result = parse_drift_findings([], "spec", 0, "sess")
         assert result == []
+
+
+# ---------------------------------------------------------------------------
+# AC-5: parse_review_findings honours an explicit task_group field in JSON
+# for cross-group tagging.
+# ---------------------------------------------------------------------------
+
+
+class TestParseReviewFindingsExplicitTaskGroup:
+    """AC-5: explicit task_group in JSON overrides caller-supplied task_group."""
+
+    def test_explicit_task_group_field_overrides_caller(self) -> None:
+        """JSON finding with task_group='3' uses '3', not the caller's '2'."""
+        json_objects = [
+            {
+                "severity": "critical",
+                "description": "Cross-group issue",
+                "task_group": "3",
+            }
+        ]
+        result = parse_review_findings(json_objects, spec_name="s", task_group="2", session_id="sess")
+        assert len(result) == 1
+        assert result[0].task_group == "3", (
+            "When task_group is present in JSON, it must override the caller-supplied value"
+        )
+
+    def test_missing_task_group_field_falls_back_to_caller(self) -> None:
+        """JSON finding without task_group field uses caller-supplied task_group."""
+        json_objects = [
+            {
+                "severity": "critical",
+                "description": "Normal finding",
+            }
+        ]
+        result = parse_review_findings(json_objects, spec_name="s", task_group="2", session_id="sess")
+        assert len(result) == 1
+        assert result[0].task_group == "2", (
+            "When task_group is absent in JSON, the caller-supplied value must be used"
+        )
+
+    def test_mixed_batch_respects_per_item_task_group(self) -> None:
+        """Items with and without explicit task_group are handled independently."""
+        json_objects = [
+            {"severity": "critical", "description": "Cross-group", "task_group": "5"},
+            {"severity": "major", "description": "Own-group"},
+        ]
+        result = parse_review_findings(json_objects, spec_name="s", task_group="2", session_id="sess")
+        assert len(result) == 2
+        assert result[0].task_group == "5"
+        assert result[1].task_group == "2"

@@ -6,7 +6,11 @@ Requirements: 26-REQ-9.3, 26-REQ-9.4, 26-REQ-9.E1
 
 from __future__ import annotations
 
+import uuid
 from unittest.mock import MagicMock
+
+import duckdb
+import pytest
 
 from agent_fox.core.config import OrchestratorConfig
 from agent_fox.engine.engine import Orchestrator
@@ -14,6 +18,8 @@ from agent_fox.engine.graph_sync import GraphSync
 from agent_fox.engine.result_handler import SessionResultHandler
 from agent_fox.engine.state import ExecutionState, SessionRecord
 from agent_fox.graph.types import Edge, Node, TaskGraph
+from agent_fox.knowledge.migrations import run_migrations
+from agent_fox.knowledge.review_store import VerificationResult, insert_verdicts
 
 
 def _make_orchestrator_with_graph(
@@ -321,3 +327,178 @@ class TestPropertyRetryPredecessor:
                 assert entry.retry_predecessor is True
             else:
                 assert entry.retry_predecessor is False, f"{name} should not have retry_predecessor"
+
+
+# ---------------------------------------------------------------------------
+# AC-3: _try_retry_predecessor only resets predecessor when FAIL verdicts
+# are scoped to the coder's task_group.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def knowledge_conn_for_retry() -> duckdb.DuckDBPyConnection:
+    """In-memory DuckDB with full schema for retry-predecessor tests."""
+    conn = duckdb.connect(":memory:")
+    run_migrations(conn)
+    yield conn
+    conn.close()
+
+
+def _make_verdict(
+    *,
+    requirement_id: str = "REQ-1.1",
+    verdict: str = "FAIL",
+    spec_name: str = "spec",
+    task_group: str = "2",
+    session_id: str = "spec:2:verifier:1",
+) -> VerificationResult:
+    return VerificationResult(
+        id=str(uuid.uuid4()),
+        requirement_id=requirement_id,
+        verdict=verdict,
+        evidence=None,
+        spec_name=spec_name,
+        task_group=task_group,
+        session_id=session_id,
+    )
+
+
+class TestTryRetryPredecessorTaskGroupFilter:
+    """AC-3: cross-group FAIL verdicts must not trigger predecessor reset."""
+
+    def _make_handler(
+        self, knowledge_conn: duckdb.DuckDBPyConnection
+    ) -> tuple[SessionResultHandler, ExecutionState, MagicMock]:
+        """Build a minimal handler wired to a verifier->coder graph."""
+        node_states = {
+            "spec:2": "completed",
+            "spec:2:verifier": "in_progress",
+        }
+        edges_dict = {
+            "spec:2": [],
+            "spec:2:verifier": ["spec:2"],  # verifier's predecessor is coder
+        }
+        graph_sync = MagicMock()
+        graph_sync.node_states = node_states
+        graph_sync.predecessors = lambda nid: edges_dict.get(nid, [])
+
+        graph = MagicMock()
+        graph.nodes = {
+            "spec:2": MagicMock(archetype="coder", mode=None),
+            "spec:2:verifier": MagicMock(archetype="verifier", mode=None),
+        }
+
+        block_task_fn = MagicMock()
+        archetypes_config = MagicMock()
+        archetypes_config.reviewer_config.pre_review_block_threshold = 1
+
+        handler = SessionResultHandler(
+            graph_sync=graph_sync,
+            routing_ladders={},
+            retries_before_escalation=2,
+            max_retries=3,
+            task_callback=None,
+            sink=None,
+            run_id="test-run",
+            graph=graph,
+            archetypes_config=archetypes_config,
+            knowledge_db_conn=knowledge_conn,
+            block_task_fn=block_task_fn,
+            check_block_budget_fn=MagicMock(),
+        )
+
+        state = ExecutionState(
+            plan_hash="test",
+            node_states=node_states,
+            started_at="2026-01-01",
+            updated_at="2026-01-01",
+        )
+
+        return handler, state, graph_sync
+
+    def test_cross_group_fail_verdicts_do_not_reset_predecessor(
+        self, knowledge_conn_for_retry: duckdb.DuckDBPyConnection
+    ) -> None:
+        """FAIL verdicts for task_group='3' must not reset the group-2 coder."""
+        # Verifier session for spec:2 stores FAIL verdicts tagged task_group='3'
+        session_id = "spec:2:verifier:1"
+        verdicts = [
+            _make_verdict(
+                requirement_id="REQ-1.1",
+                verdict="FAIL",
+                spec_name="spec",
+                task_group="3",  # cross-group
+                session_id=session_id,
+            ),
+        ]
+        insert_verdicts(knowledge_conn_for_retry, verdicts)
+
+        handler, state, graph_sync = self._make_handler(knowledge_conn_for_retry)
+
+        record = SessionRecord(
+            node_id="spec:2:verifier",
+            archetype="verifier",
+            attempt=1,
+            status="failed",
+            input_tokens=0,
+            output_tokens=0,
+            cost=0.0,
+            duration_ms=0,
+            error_message="Verification failed",
+            timestamp="2026-01-01T00:00:00",
+        )
+
+        result = handler._try_retry_predecessor(
+            "spec:2:verifier", record, 1, state, {}
+        )
+
+        assert result is False, (
+            "_try_retry_predecessor must return False when no FAIL verdicts "
+            "are scoped to the predecessor's task_group"
+        )
+        # Predecessor coder (spec:2, task_group='2') must NOT be reset to pending
+        graph_sync._transition.assert_not_called()
+
+    def test_matching_task_group_fail_verdicts_trigger_reset(
+        self, knowledge_conn_for_retry: duckdb.DuckDBPyConnection
+    ) -> None:
+        """FAIL verdicts for task_group='2' DO reset the group-2 coder."""
+        session_id = "spec:2:verifier:1"
+        verdicts = [
+            _make_verdict(
+                requirement_id="REQ-1.1",
+                verdict="FAIL",
+                spec_name="spec",
+                task_group="2",  # matches pred task_group
+                session_id=session_id,
+            ),
+        ]
+        insert_verdicts(knowledge_conn_for_retry, verdicts)
+
+        handler, state, graph_sync = self._make_handler(knowledge_conn_for_retry)
+
+        record = SessionRecord(
+            node_id="spec:2:verifier",
+            archetype="verifier",
+            attempt=1,
+            status="failed",
+            input_tokens=0,
+            output_tokens=0,
+            cost=0.0,
+            duration_ms=0,
+            error_message="Verification failed",
+            timestamp="2026-01-01T00:00:00",
+        )
+
+        result = handler._try_retry_predecessor(
+            "spec:2:verifier", record, 1, state, {}
+        )
+
+        assert result is True, (
+            "_try_retry_predecessor must return True when FAIL verdicts "
+            "are scoped to the predecessor's task_group"
+        )
+        # Predecessor coder (spec:2) must have been reset to pending
+        graph_sync._transition.assert_called_once_with(
+            "spec:2", "pending", reason="retry predecessor"
+        )

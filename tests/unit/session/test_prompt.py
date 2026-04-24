@@ -153,6 +153,47 @@ class TestInvalidTaskGroupRaisesValueError:
 
 
 # ---------------------------------------------------------------------------
+# AC-2 (issue #534): build_task_prompt must not embed task group number
+# in non-coder archetype prompts, regardless of the group_number passed.
+# ---------------------------------------------------------------------------
+
+
+class TestNonCoderTaskPromptOmitsGroupNumber:
+    """AC-2 regression guard: verifier (and other non-coder archetypes)
+    must never have a task group number in their task prompt, even if
+    the node was formerly assigned a phantom group_number like 7."""
+
+    def test_verifier_prompt_contains_spec_name_not_group_number(self) -> None:
+        """build_task_prompt for verifier omits any task group reference."""
+        result = build_task_prompt(
+            task_group=7,  # phantom group that was the bug
+            spec_name="08_parking_operator_adaptor",
+            archetype="verifier",
+        )
+        assert "08_parking_operator_adaptor" in result, "Spec name must appear in prompt"
+        assert "verifier" in result.lower(), "Archetype role must appear in prompt"
+        # Must not instruct the agent to implement task group 7 (or any group)
+        assert "task group" not in result.lower(), (
+            f"Non-coder prompt must not reference 'task group': {result!r}"
+        )
+        assert "7" not in result, (
+            f"Non-coder prompt must not embed phantom group number 7: {result!r}"
+        )
+
+    def test_reviewer_prompt_omits_group_number(self) -> None:
+        """Non-coder prompt does not include the task group integer."""
+        result = build_task_prompt(
+            task_group=99,
+            spec_name="my_spec",
+            archetype="reviewer",
+        )
+        assert "my_spec" in result
+        assert "99" not in result, (
+            f"Non-coder prompt must not embed group number: {result!r}"
+        )
+
+
+# ---------------------------------------------------------------------------
 # TS-15-E6: Profile without frontmatter unchanged
 # Requirement: 15-REQ-4.2
 # ---------------------------------------------------------------------------

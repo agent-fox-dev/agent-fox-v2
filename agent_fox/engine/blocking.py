@@ -124,6 +124,10 @@ def evaluate_review_blocking(
         session_id = f"{record.node_id}:{record.attempt}"
         findings = query_findings_by_session(knowledge_db_conn, session_id)
 
+        # Scope findings to this task_group only — cross-group findings (e.g. from
+        # a spec-wide reviewer session) must not block an unrelated coder group.
+        findings = [f for f in findings if f.task_group == task_group]
+
         critical_count = sum(1 for f in findings if f.severity.lower() == "critical")
 
         if critical_count == 0:

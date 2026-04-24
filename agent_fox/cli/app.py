@@ -134,7 +134,7 @@ from agent_fox.cli.standup import standup_cmd  # noqa: E402
 from agent_fox.cli.status import status_cmd  # noqa: E402
 
 main.add_command(code_cmd, name="code")
-main.add_command(findings_cmd, name="findings")
+main.add_command(findings_cmd, name="insights")
 main.add_command(fix_cmd, name="fix")
 main.add_command(init_cmd, name="init")
 main.add_command(lint_specs_cmd, name="lint-specs")

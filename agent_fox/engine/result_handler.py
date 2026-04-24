@@ -68,6 +68,8 @@ class SessionResultHandler:
         self._graph = graph
         self._archetypes_config = archetypes_config
         self._knowledge_db_conn = knowledge_db_conn
+        if knowledge_db_conn is None:
+            logger.warning("knowledge_db_conn is None — session outcomes will not be recorded to DB")
         self._block_task = block_task_fn
         self._check_block_budget = check_block_budget_fn
 
@@ -299,8 +301,8 @@ class SessionResultHandler:
         )
         coder_status = self._graph_sync.node_states.get(coder_node_id)
         if coder_status == "completed":
-            self._graph_sync.node_states[coder_node_id] = "pending"
-            self._graph_sync.node_states[record.node_id] = "pending"
+            self._graph_sync._transition(coder_node_id, "pending", reason="retry after review block")
+            self._graph_sync._transition(record.node_id, "pending", reason="retry after review block")
 
         emit_audit_event(
             self._sink,
@@ -387,10 +389,9 @@ class SessionResultHandler:
         """Process a completed session record and persist state."""
         update_state_with_session(state, record)
 
-        # Compute coverage data for successful coder sessions before DB write
-        coverage_data: str | None = None
+        # Run coverage regression gate for successful coder sessions
         if record.status == "completed" and self._get_node_archetype(record.node_id) == "coder":
-            coverage_data = self.check_coverage_regression(record, state, Path.cwd())
+            self.check_coverage_regression(record, state, Path.cwd())
 
         # 105-REQ-3.2: Record session outcome to DB (unified single source of truth).
         # 105-REQ-4.3: Accumulate run token/cost totals.
@@ -431,8 +432,6 @@ class SessionResultHandler:
                     commit_sha=record.commit_sha,
                     error_message=record.error_message,
                     is_transport_error=record.is_transport_error,
-                    retrieval_summary=record.retrieval_summary,  # 113-REQ-7.2
-                    coverage_data=coverage_data,
                 )
                 _record_session_db(self._knowledge_db_conn, outcome)
                 _update_run_totals(
@@ -443,7 +442,7 @@ class SessionResultHandler:
                     cost=record.cost,
                 )
             except Exception:
-                logger.debug("Failed to record session to DB", exc_info=True)
+                logger.warning("Failed to record session to DB", exc_info=True)
 
         # Ensure timeout retry counter is initialised (even for non-timeout
         # events), so callers can use .get(node_id, -1) as a sentinel for
@@ -475,7 +474,7 @@ class SessionResultHandler:
                     blocked_reason=state.blocked_reasons.get(node_id),
                 )
             except Exception:
-                logger.debug("Failed to persist node status to DB", exc_info=True)
+                logger.warning("Failed to persist node status to DB", exc_info=True)
 
     def _handle_success(
         self,
@@ -606,8 +605,8 @@ class SessionResultHandler:
         extended_timeout = self._node_timeout[node_id]
         extended_max_turns = self._node_max_turns.get(node_id)
 
-        # Reset to pending for retry at same tier (75-REQ-2.3)
-        self._graph_sync.node_states[node_id] = "pending"
+        # Reset to pending for retry at same tier (75-REQ-2.3, 535-AC-2)
+        self._graph_sync.mark_pending(node_id, reason="timeout retry")
 
         # Emit SESSION_TIMEOUT_RETRY audit event (75-REQ-5.1, 75-REQ-5.3)
         emit_audit_event(
@@ -664,7 +663,7 @@ class SessionResultHandler:
                 node_id,
                 record.error_message,
             )
-            self._graph_sync.node_states[node_id] = "pending"
+            self._graph_sync.mark_pending(node_id, reason="transport error retry")
             return
 
         # 26-REQ-9.3: Retry-predecessor for archetypes with the flag
@@ -715,6 +714,36 @@ class SessionResultHandler:
 
         pred_id = predecessors[0]
 
+        # Scope check: only reset predecessor when FAIL verdicts are scoped to its
+        # task_group.  Cross-group verdicts (e.g. a verifier for group 3 producing
+        # FAIL verdicts tagged task_group='2') must not trigger a reset of group 2.
+        if self._knowledge_db_conn is not None:
+            try:
+                from agent_fox.core.node_id import parse_node_id
+                from agent_fox.knowledge.review_store import query_verdicts_by_session
+
+                parsed_pred = parse_node_id(pred_id)
+                pred_task_group = str(parsed_pred.group_number)
+                session_id = f"{node_id}:{record.attempt}"
+                session_verdicts = query_verdicts_by_session(self._knowledge_db_conn, session_id)
+                if session_verdicts:
+                    fail_for_pred = [
+                        v for v in session_verdicts if v.verdict == "FAIL" and v.task_group == pred_task_group
+                    ]
+                    if not fail_for_pred:
+                        logger.info(
+                            "Retry-predecessor: no FAIL verdicts scoped to %s (task_group=%s), skipping reset",
+                            pred_id,
+                            pred_task_group,
+                        )
+                        return False
+            except Exception:
+                logger.debug(
+                    "Failed to check task-group-scoped verdicts for %s",
+                    pred_id,
+                    exc_info=True,
+                )
+
         # 58-REQ-1.1: Record failure on predecessor's escalation ladder
         from agent_fox.routing.escalation import EscalationLadder
 
@@ -760,10 +789,11 @@ class SessionResultHandler:
                     predecessor_node=pred_id,
                 )
             )
-        # 58-REQ-1.2: Reset predecessor to pending
-        self._graph_sync.node_states[pred_id] = "pending"
+        # 58-REQ-1.2: Reset predecessor to pending (completed→pending, use _transition)
+        self._graph_sync._transition(pred_id, "pending", reason="retry predecessor")
         error_tracker[pred_id] = record.error_message
-        self._graph_sync.node_states[node_id] = "pending"
+        # Reset reviewer to pending (in_progress→pending, use mark_pending)
+        self._graph_sync.mark_pending(node_id, reason="retry predecessor reset")
         return True
 
     def _handle_exhausted(
@@ -851,4 +881,4 @@ class SessionResultHandler:
                     escalated_to=escalated_to,
                 )
             )
-        self._graph_sync.node_states[node_id] = "pending"
+        self._graph_sync.mark_pending(node_id, reason="retry after failure")

@@ -133,8 +133,15 @@ class TestSingleAutoPreCompat:
         assert "myspec:0" in graph.nodes
         assert graph.nodes["myspec:0"].archetype == "reviewer"
         assert graph.nodes["myspec:0"].mode == "pre-review"
-        # No nodes with ":0:" suffix (single auto_pre uses plain :0)
-        assert not any(":0:" in nid for nid in graph.nodes)
+        # No *reviewer* (auto_pre) nodes with ":0:" suffix — single auto_pre
+        # uses the plain {spec}:0 format.  Note: auto_post nodes such as
+        # verifier may legitimately use a 3-part ":0:" format; we only check
+        # the auto_pre reviewer nodes for backward-compat format compliance.
+        reviewer_nids = [n.id for n in graph.nodes.values() if n.archetype == "reviewer"]
+        assert not any(":0:" in nid for nid in reviewer_nids), (
+            f"Single auto_pre reviewer nodes must not use suffixed ':0:' format; "
+            f"reviewer node ids: {reviewer_nids}"
+        )
 
 
 # ---------------------------------------------------------------------------

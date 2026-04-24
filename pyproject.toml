@@ -1,28 +1,28 @@
 [project]
 name = "agent-fox"
-version = "3.3.2"
+version = "3.4.0"
 description = "Autonomous coding-agent orchestrator"
 requires-python = ">=3.12"
 dependencies = [
     "click>=8.1",
-    "pydantic>=2.0",
-    "rich>=13.0",
+    "pydantic>=2.10",
+    "rich>=15.0",
     "anthropic[vertex,bedrock]>=0.96",
     "claude-agent-sdk>=0.1.60",
     "pyyaml>=6.0",
-    "duckdb>=1.0",
-    "sentence-transformers>=3.0",
-    "scikit-learn>=1.4",
-    "pathspec>=0.12",
-    "tomlkit>=0.12",
-    "tree-sitter>=0.23",
-    "tree-sitter-python>=0.23",
-    "tree-sitter-go>=0.23",
-    "tree-sitter-rust>=0.23",
-    "tree-sitter-javascript>=0.23",
+    "duckdb>=1.5",
+    "sentence-transformers>=5.0",
+    "scikit-learn>=1.8",
+    "pathspec>=1.0",
+    "tomlkit>=0.13",
+    "tree-sitter>=0.25",
+    "tree-sitter-python>=0.25",
+    "tree-sitter-go>=0.25",
+    "tree-sitter-rust>=0.24",
+    "tree-sitter-javascript>=0.25",
     "tree-sitter-typescript>=0.23",
     "tree-sitter-java>=0.23",
-    "tree-sitter-c>=0.23",
+    "tree-sitter-c>=0.24",
     "tree-sitter-cpp>=0.23",
     "tree-sitter-ruby>=0.23",
     "tree-sitter-c-sharp>=0.23",
@@ -67,11 +67,11 @@ markers = [
 
 [dependency-groups]
 dev = [
-    "pytest>=8.0",
-    "pytest-asyncio>=0.23",
+    "pytest>=9.0",
+    "pytest-asyncio>=1.0",
     "hypothesis>=6.0",
-    "ruff>=0.5",
-    "mypy>=1.10",
+    "ruff>=0.15",
+    "mypy>=1.20",
     "types-pyyaml>=6.0",
     "pytest-xdist>=3.8.0",
 ]

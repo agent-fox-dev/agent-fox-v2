@@ -20,6 +20,33 @@ Treat this file as executable workflow policy.
 - Never add `Co-Authored-By` lines. No AI attribution in commits.
 - Use conventional commits: `<type>: <description>`.
 
+## Quick Triage
+
+Before reading any spec files or exploring the codebase, perform this check:
+
+1. **Inspect checkbox states** in `tasks.md` for your assigned task group only.
+   Count how many subtasks are `[x]` vs `[ ]`. If any subtask in your assigned
+   group is still `[ ]`, skip the rest of this section and proceed to
+   **Task Group Routing** below.
+
+2. **If all subtasks in your assigned group are `[x]`**, run `make test` (do
+   not skip this step — a passing test suite is required, not assumed).
+
+3. **If `make test` passes**, write the session summary immediately and exit:
+
+   ```json
+   {
+     "summary": "No changes needed. All subtasks in the assigned task group were already complete and the test suite passes.",
+     "tests_added_or_modified": []
+   }
+   ```
+
+   Write this to `.agent-fox/session-summary.json` and stop — do not read
+   further spec files, explore the codebase, or reason about the task.
+
+4. **If `make test` fails**, do not bail out. Proceed to **Task Group Routing**
+   below and treat the failing tests as work that still needs to be done.
+
 ## Task Group Routing
 
 - **Group 1:** Your primary job is to write **failing tests** from

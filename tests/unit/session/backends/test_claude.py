@@ -560,6 +560,52 @@ class TestTransportRetry:
 
 
 # ---------------------------------------------------------------------------
+# 536-AC-5: CancelledError propagates immediately — no transport retries
+# Issue: #536 — SIGINT/transport handling
+# ---------------------------------------------------------------------------
+
+
+class TestCancelledErrorNotRetried:
+    """Verify CancelledError from _stream_messages propagates immediately.
+
+    When an asyncio task is cancelled (e.g. via SIGINT shutdown), the
+    CancelledError should escape execute() without triggering the
+    transport-retry loop or sleeping.
+
+    536-AC-5: Inject CancelledError into _stream_messages() and assert
+    ClaudeBackend.execute() re-raises it immediately without calling
+    asyncio.sleep.
+    """
+
+    @pytest.mark.asyncio
+    async def test_cancelled_error_propagates_immediately(self) -> None:
+        """CancelledError from _stream_messages escapes execute() without retrying."""
+        backend = ClaudeBackend()
+
+        async def _raises_cancelled(*, prompt, options):
+            raise asyncio.CancelledError("task was cancelled")
+            yield  # noqa: RET503
+
+        with (
+            patch.object(backend, "_stream_messages", _raises_cancelled),
+            patch("agent_fox.session.backends.claude.asyncio.sleep") as mock_sleep,
+        ):
+            with pytest.raises(asyncio.CancelledError):
+                async for _ in backend.execute(
+                    "test",
+                    system_prompt="sys",
+                    model="claude-sonnet-4-6",
+                    cwd="/tmp",
+                ):
+                    pass
+
+        # Must not have slept — no retry attempts should have occurred
+        assert mock_sleep.call_count == 0, (
+            "asyncio.sleep was called, meaning CancelledError triggered a retry"
+        )
+
+
+# ---------------------------------------------------------------------------
 # TS-26-P2: Message Type Completeness (Property)
 # Validates: 26-REQ-1.3, 26-REQ-1.4
 # ---------------------------------------------------------------------------

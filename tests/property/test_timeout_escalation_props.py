@@ -143,6 +143,9 @@ class TestTimeoutNeverDirectlyEscalates:
         handler._max_timeout_retries = max_timeout_retries
 
         for i in range(n):
+            # Simulate dispatch loop: node must be in_progress before each result.
+            if i > 0:
+                handler._graph_sync.node_states["node1"] = "in_progress"  # type: ignore[attr-defined]
             record = _make_record("timeout", attempt=i + 1)
             handler.process(
                 record,
@@ -211,6 +214,9 @@ class TestCounterIndependence:
         handler._max_timeout_retries = max_timeout_retries
 
         for i, event_status in enumerate(events):
+            # Simulate dispatch loop: node must be in_progress when result arrives.
+            if i > 0:
+                handler._graph_sync.node_states["node1"] = "in_progress"  # type: ignore[attr-defined]
             record = _make_record(event_status, attempt=i + 1)
             handler.process(
                 record,
@@ -320,6 +326,9 @@ class TestTimeoutExhaustionFallsThrough:
 
         # Process exactly max_retries timeouts → should NOT call record_failure.
         for i in range(max_retries):
+            # Simulate dispatch loop: node must be in_progress when result arrives.
+            if i > 0:
+                handler._graph_sync.node_states["node1"] = "in_progress"  # type: ignore[attr-defined]
             record = _make_record("timeout", attempt=i + 1)
             handler.process(
                 record,
@@ -333,6 +342,7 @@ class TestTimeoutExhaustionFallsThrough:
         assert mock_ladder.record_failure.call_count == 0
 
         # One more timeout → must fall through to escalation.
+        handler._graph_sync.node_states["node1"] = "in_progress"  # type: ignore[attr-defined]
         record = _make_record("timeout", attempt=max_retries + 1)
         handler.process(
             record,
@@ -352,6 +362,8 @@ class TestTimeoutExhaustionFallsThrough:
         handler._max_timeout_retries = 2
 
         for i in range(2):
+            if i > 0:
+                handler._graph_sync.node_states["node1"] = "in_progress"  # type: ignore[attr-defined]
             record = _make_record("timeout", attempt=i + 1)
             handler.process(
                 record,
@@ -363,6 +375,7 @@ class TestTimeoutExhaustionFallsThrough:
 
         assert mock_ladder.record_failure.call_count == 0
 
+        handler._graph_sync.node_states["node1"] = "in_progress"  # type: ignore[attr-defined]
         record = _make_record("timeout", attempt=3)
         handler.process(
             record,

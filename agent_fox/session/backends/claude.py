@@ -181,6 +181,10 @@ class ClaudeBackend:
                     if isinstance(message, ResultMessage):
                         saw_result = True
                     buffered.append(message)
+            except asyncio.CancelledError:
+                # AC-5 (#536): Task was cancelled (e.g. SIGINT). Do not retry —
+                # propagate immediately so the asyncio task is properly cancelled.
+                raise
             except Exception as exc:
                 # 26-REQ-2.E1: Connection/OS errors are transient transport failures
                 last_error = str(exc)

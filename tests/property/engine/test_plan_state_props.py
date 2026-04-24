@@ -94,9 +94,7 @@ CREATE TABLE IF NOT EXISTS session_outcomes (
     archetype           VARCHAR,
     commit_sha          VARCHAR,
     error_message       TEXT,
-    is_transport_error  BOOLEAN DEFAULT FALSE,
-    retrieval_summary   TEXT,
-    coverage_data       TEXT
+    is_transport_error  BOOLEAN DEFAULT FALSE
 );
 """
 

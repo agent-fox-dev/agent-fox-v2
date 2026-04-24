@@ -4,7 +4,7 @@ requires-python = ">=3.12"
 
 [[package]]
 name = "agent-fox"
-version = "3.3.2"
+version = "3.4.0"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic", extra = ["bedrock", "vertex"] },
@@ -56,32 +56,32 @@ requires-dist = [
     { name = "anthropic", extras = ["vertex", "bedrock"], specifier = ">=0.96" },
     { name = "claude-agent-sdk", specifier = ">=0.1.60" },
     { name = "click", specifier = ">=8.1" },
-    { name = "duckdb", specifier = ">=1.0" },
-    { name = "pathspec", specifier = ">=0.12" },
-    { name = "pydantic", specifier = ">=2.0" },
+    { name = "duckdb", specifier = ">=1.5" },
+    { name = "pathspec", specifier = ">=1.0" },
+    { name = "pydantic", specifier = ">=2.10" },
     { name = "pyyaml", specifier = ">=6.0" },
-    { name = "rich", specifier = ">=13.0" },
-    { name = "scikit-learn", specifier = ">=1.4" },
-    { name = "sentence-transformers", specifier = ">=3.0" },
-    { name = "tomlkit", specifier = ">=0.12" },
-    { name = "tree-sitter", specifier = ">=0.23" },
+    { name = "rich", specifier = ">=15.0" },
+    { name = "scikit-learn", specifier = ">=1.8" },
+    { name = "sentence-transformers", specifier = ">=5.0" },
+    { name = "tomlkit", specifier = ">=0.13" },
+    { name = "tree-sitter", specifier = ">=0.25" },
     { name = "tree-sitter-bash", specifier = ">=0.25.1" },
-    { name = "tree-sitter-c", specifier = ">=0.23" },
+    { name = "tree-sitter-c", specifier = ">=0.24" },
     { name = "tree-sitter-c-sharp", specifier = ">=0.23" },
     { name = "tree-sitter-cpp", specifier = ">=0.23" },
     { name = "tree-sitter-css", specifier = ">=0.25.0" },
     { name = "tree-sitter-dart-orchard", specifier = ">=0.3.1" },
     { name = "tree-sitter-elixir", specifier = ">=0.3.4" },
-    { name = "tree-sitter-go", specifier = ">=0.23" },
+    { name = "tree-sitter-go", specifier = ">=0.25" },
     { name = "tree-sitter-html", specifier = ">=0.23.2" },
     { name = "tree-sitter-java", specifier = ">=0.23" },
-    { name = "tree-sitter-javascript", specifier = ">=0.23" },
+    { name = "tree-sitter-javascript", specifier = ">=0.25" },
     { name = "tree-sitter-json", specifier = ">=0.24.8" },
     { name = "tree-sitter-kotlin", specifier = ">=1.0" },
-    { name = "tree-sitter-python", specifier = ">=0.23" },
+    { name = "tree-sitter-python", specifier = ">=0.25" },
     { name = "tree-sitter-regex", specifier = ">=0.25.0" },
     { name = "tree-sitter-ruby", specifier = ">=0.23" },
-    { name = "tree-sitter-rust", specifier = ">=0.23" },
+    { name = "tree-sitter-rust", specifier = ">=0.24" },
     { name = "tree-sitter-swift", specifier = ">=0.0.1" },
     { name = "tree-sitter-typescript", specifier = ">=0.23" },
 ]
@@ -89,11 +89,11 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "hypothesis", specifier = ">=6.0" },
-    { name = "mypy", specifier = ">=1.10" },
-    { name = "pytest", specifier = ">=8.0" },
-    { name = "pytest-asyncio", specifier = ">=0.23" },
+    { name = "mypy", specifier = ">=1.20" },
+    { name = "pytest", specifier = ">=9.0" },
+    { name = "pytest-asyncio", specifier = ">=1.0" },
     { name = "pytest-xdist", specifier = ">=3.8.0" },
-    { name = "ruff", specifier = ">=0.5" },
+    { name = "ruff", specifier = ">=0.15" },
     { name = "types-pyyaml", specifier = ">=6.0" },
 ]
 

@@ -343,6 +343,11 @@ class TestTimeoutCounterIndependence:
         handler, mock_ladder, state, attempt_tracker, error_tracker = _make_handler()
 
         for attempt_n in (1, 2):
+            # Simulate the dispatch loop: node goes back to in_progress before
+            # each result is processed (except the very first call where _make_handler
+            # already sets the node to in_progress).
+            if attempt_n > 1:
+                handler._graph_sync.node_states["node1"] = "in_progress"
             record = _make_record("timeout", attempt=attempt_n)
             handler.process(
                 record,
@@ -352,7 +357,6 @@ class TestTimeoutCounterIndependence:
                 error_tracker=error_tracker,
             )
 
-        # Currently FAILS: _timeout_retries doesn't exist.
         assert handler._timeout_retries.get("node1", -1) == 2
 
     def test_timeouts_dont_affect_ladder_attempt_count(self) -> None:
@@ -457,7 +461,7 @@ class TestMixedTimeoutAndFailures:
         """TS-75-8: timeout x2 + failed x2 → timeout_retries=2, ladder_failures=2."""
         handler, mock_ladder, state, attempt_tracker, error_tracker = _make_handler()
 
-        # First timeout
+        # First timeout (node starts as in_progress from _make_handler)
         handler.process(
             _make_record("timeout", attempt=1),
             attempt=1,
@@ -465,6 +469,8 @@ class TestMixedTimeoutAndFailures:
             attempt_tracker=attempt_tracker,
             error_tracker=error_tracker,
         )
+        # Between calls the dispatch loop re-dispatches the node to in_progress.
+        handler._graph_sync.node_states["node1"] = "in_progress"
         # First failure
         handler.process(
             _make_record("failed", attempt=2),
@@ -473,6 +479,7 @@ class TestMixedTimeoutAndFailures:
             attempt_tracker=attempt_tracker,
             error_tracker=error_tracker,
         )
+        handler._graph_sync.node_states["node1"] = "in_progress"
         # Second timeout
         handler.process(
             _make_record("timeout", attempt=3),
@@ -481,6 +488,7 @@ class TestMixedTimeoutAndFailures:
             attempt_tracker=attempt_tracker,
             error_tracker=error_tracker,
         )
+        handler._graph_sync.node_states["node1"] = "in_progress"
         # Second failure
         handler.process(
             _make_record("failed", attempt=4),
@@ -490,7 +498,6 @@ class TestMixedTimeoutAndFailures:
             error_tracker=error_tracker,
         )
 
-        # Currently FAILS: _timeout_retries doesn't exist.
         assert handler._timeout_retries.get("node1", -1) == 2
         # record_failure should only be called for the 'failed' records.
         assert mock_ladder.record_failure.call_count == 2
