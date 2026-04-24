@@ -299,8 +299,8 @@ class SessionResultHandler:
         )
         coder_status = self._graph_sync.node_states.get(coder_node_id)
         if coder_status == "completed":
-            self._graph_sync.node_states[coder_node_id] = "pending"
-            self._graph_sync.node_states[record.node_id] = "pending"
+            self._graph_sync._transition(coder_node_id, "pending", reason="retry after review block")
+            self._graph_sync._transition(record.node_id, "pending", reason="retry after review block")
 
         emit_audit_event(
             self._sink,
@@ -606,8 +606,8 @@ class SessionResultHandler:
         extended_timeout = self._node_timeout[node_id]
         extended_max_turns = self._node_max_turns.get(node_id)
 
-        # Reset to pending for retry at same tier (75-REQ-2.3)
-        self._graph_sync.node_states[node_id] = "pending"
+        # Reset to pending for retry at same tier (75-REQ-2.3, 535-AC-2)
+        self._graph_sync.mark_pending(node_id, reason="timeout retry")
 
         # Emit SESSION_TIMEOUT_RETRY audit event (75-REQ-5.1, 75-REQ-5.3)
         emit_audit_event(
@@ -664,7 +664,7 @@ class SessionResultHandler:
                 node_id,
                 record.error_message,
             )
-            self._graph_sync.node_states[node_id] = "pending"
+            self._graph_sync.mark_pending(node_id, reason="transport error retry")
             return
 
         # 26-REQ-9.3: Retry-predecessor for archetypes with the flag
@@ -760,10 +760,11 @@ class SessionResultHandler:
                     predecessor_node=pred_id,
                 )
             )
-        # 58-REQ-1.2: Reset predecessor to pending
-        self._graph_sync.node_states[pred_id] = "pending"
+        # 58-REQ-1.2: Reset predecessor to pending (completed→pending, use _transition)
+        self._graph_sync._transition(pred_id, "pending", reason="retry predecessor")
         error_tracker[pred_id] = record.error_message
-        self._graph_sync.node_states[node_id] = "pending"
+        # Reset reviewer to pending (in_progress→pending, use mark_pending)
+        self._graph_sync.mark_pending(node_id, reason="retry predecessor reset")
         return True
 
     def _handle_exhausted(
@@ -851,4 +852,4 @@ class SessionResultHandler:
                     escalated_to=escalated_to,
                 )
             )
-        self._graph_sync.node_states[node_id] = "pending"
+        self._graph_sync.mark_pending(node_id, reason="retry after failure")

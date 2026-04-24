@@ -260,7 +260,9 @@ class TestTimeoutExhaustionThenEscalation:
         assert mock_ladder.record_failure.call_count == 0
 
         # Session 2: timeout again (retries exhausted → fall through to ladder).
+        # Simulate the dispatch loop re-queuing the node to in_progress.
         state.node_states[node_id] = "in_progress"
+        handler._graph_sync.node_states[node_id] = "in_progress"  # type: ignore[attr-defined]
         timeout2 = _make_session_record(node_id, "timeout", attempt=2)
         handler.process(
             timeout2,
@@ -333,7 +335,9 @@ class TestTimeoutExhaustionThenEscalation:
         )
 
         # Session 2: timeout (exhausted — falls through to escalation).
+        # Simulate the dispatch loop re-queuing to in_progress.
         state.node_states[node_id] = "in_progress"
+        handler._graph_sync.node_states[node_id] = "in_progress"  # type: ignore[attr-defined]
         handler.process(
             _make_session_record(node_id, "timeout", attempt=2),
             attempt=2,
@@ -348,6 +352,7 @@ class TestTimeoutExhaustionThenEscalation:
 
         # Session 3: success at escalated tier.
         state.node_states[node_id] = "in_progress"
+        handler._graph_sync.node_states[node_id] = "in_progress"  # type: ignore[attr-defined]
         handler.process(
             _make_session_record(node_id, "completed", attempt=3, model="claude-opus-4-6"),
             attempt=3,

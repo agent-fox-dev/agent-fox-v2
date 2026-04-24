@@ -13,6 +13,10 @@ from collections import Counter, deque
 logger = logging.getLogger(__name__)
 
 
+class InvalidTransitionError(ValueError):
+    """Raised when mark_pending() is called on a node not in ``in_progress`` state."""
+
+
 def _spec_name(node_id: str) -> str:
     """Extract spec name from node ID (everything before first colon).
 
@@ -173,7 +177,7 @@ class GraphSync:
 
     VALID_TRANSITIONS: dict[str, set[str]] = {
         "pending": {"in_progress", "blocked"},
-        "in_progress": {"completed", "failed", "blocked"},
+        "in_progress": {"completed", "failed", "blocked", "pending"},
         "deferred": {"pending", "blocked"},
         "failed": {"pending"},
         "blocked": {"pending"},
@@ -364,6 +368,26 @@ class GraphSync:
     def mark_in_progress(self, node_id: str) -> None:
         """Mark a task as in_progress (being executed)."""
         self._transition(node_id, "in_progress", reason="dispatched")
+
+    def mark_pending(self, node_id: str, *, reason: str = "reset for retry") -> None:
+        """Mark an in-progress task as pending (retry reset).
+
+        Only valid when the node is currently ``in_progress``.  This is the
+        correct path for timeout retries, transport-error retries, and
+        escalation-ladder retries — any case where a running session ended
+        without success and the node must be re-queued.
+
+        Raises:
+            InvalidTransitionError: If the node is not currently ``in_progress``.
+
+        Requirements: 535-AC-1, 535-AC-4
+        """
+        current = self.node_states.get(node_id, "unknown")
+        if current != "in_progress":
+            raise InvalidTransitionError(
+                f"mark_pending() requires in_progress state, got {current!r} for node {node_id!r}"
+            )
+        self._transition(node_id, "pending", reason=reason)
 
     def promote_deferred(self, limit: int = 1) -> list[str]:
         """Promote up to *limit* deferred nodes to pending.
