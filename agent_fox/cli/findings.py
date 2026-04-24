@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_DB_PATH: Path = _DEFAULT_DB_PATH
 
 
-@click.command("findings")
+@click.command("insights")
 @click.option("--spec", default=None, help="Filter by spec name")
 @click.option("--severity", default=None, help="Minimum severity level (critical, major, minor, observation)")
 @click.option("--archetype", default=None, help="Filter by archetype (skeptic, verifier, oracle)")
