@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 MAX_PARALLELISM = 8
 
 
-def _failure_record(node_id: str, attempt: int, exc: Exception) -> SessionRecord:
+def _failure_record(node_id: str, attempt: int, exc: BaseException) -> SessionRecord:
     """Build a SessionRecord for a failed task."""
     return SessionRecord(
         node_id=node_id,
@@ -222,22 +222,43 @@ class ParallelRunner:
         self._in_flight_tasks.clear()
         return records
 
-    async def cancel_all(self) -> None:
+    async def cancel_all(self) -> list[SessionRecord]:
         """Cancel all in-flight tasks. Called on SIGINT.
 
         Cancels every asyncio task that is still running and waits for
-        them to finish (suppressing CancelledError).
+        them to finish. Returns a list of SessionRecords for all tasks
+        that had not already been processed by the dispatch loop — either
+        a synthesised failure record for cancelled/errored tasks, or the
+        actual record for tasks that happened to complete just before
+        cancellation.  The caller should pass these to
+        ``result_handler.process()`` so that every in-flight session gets
+        a ``session_outcomes`` row even on an interrupted run.
+
+        Requirements: 536-AC-1, 536-AC-2, 536-AC-3
         """
         for task in self._in_flight_tasks:
             if not task.done():
                 task.cancel()
 
+        unprocessed: list[SessionRecord] = []
         if self._in_flight_tasks:
-            await asyncio.gather(
+            results = await asyncio.gather(
                 *self._in_flight_tasks,
                 return_exceptions=True,
             )
+            for task, result in zip(self._in_flight_tasks, results):
+                if isinstance(result, SessionRecord):
+                    # Task completed normally just before cancellation took
+                    # effect but was not yet processed by the dispatch loop.
+                    unprocessed.append(result)
+                elif isinstance(result, BaseException):
+                    # Task was cancelled or raised an unexpected error.
+                    task_name = task.get_name()
+                    node_id = task_name[len("parallel-") :] if task_name.startswith("parallel-") else task_name
+                    unprocessed.append(_failure_record(node_id, 1, result))
             self._in_flight_tasks.clear()
+
+        return unprocessed
 
     async def _execute_session(
         self,

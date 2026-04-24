@@ -370,3 +370,79 @@ class TestExecuteOne:
             inter_session_delay=0,
         )
         assert runner.max_parallelism == 3
+
+
+class TestCancelAllReturnFailureRecords:
+    """536-AC-1/AC-2: cancel_all() returns SessionRecords for cancelled tasks.
+
+    When SIGINT cancels in-flight parallel tasks, cancel_all() must return
+    synthesised failure SessionRecords so the caller can persist
+    session_outcomes rows for every interrupted session.
+
+    Requirements: 536-AC-1, 536-AC-2, 536-AC-3
+    """
+
+    @pytest.mark.asyncio
+    async def test_cancel_all_returns_failure_records_for_cancelled_tasks(self) -> None:
+        """cancel_all() returns one failure SessionRecord per cancelled task."""
+        # Use a long-running session so the tasks are in-flight when cancelled.
+        mock = MockParallelSessionRunner(delay=10.0)
+        runner = ParallelRunner(
+            session_runner_factory=lambda nid, **kw: mock,
+            max_parallelism=4,
+            inter_session_delay=0,
+        )
+
+        task_a = asyncio.create_task(
+            runner.execute_one("spec:1", 1, None),
+            name="parallel-spec:1",
+        )
+        task_b = asyncio.create_task(
+            runner.execute_one("spec:2", 1, None),
+            name="parallel-spec:2",
+        )
+        runner.track_tasks([task_a, task_b])
+
+        records = await runner.cancel_all()
+
+        # Both tasks were cancelled → two failure records returned
+        assert len(records) == 2
+        node_ids = {r.node_id for r in records}
+        assert node_ids == {"spec:1", "spec:2"}
+        for record in records:
+            assert record.status == "failed"
+            assert record.error_message is not None
+
+    @pytest.mark.asyncio
+    async def test_cancel_all_returns_empty_when_no_tasks(self) -> None:
+        """cancel_all() returns an empty list when there are no in-flight tasks."""
+        runner = ParallelRunner(
+            session_runner_factory=lambda nid, **kw: MockParallelSessionRunner(),
+            max_parallelism=4,
+            inter_session_delay=0,
+        )
+
+        records = await runner.cancel_all()
+
+        assert records == []
+
+    @pytest.mark.asyncio
+    async def test_cancel_all_clears_in_flight_tasks(self) -> None:
+        """cancel_all() clears _in_flight_tasks after cancellation."""
+        mock = MockParallelSessionRunner(delay=10.0)
+        runner = ParallelRunner(
+            session_runner_factory=lambda nid, **kw: mock,
+            max_parallelism=4,
+            inter_session_delay=0,
+        )
+
+        task = asyncio.create_task(
+            runner.execute_one("spec:1", 1, None),
+            name="parallel-spec:1",
+        )
+        runner.track_tasks([task])
+        assert len(runner._in_flight_tasks) == 1
+
+        await runner.cancel_all()
+
+        assert len(runner._in_flight_tasks) == 0

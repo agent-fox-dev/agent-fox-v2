@@ -589,7 +589,7 @@ class Orchestrator:
         try:
             while True:
                 if self._signal.interrupted:
-                    await self._shutdown(state)
+                    await self._shutdown(state, attempt_tracker, error_tracker)
                     return state
 
                 # Check block budget: stop if too many tasks are blocked
@@ -1401,10 +1401,49 @@ class Orchestrator:
         self._archetypes_config = result.archetypes
         self._planning_config = result.planning
 
-    async def _shutdown(self, state: ExecutionState) -> None:
-        """Save state, cancel in-flight tasks, log resume instructions."""
+    async def _shutdown(
+        self,
+        state: ExecutionState,
+        attempt_tracker: dict[str, int] | None = None,
+        error_tracker: dict[str, str | None] | None = None,
+    ) -> None:
+        """Save state, cancel in-flight tasks, persist interrupted records.
+
+        For every in-flight parallel task that was cancelled, synthesises a
+        failure SessionRecord and calls ``result_handler.process()`` so that
+        a ``session_outcomes`` row is written even for runs that were
+        interrupted by SIGINT.
+
+        Requirements: 536-AC-1, 536-AC-3
+        """
         if self._parallel_runner is not None:
-            await self._parallel_runner.cancel_all()
+            unprocessed = await self._parallel_runner.cancel_all()
+            if unprocessed and self._result_handler is not None:
+                _attempt_tracker = attempt_tracker or {}
+                _error_tracker = error_tracker or {}
+                for record in unprocessed:
+                    # Prefer the actual attempt from the tracker over the
+                    # default (1) that cancel_all() uses for synthesised
+                    # failure records.
+                    actual_attempt = _attempt_tracker.get(record.node_id, record.attempt)
+                    if record.attempt != actual_attempt:
+                        from dataclasses import replace as _dc_replace
+
+                        record = _dc_replace(record, attempt=actual_attempt)
+                    try:
+                        self._result_handler.process(
+                            record,
+                            actual_attempt,
+                            state,
+                            _attempt_tracker,
+                            _error_tracker,
+                        )
+                    except Exception:
+                        logger.debug(
+                            "Failed to persist interrupted session record for %s",
+                            record.node_id,
+                            exc_info=True,
+                        )
 
         state.run_status = RunStatus.INTERRUPTED
 
