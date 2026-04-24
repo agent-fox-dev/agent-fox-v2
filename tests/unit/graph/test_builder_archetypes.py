@@ -290,6 +290,87 @@ class TestAutoPostSiblings:
         for vn in verifier_nodes:
             assert any(e.source == "spec:2" and e.target == vn.id for e in graph.edges)
 
+    def test_verifier_node_id_has_arch_suffix(self) -> None:
+        """Verifier node_id must use 3-part format with sentinel group 0.
+
+        Regression test for issue #534: the old format "{spec}:{last+1}" was
+        indistinguishable from a real coder group node and caused phantom
+        task-group dispatches (e.g. group 7 for a 6-group spec).  A subsequent
+        attempt used "{spec}:{last_group}:{arch}" but group_number still
+        coincided with a real task group.
+
+        The correct format is "{spec}:0:{arch}" with group_number=0 — the
+        sentinel value 0 is never a real task group number.
+        """
+        from agent_fox.core.config import ArchetypesConfig
+        from agent_fox.graph.builder import build_graph
+
+        config = ArchetypesConfig(verifier=True)
+        specs = [_spec()]
+        # 6 real task groups (mirrors the 08_parking_operator_adaptor scenario)
+        task_groups = {"spec": [_tgd(i, f"T{i}") for i in range(1, 7)]}
+
+        graph = build_graph(specs, task_groups, [], archetypes_config=config)
+
+        verifier_nodes = [n for n in graph.nodes.values() if n.archetype == "verifier"]
+        assert len(verifier_nodes) == 1
+        vn = verifier_nodes[0]
+
+        # AC-1: node_id must end with ":verifier" (3-part format, not 2-part)
+        parts = vn.id.split(":")
+        assert len(parts) == 3, f"Expected 3-part node_id, got: {vn.id!r}"
+        assert parts[2] == "verifier"
+
+        # AC-1: node_id must use sentinel "0", not any real group number
+        assert parts[1] == "0", (
+            f"Verifier node_id must embed sentinel '0', got: {vn.id!r}"
+        )
+
+        # AC-1 (key assertion): group_number must NOT be in the set of real task groups
+        real_group_numbers = {tgd.number for tgd in task_groups["spec"]}
+        assert vn.group_number not in real_group_numbers, (
+            f"Verifier group_number={vn.group_number} coincides with real task group; "
+            f"real groups: {real_group_numbers}"
+        )
+        assert vn.group_number == 0, (
+            f"Verifier group_number must be sentinel 0, got {vn.group_number}"
+        )
+
+        # AC-4: no coder node with group_number beyond the last real group
+        coder_nodes = [n for n in graph.nodes.values() if n.archetype == "coder"]
+        assert all(
+            n.group_number in real_group_numbers for n in coder_nodes
+        ), "Coder node has group_number beyond the real task groups"
+
+        # AC-4: exactly 6 coder nodes for 6 real groups
+        assert len(coder_nodes) == 6
+
+        # Verifier has edge from last coder group (edge still wired to last real group)
+        assert any(e.source == "spec:6" and e.target == vn.id for e in graph.edges)
+
+    def test_verifier_not_in_coder_group_count(self) -> None:
+        """Verifier must not inflate the coder task count.
+
+        AC-4: format_plan_summary should see coder_count == len(real groups).
+        """
+        from agent_fox.core.config import ArchetypesConfig
+        from agent_fox.graph.builder import build_graph
+
+        config = ArchetypesConfig(verifier=True)
+        specs = [_spec()]
+        n_real = 6
+        task_groups = {"spec": [_tgd(i, f"T{i}") for i in range(1, n_real + 1)]}
+
+        graph = build_graph(specs, task_groups, [], archetypes_config=config)
+
+        coder_nodes = [
+            n for n in graph.nodes.values()
+            if n.spec_name == "spec" and n.archetype == "coder"
+        ]
+        assert len(coder_nodes) == n_real, (
+            f"Expected {n_real} coder nodes, got {len(coder_nodes)}"
+        )
+
 
 # -------------------------------------------------------------------
 # TS-26-21: Archetype assignment logged at INFO

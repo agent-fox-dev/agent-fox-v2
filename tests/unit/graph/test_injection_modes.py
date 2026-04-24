@@ -214,3 +214,100 @@ class TestDriftReviewGating:
         assert "drift-review" in reviewer_modes, (
             f"drift-review should be included when spec references existing code, got modes: {reviewer_modes}"
         )
+
+
+# ---------------------------------------------------------------------------
+# AC-5 (issue #534): ensure_graph_archetypes runtime injection must use the
+# same 3-part node_id format as the plan builder — no phantom sequential
+# group numbers.
+# ---------------------------------------------------------------------------
+
+
+def _make_multigroup_coder_graph(spec_name: str = "myspec", n_groups: int = 6):
+    """Build a TaskGraph with n_groups sequential coder nodes (no verifier)."""
+    from agent_fox.graph.types import Edge, Node, PlanMetadata, TaskGraph
+
+    nodes = {}
+    edges = []
+    order = []
+    for g in range(1, n_groups + 1):
+        nid = f"{spec_name}:{g}"
+        nodes[nid] = Node(
+            id=nid,
+            spec_name=spec_name,
+            group_number=g,
+            title=f"Task {g}",
+            optional=False,
+            archetype="coder",
+        )
+        if g > 1:
+            edges.append(Edge(source=f"{spec_name}:{g-1}", target=nid, kind="intra_spec"))
+        order.append(nid)
+
+    return TaskGraph(
+        nodes=nodes,
+        edges=edges,
+        order=order,
+        metadata=PlanMetadata(created_at="2026-01-01T00:00:00"),
+    )
+
+
+class TestEnsureGraphArchetypesAutoPostFix:
+    """AC-5: Runtime auto_post injection must use the same 3-part node_id
+    convention as the plan builder (issue #534 regression guard)."""
+
+    def test_runtime_verifier_node_id_has_arch_suffix(self) -> None:
+        """Verifier injected at runtime must use sentinel group_number=0.
+
+        AC-1/AC-5: group_number must NOT coincide with any real task group.
+        The node_id must use the sentinel '0' (not last_group or last+1).
+        """
+        from agent_fox.core.config import ArchetypesConfig
+        from agent_fox.graph.injection import ensure_graph_archetypes
+
+        n_groups = 6
+        graph = _make_multigroup_coder_graph(n_groups=n_groups)
+        config = ArchetypesConfig(verifier=True)
+
+        injected = ensure_graph_archetypes(graph, config)
+        assert injected, "Expected at least one node to be injected"
+
+        verifier_nodes = [n for n in graph.nodes.values() if n.archetype == "verifier"]
+        assert len(verifier_nodes) == 1
+        vn = verifier_nodes[0]
+
+        # Node ID must use the 3-part format, not the phantom sequential 2-part format
+        parts = vn.id.split(":")
+        assert len(parts) == 3, f"Expected 3-part node_id, got: {vn.id!r}"
+        assert parts[2] == "verifier"
+
+        # Must use sentinel "0" in node_id, not any real group number
+        assert parts[1] == "0", (
+            f"Runtime-injected verifier node_id must embed sentinel '0', got: {vn.id!r}"
+        )
+
+        # AC-1 (key assertion): group_number must NOT be in the set of real task groups
+        real_group_numbers = set(range(1, n_groups + 1))
+        assert vn.group_number not in real_group_numbers, (
+            f"Runtime verifier group_number={vn.group_number} coincides with a real "
+            f"task group; real groups: {real_group_numbers}"
+        )
+        assert vn.group_number == 0, (
+            f"Runtime verifier group_number must be sentinel 0, got {vn.group_number}"
+        )
+
+    def test_runtime_verifier_idempotent(self) -> None:
+        """Calling ensure_graph_archetypes twice must not inject duplicate verifiers."""
+        from agent_fox.core.config import ArchetypesConfig
+        from agent_fox.graph.injection import ensure_graph_archetypes
+
+        graph = _make_multigroup_coder_graph(n_groups=3)
+        config = ArchetypesConfig(verifier=True)
+
+        ensure_graph_archetypes(graph, config)
+        ensure_graph_archetypes(graph, config)
+
+        verifier_nodes = [n for n in graph.nodes.values() if n.archetype == "verifier"]
+        assert len(verifier_nodes) == 1, (
+            f"Expected exactly 1 verifier node after 2 injection calls, got {len(verifier_nodes)}"
+        )

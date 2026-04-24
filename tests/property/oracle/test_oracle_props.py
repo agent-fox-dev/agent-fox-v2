@@ -80,8 +80,7 @@ class TestPropertyRegistryCompleteness:
 
     def test_registry_completeness(self) -> None:
         """TS-32-P1: Reviewer entry with drift-review mode has auto_pre, task_assignable, allowlist."""
-        from agent_fox.archetypes import resolve_effective_config
-        from agent_fox.archetypes import ARCHETYPE_REGISTRY
+        from agent_fox.archetypes import ARCHETYPE_REGISTRY, resolve_effective_config
 
         entry = ARCHETYPE_REGISTRY["reviewer"]
         resolved = resolve_effective_config(entry, mode="drift-review")
@@ -115,7 +114,12 @@ class TestPropertyMultiAutoPre:
 
         graph = build_graph(specs, task_groups, [], archetypes_config=config)
 
-        auto_pre_nodes = [n for n in graph.nodes.values() if n.group_number == 0]
+        # Filter to only auto_pre (reviewer) nodes — auto_post nodes (e.g.
+        # verifier) may also have group_number==0 as their sentinel value.
+        auto_pre_nodes = [
+            n for n in graph.nodes.values()
+            if n.group_number == 0 and n.archetype == "reviewer"
+        ]
         assert len(auto_pre_nodes) == 2
         ids = {n.id for n in auto_pre_nodes}
         assert len(ids) == 2  # distinct
@@ -158,7 +162,12 @@ class TestPropertyBackwardCompat:
 
         graph = build_graph(specs, task_groups, [], archetypes_config=config)
 
-        auto_pre_nodes = [n for n in graph.nodes.values() if n.group_number == 0]
+        # Filter to only auto_pre (reviewer) nodes — auto_post nodes (e.g.
+        # verifier) may also have group_number==0 as their sentinel value.
+        auto_pre_nodes = [
+            n for n in graph.nodes.values()
+            if n.group_number == 0 and n.archetype == "reviewer"
+        ]
         assert len(auto_pre_nodes) == 2
         assert all(n.archetype == "reviewer" for n in auto_pre_nodes)
 
