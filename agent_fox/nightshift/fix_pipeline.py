@@ -299,7 +299,7 @@ class FixPipeline:
 
             complete_run(self._conn, self._run_id, status)
         except Exception:
-            logger.debug("Failed to complete run record for run %s", self._run_id, exc_info=True)
+            logger.warning("Failed to complete run record for run %s", self._run_id, exc_info=True)
 
     def _record_session_to_db(
         self,

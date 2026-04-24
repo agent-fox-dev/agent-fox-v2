@@ -68,6 +68,8 @@ class SessionResultHandler:
         self._graph = graph
         self._archetypes_config = archetypes_config
         self._knowledge_db_conn = knowledge_db_conn
+        if knowledge_db_conn is None:
+            logger.warning("knowledge_db_conn is None — session outcomes will not be recorded to DB")
         self._block_task = block_task_fn
         self._check_block_budget = check_block_budget_fn
 
@@ -443,7 +445,7 @@ class SessionResultHandler:
                     cost=record.cost,
                 )
             except Exception:
-                logger.debug("Failed to record session to DB", exc_info=True)
+                logger.warning("Failed to record session to DB", exc_info=True)
 
         # Ensure timeout retry counter is initialised (even for non-timeout
         # events), so callers can use .get(node_id, -1) as a sentinel for
@@ -475,7 +477,7 @@ class SessionResultHandler:
                     blocked_reason=state.blocked_reasons.get(node_id),
                 )
             except Exception:
-                logger.debug("Failed to persist node status to DB", exc_info=True)
+                logger.warning("Failed to persist node status to DB", exc_info=True)
 
     def _handle_success(
         self,
