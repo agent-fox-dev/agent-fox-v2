@@ -321,3 +321,66 @@ class TestTableNameValidation:
                 value_extractor=lambda r: [],
                 record_type_label="test",
             )
+
+
+# ---------------------------------------------------------------------------
+# AC-4: _insert_with_supersession supersedes per task_group, not just the
+# first record's task_group.
+# ---------------------------------------------------------------------------
+
+
+class TestInsertWithSupersessionPerTaskGroup:
+    """AC-4: multi-group batch supersedes all matching prior records."""
+
+    def test_cross_group_batch_supersedes_both_task_groups(
+        self, schema_conn: duckdb.DuckDBPyConnection
+    ) -> None:
+        """A batch spanning task_group='1' and '2' supersedes prior records
+        for BOTH groups, not just the first record's group."""
+        # Seed: one active finding per group from 'old' session
+        old_g1 = _make_finding(
+            description="Old group-1 finding",
+            task_group="1",
+            session_id="old",
+        )
+        old_g2 = _make_finding(
+            description="Old group-2 finding",
+            task_group="2",
+            session_id="old",
+        )
+        insert_findings(schema_conn, [old_g1])
+        insert_findings(schema_conn, [old_g2])
+
+        # Verify both are active before the new insert
+        active_before = query_active_findings(schema_conn, "test_spec")
+        assert len(active_before) == 2
+
+        # New batch spans both groups, session='new'
+        new_g1 = _make_finding(
+            description="New group-1 finding",
+            task_group="1",
+            session_id="new",
+        )
+        new_g2 = _make_finding(
+            description="New group-2 finding",
+            task_group="2",
+            session_id="new",
+        )
+        insert_findings(schema_conn, [new_g1, new_g2])
+
+        # Only the two new findings should be active
+        active_after = query_active_findings(schema_conn, "test_spec")
+        assert len(active_after) == 2
+        descriptions = {f.description for f in active_after}
+        assert descriptions == {"New group-1 finding", "New group-2 finding"}
+
+        # Both old findings must be superseded by 'new'
+        all_rows = schema_conn.execute(
+            "SELECT description, superseded_by FROM review_findings ORDER BY description"
+        ).fetchall()
+        old_rows = [r for r in all_rows if r[0].startswith("Old")]
+        assert len(old_rows) == 2, "Both old findings should be present"
+        for row in old_rows:
+            assert row[1] == "new", (
+                f"Old finding '{row[0]}' should have superseded_by='new', got '{row[1]}'"
+            )

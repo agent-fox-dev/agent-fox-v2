@@ -172,10 +172,18 @@ def _insert_with_supersession(
         return 0
 
     spec_name = records[0].spec_name
-    task_group = records[0].task_group
     session_id = records[0].session_id
 
-    superseded_ids = _supersede_active_records(conn, table, spec_name, task_group, session_id)
+    # Supersede existing active records per task_group. A batch may span
+    # multiple task_groups (e.g. cross-group findings), so we supersede each
+    # distinct task_group found in the batch rather than only the first.
+    superseded_ids: list[str] = []
+    seen_task_groups: set[str] = set()
+    for r in records:
+        tg = r.task_group
+        if tg not in seen_task_groups:
+            seen_task_groups.add(tg)
+            superseded_ids.extend(_supersede_active_records(conn, table, r.spec_name, tg, session_id))
 
     placeholders = ", ".join("?" for _ in columns.split(", "))
     for r in records:
@@ -185,12 +193,13 @@ def _insert_with_supersession(
             value_extractor(r),
         )
 
+    task_groups_label = ", ".join(sorted(seen_task_groups))
     logger.info(
-        "Inserted %d %s for %s/%s (superseded %d)",
+        "Inserted %d %s for %s/[%s] (superseded %d)",
         len(records),
         record_type_label,
         spec_name,
-        task_group,
+        task_groups_label,
         len(superseded_ids),
     )
     return len(records)

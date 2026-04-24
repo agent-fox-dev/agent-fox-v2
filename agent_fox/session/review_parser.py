@@ -287,6 +287,11 @@ def parse_review_findings(
         req_ref = obj.get("requirement_ref")
         if isinstance(req_ref, str):
             req_ref = truncate_field(req_ref, max_length=MAX_REF_LENGTH, field_name="finding.requirement_ref")
+        # Honor an explicit task_group field from the reviewer JSON output so that
+        # a reviewer running for group N can tag a finding as belonging to group M
+        # (cross-group tagging). Falls back to the caller-supplied task_group when
+        # the field is absent, preserving backward compatibility.
+        item_task_group = str(obj["task_group"]) if "task_group" in obj else task_group
         results.append(
             ReviewFinding(
                 id=str(uuid.uuid4()),
@@ -294,7 +299,7 @@ def parse_review_findings(
                 description=description,
                 requirement_ref=req_ref,
                 spec_name=spec_name,
-                task_group=task_group,  # type: ignore[arg-type]
+                task_group=item_task_group,  # type: ignore[arg-type]
                 session_id=session_id,
                 category=_classify_category(description),
             )

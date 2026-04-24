@@ -715,6 +715,36 @@ class SessionResultHandler:
 
         pred_id = predecessors[0]
 
+        # Scope check: only reset predecessor when FAIL verdicts are scoped to its
+        # task_group.  Cross-group verdicts (e.g. a verifier for group 3 producing
+        # FAIL verdicts tagged task_group='2') must not trigger a reset of group 2.
+        if self._knowledge_db_conn is not None:
+            try:
+                from agent_fox.core.node_id import parse_node_id
+                from agent_fox.knowledge.review_store import query_verdicts_by_session
+
+                parsed_pred = parse_node_id(pred_id)
+                pred_task_group = str(parsed_pred.group_number)
+                session_id = f"{node_id}:{record.attempt}"
+                session_verdicts = query_verdicts_by_session(self._knowledge_db_conn, session_id)
+                if session_verdicts:
+                    fail_for_pred = [
+                        v for v in session_verdicts if v.verdict == "FAIL" and v.task_group == pred_task_group
+                    ]
+                    if not fail_for_pred:
+                        logger.info(
+                            "Retry-predecessor: no FAIL verdicts scoped to %s (task_group=%s), skipping reset",
+                            pred_id,
+                            pred_task_group,
+                        )
+                        return False
+            except Exception:
+                logger.debug(
+                    "Failed to check task-group-scoped verdicts for %s",
+                    pred_id,
+                    exc_info=True,
+                )
+
         # 58-REQ-1.1: Record failure on predecessor's escalation ladder
         from agent_fox.routing.escalation import EscalationLadder
 
