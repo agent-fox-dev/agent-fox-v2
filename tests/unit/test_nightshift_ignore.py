@@ -394,8 +394,8 @@ class TestPathspecDependency:
             candidate = parent / "pyproject.toml"
             if candidate.exists():
                 content = candidate.read_text(encoding="utf-8")
-                assert "pathspec>=0.12" in content, (
-                    "pathspec>=0.12 not found in pyproject.toml [project] dependencies"
+                assert "pathspec>=1.0" in content, (
+                    "pathspec>=1.0 not found in pyproject.toml [project] dependencies"
                 )
                 return
         pytest.fail("pyproject.toml not found in any parent directory")
