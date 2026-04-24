@@ -748,6 +748,32 @@ def _migrate_v20(conn: duckdb.DuckDBPyConnection) -> None:
         conn.execute("ALTER TABLE session_outcomes ADD COLUMN IF NOT EXISTS coverage_data TEXT")
 
 
+def _migrate_v21(conn: duckdb.DuckDBPyConnection) -> None:
+    """Drop dead columns retrieval_summary and coverage_data from session_outcomes.
+
+    Both columns were never meaningfully consumed:
+    - retrieval_summary was never populated (always NULL).
+    - coverage_data was written but never queried or read.
+    The coverage regression gate is preserved; only the persistence path is removed.
+    """
+    tables = {
+        r[0]
+        for r in conn.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'main'").fetchall()
+    }
+    if "session_outcomes" not in tables:
+        return
+    cols = {
+        r[0]
+        for r in conn.execute(
+            "SELECT column_name FROM information_schema.columns WHERE table_name = 'session_outcomes'"
+        ).fetchall()
+    }
+    if "retrieval_summary" in cols:
+        conn.execute("ALTER TABLE session_outcomes DROP COLUMN retrieval_summary")
+    if "coverage_data" in cols:
+        conn.execute("ALTER TABLE session_outcomes DROP COLUMN coverage_data")
+
+
 # Registry of all migrations, ordered by version.
 MIGRATIONS: list[Migration] = [
     Migration(
@@ -845,6 +871,11 @@ MIGRATIONS: list[Migration] = [
         description="add coverage_data column to session_outcomes for trend tracking",
         apply=_migrate_v20,
     ),
+    Migration(
+        version=21,
+        description="drop dead columns retrieval_summary and coverage_data from session_outcomes",
+        apply=_migrate_v21,
+    ),
 ]
 
 
@@ -877,9 +908,7 @@ CREATE TABLE IF NOT EXISTS session_outcomes (
     archetype           VARCHAR,
     commit_sha          VARCHAR,
     error_message       TEXT,
-    is_transport_error  BOOLEAN DEFAULT FALSE,
-    retrieval_summary   TEXT,
-    coverage_data       TEXT
+    is_transport_error  BOOLEAN DEFAULT FALSE
 );
 
 CREATE TABLE IF NOT EXISTS plan_nodes (

@@ -389,10 +389,9 @@ class SessionResultHandler:
         """Process a completed session record and persist state."""
         update_state_with_session(state, record)
 
-        # Compute coverage data for successful coder sessions before DB write
-        coverage_data: str | None = None
+        # Run coverage regression gate for successful coder sessions
         if record.status == "completed" and self._get_node_archetype(record.node_id) == "coder":
-            coverage_data = self.check_coverage_regression(record, state, Path.cwd())
+            self.check_coverage_regression(record, state, Path.cwd())
 
         # 105-REQ-3.2: Record session outcome to DB (unified single source of truth).
         # 105-REQ-4.3: Accumulate run token/cost totals.
@@ -433,8 +432,6 @@ class SessionResultHandler:
                     commit_sha=record.commit_sha,
                     error_message=record.error_message,
                     is_transport_error=record.is_transport_error,
-                    retrieval_summary=record.retrieval_summary,  # 113-REQ-7.2
-                    coverage_data=coverage_data,
                 )
                 _record_session_db(self._knowledge_db_conn, outcome)
                 _update_run_totals(

@@ -491,17 +491,21 @@ class TestResultHandlerCoverageIntegration:
         assert result is None
 
 
-class TestMigrationV20:
-    def test_adds_coverage_data_column(self) -> None:
+class TestMigrationV21:
+    def test_drops_dead_columns(self) -> None:
         import duckdb
 
         from agent_fox.knowledge.migrations import run_migrations
 
         conn = duckdb.connect(":memory:")
         run_migrations(conn)
-        cols = conn.execute(
-            "SELECT column_name FROM information_schema.columns "
-            "WHERE table_name = 'session_outcomes' AND column_name = 'coverage_data'"
-        ).fetchall()
-        assert len(cols) == 1
+        cols = {
+            r[0]
+            for r in conn.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name = 'session_outcomes'"
+            ).fetchall()
+        }
+        assert "retrieval_summary" not in cols
+        assert "coverage_data" not in cols
         conn.close()

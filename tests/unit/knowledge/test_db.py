@@ -75,11 +75,11 @@ class TestSchemaVersionRecordedOnCreation:
         rows = db.connection.execute(
             "SELECT version, applied_at, description FROM schema_version ORDER BY version"
         ).fetchall()
-        assert len(rows) == 20
+        assert len(rows) == 21
         assert rows[0][0] == 1
         assert rows[0][1] is not None  # applied_at is a valid timestamp
         assert len(rows[0][2]) > 0  # description is non-empty
-        for i, expected_version in enumerate(range(1, 20)):
+        for i, expected_version in enumerate(range(1, 21)):
             assert rows[i][0] == expected_version
         db.close()
 
@@ -136,7 +136,7 @@ class TestSchemaInitializationIdempotent:
         db2.open()
         count = db2.connection.execute("SELECT COUNT(*) FROM schema_version").fetchone()
         assert count is not None
-        assert count[0] == 20
+        assert count[0] == 21
         db2.close()
 
 
