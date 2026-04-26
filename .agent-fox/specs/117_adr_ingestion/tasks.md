@@ -26,15 +26,15 @@ them pass, and group 5 verifies end-to-end wiring.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create test file structure
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create test file structure
     - Create `tests/unit/knowledge/test_adr.py`
     - Create `tests/property/knowledge/test_adr_props.py`
     - Add MADR fixture constants (valid content, invalid content, synonym variants)
     - Use project test conventions (pytest, in-memory DuckDB, Hypothesis)
     - _Test Spec: TS-117-1 through TS-117-22_
 
-  - [ ] 1.2 Translate acceptance-criterion tests
+  - [x] 1.2 Translate acceptance-criterion tests
     - TS-117-1: detect ADR paths in touched_files
     - TS-117-2: no ADR paths returns empty list
     - TS-117-3: parse valid MADR content
@@ -60,7 +60,7 @@ them pass, and group 5 verifies end-to-end wiring.
     - Tests MUST fail (assert against not-yet-implemented behavior)
     - _Test Spec: TS-117-1 through TS-117-22_
 
-  - [ ] 1.3 Translate edge-case tests
+  - [x] 1.3 Translate edge-case tests
     - TS-117-E1: empty touched_files
     - TS-117-E2: non-.md ADR path excluded
     - TS-117-E3: no H1 heading parse failure
@@ -71,7 +71,7 @@ them pass, and group 5 verifies end-to-end wiring.
     - TS-117-E8: superseded file_path with new content
     - _Test Spec: TS-117-E1 through TS-117-E8_
 
-  - [ ] 1.4 Translate property tests
+  - [x] 1.4 Translate property tests
     - TS-117-P1: detection accuracy
     - TS-117-P2: parse completeness
     - TS-117-P3: validation consistency
@@ -81,15 +81,15 @@ them pass, and group 5 verifies end-to-end wiring.
     - TS-117-P7: content hash determinism
     - _Test Spec: TS-117-P1 through TS-117-P7_
 
-  - [ ] 1.5 Write integration smoke tests
+  - [x] 1.5 Write integration smoke tests
     - TS-117-SMOKE-1: full ingest pipeline
     - TS-117-SMOKE-2: full retrieve pipeline
     - _Test Spec: TS-117-SMOKE-1, TS-117-SMOKE-2_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/unit/knowledge/test_adr.py tests/property/knowledge/test_adr_props.py`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/unit/knowledge/test_adr.py tests/property/knowledge/test_adr_props.py`
 
 - [ ] 2. MADR parser and validator
   - [ ] 2.1 Create `agent_fox/knowledge/adr.py` with data types
