@@ -205,9 +205,9 @@ them pass, and group 5 verifies end-to-end wiring.
     - [x] No linter warnings: `uv run ruff check agent_fox/knowledge/adr.py agent_fox/knowledge/fox_provider.py agent_fox/engine/session_lifecycle.py`
     - [x] Requirements 6.* acceptance criteria met
 
-- [ ] 5. Wiring verification
+- [x] 5. Wiring verification
 
-  - [ ] 5.1 Trace every execution path from design.md end-to-end
+  - [x] 5.1 Trace every execution path from design.md end-to-end
     - Path 1 (ingest): Verify `_ingest_knowledge` → `FoxKnowledgeProvider.ingest` →
       `detect_adr_changes` → `ingest_adr` → `parse_madr` → `validate_madr` → `store_adr`
       is live in production code (no stubs, no missing calls)
@@ -217,7 +217,7 @@ them pass, and group 5 verifies end-to-end wiring.
       satisfy this check
     - _Requirements: all_
 
-  - [ ] 5.2 Verify return values propagate correctly
+  - [x] 5.2 Verify return values propagate correctly
     - `detect_adr_changes` returns list[str] → consumed by `ingest()` loop
     - `ingest_adr` returns ADREntry | None → consumed by ingest for audit logging
     - `query_adrs` returns list[ADREntry] → consumed by `format_adrs_for_prompt`
@@ -225,19 +225,25 @@ them pass, and group 5 verifies end-to-end wiring.
     - Grep for callers of each function; confirm none discards the return
     - _Requirements: all_
 
-  - [ ] 5.3 Run the integration smoke tests
+  - [x] 5.3 Run the integration smoke tests
     - TS-117-SMOKE-1 (ingest pipeline) passes with real components
     - TS-117-SMOKE-2 (retrieve pipeline) passes with real components
     - _Test Spec: TS-117-SMOKE-1, TS-117-SMOKE-2_
 
-  - [ ] 5.4 Stub / dead-code audit
+  - [x] 5.4 Stub / dead-code audit
     - Search `agent_fox/knowledge/adr.py` for: `return []`, `return None`
       on non-Optional returns, `pass` in non-abstract methods, `# TODO`,
       `# stub`, `NotImplementedError`
     - Each hit must be either justified or replaced
     - Document any intentional stubs here with rationale
+    - Findings: All `return []` are on graceful degradation paths (REQ-6.E1,
+      REQ-6.E2, REQ-1.E1). All `return None` are on Optional return types
+      (parse failure, file missing, validation failure). No `pass`, `# TODO`,
+      `# stub`, or `NotImplementedError` found. `generate_adr_summary()` is
+      defined but not called internally — justified as spec-defined public API
+      (design.md line 140).
 
-  - [ ] 5.5 Cross-spec entry point verification
+  - [x] 5.5 Cross-spec entry point verification
     - Verify `FoxKnowledgeProvider.ingest()` is called from
       `session_lifecycle.py:_ingest_knowledge()` in production code
     - Verify `FoxKnowledgeProvider.retrieve()` is called from
@@ -246,12 +252,12 @@ them pass, and group 5 verifies end-to-end wiring.
       is reachable from them
     - _Requirements: all_
 
-  - [ ] 5.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live (traceable in code)
-    - [ ] All cross-spec entry points are called from production code
-    - [ ] All existing tests still pass: `uv run pytest -q`
+  - [x] 5.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] All cross-spec entry points are called from production code
+    - [x] All existing tests still pass: `uv run pytest -q`
 
 ### Checkbox States
 
