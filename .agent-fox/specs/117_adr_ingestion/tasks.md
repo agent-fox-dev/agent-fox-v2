@@ -91,18 +91,18 @@ them pass, and group 5 verifies end-to-end wiring.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/unit/knowledge/test_adr.py tests/property/knowledge/test_adr_props.py`
 
-- [ ] 2. MADR parser and validator
-  - [ ] 2.1 Create `agent_fox/knowledge/adr.py` with data types
+- [x] 2. MADR parser and validator
+  - [x] 2.1 Create `agent_fox/knowledge/adr.py` with data types
     - Define `ADREntry` and `ADRValidationResult` dataclasses
     - Define `_STOP_WORDS` set and `_ADR_PATH_PATTERN` regex
     - _Requirements: 2.1, 3.1_
 
-  - [ ] 2.2 Implement `detect_adr_changes()`
+  - [x] 2.2 Implement `detect_adr_changes()`
     - Filter paths matching `docs/adr/*.md` (one level, .md only)
     - Handle empty/None input gracefully
     - _Requirements: 1.1, 1.2, 1.E1, 1.E2_
 
-  - [ ] 2.3 Implement `parse_madr()`
+  - [x] 2.3 Implement `parse_madr()`
     - Extract H1 title, YAML frontmatter, H2 sections
     - Parse Considered Options bullets, Decision Outcome chosen option
     - Handle section heading synonyms
@@ -110,28 +110,28 @@ them pass, and group 5 verifies end-to-end wiring.
     - Return None on parse failure (no H1, no parseable content)
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.E1, 2.E2_
 
-  - [ ] 2.4 Implement `validate_madr()`
+  - [x] 2.4 Implement `validate_madr()`
     - Check mandatory sections present (context, options, decision)
     - Check ≥ 3 considered options
     - Check non-empty chosen_option and title
     - Return `ADRValidationResult(passed, diagnostics)`
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.E1_
 
-  - [ ] 2.5 Implement `extract_spec_refs()` and `extract_keywords()`
+  - [x] 2.5 Implement `extract_spec_refs()` and `extract_keywords()`
     - Regex extraction: `(\d+)-REQ-`, `spec[_\s]+(\d+)`, `(\d{1,3}_[a-z][a-z_]+)`
     - Title keyword extraction: split, lowercase, filter stopwords/short
     - _Requirements: 6.4, 6.5_
 
-  - [ ] 2.6 Implement `generate_adr_summary()`
+  - [x] 2.6 Implement `generate_adr_summary()`
     - Format: `{title}: Chose "{chosen}" over {others}. {justification}`
     - _Requirements: 6.2_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests pass: `uv run pytest -q tests/unit/knowledge/test_adr.py -k "detect or parse or validate or extract or format or keyword or spec_ref or summary"`
-    - [ ] Property tests pass: `uv run pytest -q tests/property/knowledge/test_adr_props.py -k "P1 or P2 or P3 or P6 or P7"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/knowledge/adr.py`
-    - [ ] Requirements 1.*, 2.*, 3.*, 6.2, 6.4, 6.5 acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests pass: `uv run pytest -q tests/unit/knowledge/test_adr.py -k "detect or parse or validate or extract or format or keyword or spec_ref or summary"`
+    - [x] Property tests pass: `uv run pytest -q tests/property/knowledge/test_adr_props.py -k "P1 or P2 or P3 or P6 or P7"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/knowledge/adr.py`
+    - [x] Requirements 1.*, 2.*, 3.*, 6.2, 6.4, 6.5 acceptance criteria met
 
 - [ ] 3. ADR storage, supersession, and migration
   - [ ] 3.1 Add DuckDB migration `_migrate_v22()` in `migrations.py`

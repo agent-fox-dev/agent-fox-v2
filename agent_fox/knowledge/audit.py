@@ -93,6 +93,8 @@ class AuditEventType(StrEnum):
     KNOWLEDGE_RETRIEVAL = "knowledge.retrieval"  # 113-REQ-7.1
     PREFLIGHT_SKIP = "preflight.skip"
     ERRATA_GENERATED = "errata.generated"
+    ADR_VALIDATION_FAILED = "adr.validation_failed"  # 117-REQ-7.2
+    ADR_INGESTED = "adr.ingested"  # 117-REQ-7.4
 
 
 # ---------------------------------------------------------------------------
