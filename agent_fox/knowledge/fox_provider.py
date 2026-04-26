@@ -1,16 +1,18 @@
-"""Concrete KnowledgeProvider: review carry-forward.
+"""Concrete KnowledgeProvider: review carry-forward + ADR retrieval.
 
 Implements the KnowledgeProvider protocol (spec 114) with review-only
-retrieval. Gotcha extraction, errata indexing, and blocking history have
-been removed (spec 116). Ingest is a no-op.
+retrieval and ADR ingestion/retrieval. Gotcha extraction, errata indexing,
+and blocking history have been removed (spec 116).
 
 Requirements: 116-REQ-1.3, 116-REQ-1.4, 116-REQ-2.2,
-              116-REQ-6.1, 116-REQ-6.2, 116-REQ-6.3, 116-REQ-6.E1
+              116-REQ-6.1, 116-REQ-6.2, 116-REQ-6.3, 116-REQ-6.E1,
+              117-REQ-1.1, 117-REQ-6.1, 117-REQ-6.3, 117-REQ-7.4
 """
 
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any
 
 from agent_fox.core.config import KnowledgeProviderConfig
@@ -21,12 +23,12 @@ logger = logging.getLogger(__name__)
 
 
 class FoxKnowledgeProvider:
-    """Concrete KnowledgeProvider: review carry-forward only.
+    """Concrete KnowledgeProvider: review carry-forward + ADR retrieval.
 
-    Retrieves active critical/major review findings for a spec.
-    Ingest is a no-op (gotcha extraction removed in spec 116).
-    Satisfies the ``KnowledgeProvider`` protocol defined in spec 114
-    (``@runtime_checkable``).
+    Retrieves active critical/major review findings, errata, and ADR
+    summaries for a spec.  Ingests ADR files detected in session
+    ``touched_files``.  Satisfies the ``KnowledgeProvider`` protocol
+    defined in spec 114 (``@runtime_checkable``).
     """
 
     def __init__(
@@ -48,9 +50,9 @@ class FoxKnowledgeProvider:
     ) -> list[str]:
         """Retrieve knowledge context for an upcoming session.
 
-        Queries active critical/major review findings and errata for the
-        given spec and returns them as prefixed strings, capped at
-        ``max_items``.
+        Queries active critical/major review findings, errata, and ADR
+        summaries for the given spec and returns them as prefixed strings,
+        capped at ``max_items``.
 
         Args:
             spec_name: Name of the spec being worked on.
@@ -62,6 +64,8 @@ class FoxKnowledgeProvider:
         Raises:
             KnowledgeStoreError: If the database connection is closed or
                 a query fails unexpectedly.
+
+        Requirements: 117-REQ-6.1, 117-REQ-6.3
         """
         try:
             conn = self._knowledge_db.connection
@@ -70,13 +74,15 @@ class FoxKnowledgeProvider:
 
         reviews = self._query_reviews(conn, spec_name)
         errata = self._query_errata(conn, spec_name)
+        adrs = self._query_adrs(conn, spec_name, task_description)
 
-        combined = reviews + errata
+        combined = reviews + errata + adrs
 
         logger.debug(
-            "Retrieved %d review + %d errata items for %s",
+            "Retrieved %d review + %d errata + %d ADR items for %s",
             len(reviews),
             len(errata),
+            len(adrs),
             spec_name,
         )
 
@@ -88,18 +94,61 @@ class FoxKnowledgeProvider:
         spec_name: str,
         context: dict[str, Any],
     ) -> None:
-        """Ingest knowledge from a completed session (no-op).
+        """Ingest knowledge from a completed session.
 
-        Gotcha extraction was removed in spec 116. This method satisfies
-        the ``KnowledgeProvider`` protocol but performs no work.
+        Detects ADR files in ``touched_files`` and ingests them into
+        the knowledge database.  Gotcha extraction was removed in
+        spec 116.
 
         Args:
             session_id: Node ID of the completed session.
             spec_name: Name of the spec the session belongs to.
             context: Dict with ``session_status``, ``touched_files``,
-                ``commit_sha``.
+                ``commit_sha``, and ``project_root``.
+
+        Requirements: 117-REQ-1.1, 117-REQ-7.4
         """
-        return None
+        from agent_fox.knowledge.adr import detect_adr_changes, ingest_adr
+
+        touched_files = context.get("touched_files") or []
+        project_root_str = context.get("project_root", "")
+        if not project_root_str:
+            return
+
+        project_root = Path(str(project_root_str))
+        adr_paths = detect_adr_changes(touched_files)
+        if not adr_paths:
+            return
+
+        try:
+            conn = self._knowledge_db.connection
+        except KnowledgeStoreError:
+            logger.warning(
+                "Knowledge DB unavailable for ADR ingestion in session %s",
+                session_id,
+            )
+            return
+
+        # Extract sink and run_id from context if available
+        sink = context.get("sink")
+        run_id = str(context.get("run_id", ""))
+
+        for adr_path in adr_paths:
+            try:
+                ingest_adr(
+                    conn,
+                    adr_path,
+                    project_root,
+                    sink=sink,
+                    run_id=run_id,
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to ingest ADR %s in session %s",
+                    adr_path,
+                    session_id,
+                    exc_info=True,
+                )
 
     # ------------------------------------------------------------------
     # Internal query helpers
@@ -156,6 +205,31 @@ class FoxKnowledgeProvider:
         except Exception:
             logger.debug(
                 "Could not query errata for %s",
+                spec_name,
+            )
+            return []
+
+    def _query_adrs(
+        self,
+        conn: Any,
+        spec_name: str,
+        task_description: str,
+    ) -> list[str]:
+        """Query ADRs matching the spec or task and format for prompt injection.
+
+        Handles missing ``adr_entries`` table gracefully by returning
+        an empty list (117-REQ-6.E1).
+
+        Requirements: 117-REQ-6.1, 117-REQ-6.3
+        """
+        try:
+            from agent_fox.knowledge.adr import format_adrs_for_prompt, query_adrs
+
+            adrs = query_adrs(conn, spec_name, task_description)
+            return format_adrs_for_prompt(adrs)
+        except Exception:
+            logger.debug(
+                "Could not query ADRs for %s",
                 spec_name,
             )
             return []

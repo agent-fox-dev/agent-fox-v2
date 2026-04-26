@@ -167,43 +167,43 @@ them pass, and group 5 verifies end-to-end wiring.
     - [x] No linter warnings: `uv run ruff check agent_fox/knowledge/adr.py agent_fox/knowledge/migrations.py agent_fox/knowledge/audit.py`
     - [x] Requirements 4.*, 5.*, 7.* acceptance criteria met
 
-- [ ] 4. ADR retrieval and FoxKnowledgeProvider integration
-  - [ ] 4.1 Implement `query_adrs()`
+- [x] 4. ADR retrieval and FoxKnowledgeProvider integration
+  - [x] 4.1 Implement `query_adrs()`
     - Query active entries (superseded_at IS NULL)
     - Match by spec_refs: extract spec number from spec_name, check overlap
     - Match by keywords: extract words from task_description, check overlap
     - Handle missing table gracefully
     - _Requirements: 6.1, 6.E1, 6.E2_
 
-  - [ ] 4.2 Implement `format_adrs_for_prompt()`
+  - [x] 4.2 Implement `format_adrs_for_prompt()`
     - Format: `[ADR] {summary}` using generate_adr_summary output
     - Return list of formatted strings
     - _Requirements: 6.2_
 
-  - [ ] 4.3 Update `FoxKnowledgeProvider.ingest()` in `fox_provider.py`
+  - [x] 4.3 Update `FoxKnowledgeProvider.ingest()` in `fox_provider.py`
     - Extract `touched_files` and `project_root` from context dict
     - Call `detect_adr_changes(touched_files)`
     - For each ADR path, call `ingest_adr(conn, path, project_root)`
     - Pass sink and run_id for audit events (add to FoxKnowledgeProvider.__init__ or context)
     - _Requirements: 1.1, 7.4_
 
-  - [ ] 4.4 Update `FoxKnowledgeProvider.retrieve()` in `fox_provider.py`
+  - [x] 4.4 Update `FoxKnowledgeProvider.retrieve()` in `fox_provider.py`
     - Add `_query_adrs()` helper method
     - Call `query_adrs()` and `format_adrs_for_prompt()`
     - Include ADR results alongside reviews and errata, capped at max_items
     - _Requirements: 6.1, 6.3_
 
-  - [ ] 4.5 Update `_ingest_knowledge()` in `session_lifecycle.py`
+  - [x] 4.5 Update `_ingest_knowledge()` in `session_lifecycle.py`
     - Add `"project_root": str(repo_root)` to the context dict
     - _Requirements: (enables 4.3)_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Spec tests pass: `uv run pytest -q tests/unit/knowledge/test_adr.py -k "query or retrieve or provider or format_prompt"`
-    - [ ] Property tests pass: `uv run pytest -q tests/property/knowledge/test_adr_props.py -k "P5 or P6"`
-    - [ ] Smoke test 2 passes: `uv run pytest -q tests/unit/knowledge/test_adr.py -k "smoke_2 or SMOKE_2"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/knowledge/adr.py agent_fox/knowledge/fox_provider.py agent_fox/engine/session_lifecycle.py`
-    - [ ] Requirements 6.* acceptance criteria met
+  - [x] 4.V Verify task group 4
+    - [x] Spec tests pass: `uv run pytest -q tests/unit/knowledge/test_adr.py -k "query or retrieve or provider or format_prompt"`
+    - [x] Property tests pass: `uv run pytest -q tests/property/knowledge/test_adr_props.py -k "P5 or P6"`
+    - [x] Smoke test 2 passes: `uv run pytest -q tests/unit/knowledge/test_adr.py -k "smoke_2 or SMOKE_2"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/knowledge/adr.py agent_fox/knowledge/fox_provider.py agent_fox/engine/session_lifecycle.py`
+    - [x] Requirements 6.* acceptance criteria met
 
 - [ ] 5. Wiring verification
 
