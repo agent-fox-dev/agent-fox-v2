@@ -319,6 +319,12 @@ def assemble_context(
     # Attempt legacy file migration first (27-REQ-10.1, 27-REQ-10.2)
     _migrate_legacy_files(conn, spec_dir, spec_name)
 
+    # Index errata markdown files into DB so _query_errata() has data
+    if project_root is not None:
+        from agent_fox.knowledge.errata import index_errata_from_markdown
+
+        index_errata_from_markdown(conn, project_root)
+
     # DB-backed rendering (27-REQ-5.1, 27-REQ-5.2, 38-REQ-4.3)
     review_md = render_review_context(conn, spec_name)
     if review_md is not None:

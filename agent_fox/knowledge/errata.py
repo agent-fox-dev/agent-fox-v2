@@ -12,6 +12,7 @@ the "don't repeat mistakes" feedback loop.
 from __future__ import annotations
 
 import logging
+import re
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -227,3 +228,131 @@ def persist_erratum_markdown(
 
     logger.info("Wrote erratum markdown to %s", filepath)
     return filepath
+
+
+def _parse_errata_markdown(spec_name: str, content: str) -> list[Erratum]:
+    """Parse errata markdown content into Erratum objects.
+
+    Supports two formats:
+
+    - **Auto-generated**: structured ``### Finding N`` blocks with
+      ``**Summary:**``, ``**Task Group:**``, ``**Requirement:**``,
+      ``**Fix:**`` fields — produces one Erratum per finding block.
+    - **Manual/narrative**: free-form prose — produces one synthetic
+      Erratum per file, using the document title as the finding summary.
+
+    Returns an empty list if content is empty or no meaningful content
+    is found.
+    """
+    if not content.strip():
+        return []
+
+    errata: list[Erratum] = []
+
+    # Detect and parse structured "### Finding N" blocks (auto-generated format)
+    finding_blocks = re.split(r"### Finding \d+", content)
+    if len(finding_blocks) > 1:
+        for block in finding_blocks[1:]:  # skip pre-finding header
+            summary_match = re.search(r"\*\*Summary:\*\*\s*(.+)", block)
+            tg_match = re.search(r"\*\*Task Group:\*\*\s*(.+)", block)
+            req_match = re.search(r"\*\*Requirement:\*\*\s*(.+)", block)
+            fix_match = re.search(r"\*\*Fix:\*\*\s*(.+)", block)
+
+            finding_summary = summary_match.group(1).strip() if summary_match else None
+            if not finding_summary:
+                continue
+            errata.append(
+                Erratum(
+                    id=str(uuid.uuid4()),
+                    spec_name=spec_name,
+                    task_group=tg_match.group(1).strip() if tg_match else "1",
+                    finding_summary=finding_summary,
+                    requirement_ref=req_match.group(1).strip() if req_match else None,
+                    fix_summary=fix_match.group(1).strip() if fix_match else None,
+                )
+            )
+
+    if errata:
+        return errata
+
+    # Manual/narrative format: produce one synthetic Erratum from the title
+    title_match = re.search(r"^# (.+)", content, re.MULTILINE)
+    finding_summary = title_match.group(1).strip() if title_match else f"Spec erratum for {spec_name}"
+    errata.append(
+        Erratum(
+            id=str(uuid.uuid4()),
+            spec_name=spec_name,
+            task_group="1",
+            finding_summary=finding_summary[:500],  # cap length
+        )
+    )
+    return errata
+
+
+def index_errata_from_markdown(
+    conn: duckdb.DuckDBPyConnection,
+    project_root: Path,
+) -> int:
+    """Index errata markdown files into the DuckDB ``errata`` table.
+
+    Reads every ``*.md`` file under ``docs/errata/``, derives
+    ``spec_name`` from the filename stem (stripping the ``_auto_errata``
+    suffix when present), and inserts ``Erratum`` rows for each file
+    that has no existing rows for that ``spec_name``.
+
+    Idempotent: skips files whose ``spec_name`` already has rows in the
+    table. Parse failures on individual files are logged as warnings and
+    skipped — they do not abort indexing of other files or raise.
+
+    Returns the total number of rows inserted. Returns 0 silently if the
+    ``errata`` table does not exist, matching the graceful-degradation
+    contract of :func:`store_errata`.
+    """
+    errata_dir = project_root / "docs" / "errata"
+    if not errata_dir.is_dir():
+        logger.debug("No errata directory at %s, skipping indexing", errata_dir)
+        return 0
+
+    # Probe for table existence before touching any files
+    try:
+        conn.execute("SELECT 1 FROM errata LIMIT 0")
+    except duckdb.CatalogException:
+        logger.debug("errata table does not exist, skipping index_errata_from_markdown")
+        return 0
+
+    total_inserted = 0
+    for md_file in sorted(errata_dir.glob("*.md")):
+        spec_name = md_file.stem
+        if spec_name.endswith("_auto_errata"):
+            spec_name = spec_name[: -len("_auto_errata")]
+
+        # Idempotency: skip if already indexed for this spec
+        if query_errata(conn, spec_name, limit=1):
+            logger.debug("Errata already indexed for %s, skipping", spec_name)
+            continue
+
+        try:
+            content = md_file.read_text(encoding="utf-8")
+            parsed = _parse_errata_markdown(spec_name, content)
+        except Exception:
+            logger.warning(
+                "Failed to parse errata file %s, skipping",
+                md_file,
+                exc_info=True,
+            )
+            continue
+
+        if not parsed:
+            logger.warning("No errata parsed from %s, skipping", md_file)
+            continue
+
+        inserted = store_errata(conn, parsed)
+        total_inserted += inserted
+
+    if total_inserted > 0:
+        logger.info(
+            "Indexed %d errata from markdown files in %s",
+            total_inserted,
+            errata_dir,
+        )
+    return total_inserted

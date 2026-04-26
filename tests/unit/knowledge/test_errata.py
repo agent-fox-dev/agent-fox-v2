@@ -12,11 +12,11 @@ from agent_fox.knowledge.errata import (
     Erratum,
     format_errata_for_prompt,
     generate_errata_from_findings,
+    index_errata_from_markdown,
     persist_erratum_markdown,
     query_errata,
     store_errata,
 )
-
 
 # -- Helpers / stubs -----------------------------------------------------------
 
@@ -274,7 +274,11 @@ class TestMigrationV19:
                 "SELECT column_name FROM information_schema.columns WHERE table_name = 'errata'"
             ).fetchall()
         }
-        assert {"id", "spec_name", "task_group", "finding_summary", "requirement_ref", "fix_summary", "created_at"} == cols
+        expected_cols = {
+            "id", "spec_name", "task_group", "finding_summary",
+            "requirement_ref", "fix_summary", "created_at",
+        }
+        assert expected_cols == cols
 
         conn.close()
 
@@ -287,4 +291,183 @@ class TestMigrationV19:
 
         rows = conn.execute("SELECT COUNT(*) FROM schema_version WHERE version = 19").fetchone()
         assert rows is not None and rows[0] == 1
+        conn.close()
+
+
+# -- index_errata_from_markdown ------------------------------------------------
+
+
+class TestIndexErrataFromMarkdown:
+    """Tests for index_errata_from_markdown() (AC-1 through AC-5)."""
+
+    def _make_errata_dir(self, tmp_path: Path) -> Path:
+        errata_dir = tmp_path / "docs" / "errata"
+        errata_dir.mkdir(parents=True)
+        return errata_dir
+
+    def test_indexes_auto_generated_format(self, tmp_path: Path) -> None:
+        """AC-1: Auto-generated format with structured findings is indexed."""
+        conn = duckdb.connect(":memory:")
+        _create_errata_table(conn)
+
+        errata_dir = self._make_errata_dir(tmp_path)
+        (errata_dir / "my_spec_auto_errata.md").write_text(
+            "# Errata: my_spec (auto-generated)\n\n"
+            "**Spec:** my_spec\n\n"
+            "## Findings\n\n"
+            "### Finding 1\n\n"
+            "**Summary:** [critical] Bad bug\n"
+            "**Task Group:** 2\n"
+            "**Requirement:** REQ-1.1\n",
+            encoding="utf-8",
+        )
+
+        count = index_errata_from_markdown(conn, tmp_path)
+
+        assert count > 0
+        results = query_errata(conn, "my_spec")
+        assert len(results) >= 1
+        assert results[0].finding_summary == "[critical] Bad bug"
+        assert results[0].task_group == "2"
+        assert results[0].requirement_ref == "REQ-1.1"
+        conn.close()
+
+    def test_indexes_manual_narrative_format(self, tmp_path: Path) -> None:
+        """AC-1: Manual/narrative format produces one synthetic Erratum per file."""
+        conn = duckdb.connect(":memory:")
+        _create_errata_table(conn)
+
+        errata_dir = self._make_errata_dir(tmp_path)
+        (errata_dir / "42_my_spec.md").write_text(
+            "# Errata: 42_my_spec — DuckDB FK Bug\n\n"
+            "Some narrative about the divergence.\n",
+            encoding="utf-8",
+        )
+
+        count = index_errata_from_markdown(conn, tmp_path)
+
+        assert count > 0
+        results = query_errata(conn, "42_my_spec")
+        assert len(results) >= 1
+        assert "DuckDB FK Bug" in results[0].finding_summary
+        conn.close()
+
+    def test_derives_spec_name_strips_auto_errata_suffix(self, tmp_path: Path) -> None:
+        """AC-1: spec_name is derived by stripping _auto_errata from filename stem."""
+        conn = duckdb.connect(":memory:")
+        _create_errata_table(conn)
+
+        errata_dir = self._make_errata_dir(tmp_path)
+        (errata_dir / "spec_42_auto_errata.md").write_text(
+            "# Errata: spec_42 (auto-generated)\n\n"
+            "## Findings\n\n"
+            "### Finding 1\n\n"
+            "**Summary:** [major] Issue\n"
+            "**Task Group:** 1\n",
+            encoding="utf-8",
+        )
+
+        index_errata_from_markdown(conn, tmp_path)
+
+        # Indexed under "spec_42", not "spec_42_auto_errata"
+        assert len(query_errata(conn, "spec_42")) >= 1
+        assert query_errata(conn, "spec_42_auto_errata") == []
+        conn.close()
+
+    def test_idempotent_second_call_no_duplicates(self, tmp_path: Path) -> None:
+        """AC-2: Calling twice does not insert duplicate rows."""
+        conn = duckdb.connect(":memory:")
+        _create_errata_table(conn)
+
+        errata_dir = self._make_errata_dir(tmp_path)
+        (errata_dir / "my_spec_auto_errata.md").write_text(
+            "# Errata: my_spec (auto-generated)\n\n"
+            "## Findings\n\n"
+            "### Finding 1\n\n"
+            "**Summary:** [critical] Issue\n"
+            "**Task Group:** 1\n",
+            encoding="utf-8",
+        )
+
+        index_errata_from_markdown(conn, tmp_path)
+        index_errata_from_markdown(conn, tmp_path)
+
+        count = conn.execute(
+            "SELECT COUNT(*) FROM errata WHERE spec_name = 'my_spec'"
+        ).fetchone()[0]
+        assert count == 1  # exactly one row, not duplicated
+        conn.close()
+
+    def test_empty_file_skipped_valid_file_indexed(self, tmp_path: Path) -> None:
+        """AC-4: Empty/unparseable files are skipped; valid files are indexed."""
+        conn = duckdb.connect(":memory:")
+        _create_errata_table(conn)
+
+        errata_dir = self._make_errata_dir(tmp_path)
+        # Empty file — no meaningful content
+        (errata_dir / "empty_spec.md").write_text("", encoding="utf-8")
+        # Valid file
+        (errata_dir / "valid_spec.md").write_text(
+            "# Errata: valid_spec — Real Issue\n\nContent here.\n",
+            encoding="utf-8",
+        )
+
+        # Must not raise
+        index_errata_from_markdown(conn, tmp_path)
+
+        # The valid file should be indexed; empty file skipped
+        results = query_errata(conn, "valid_spec")
+        assert len(results) >= 1
+        assert query_errata(conn, "empty_spec") == []
+        conn.close()
+
+    def test_missing_errata_table_returns_zero(self, tmp_path: Path) -> None:
+        """AC-5: Missing errata table returns 0 without raising."""
+        conn = duckdb.connect(":memory:")  # no migrations, no errata table
+
+        errata_dir = self._make_errata_dir(tmp_path)
+        (errata_dir / "my_spec.md").write_text(
+            "# Errata: my_spec — Something\n", encoding="utf-8"
+        )
+
+        count = index_errata_from_markdown(conn, tmp_path)
+
+        assert count == 0
+        conn.close()
+
+    def test_no_errata_dir_returns_zero(self, tmp_path: Path) -> None:
+        """Returns 0 when docs/errata/ does not exist."""
+        conn = duckdb.connect(":memory:")
+        _create_errata_table(conn)
+
+        count = index_errata_from_markdown(conn, tmp_path)
+
+        assert count == 0
+        conn.close()
+
+    def test_multiple_findings_in_auto_generated(self, tmp_path: Path) -> None:
+        """Multiple Finding blocks each produce an Erratum row."""
+        conn = duckdb.connect(":memory:")
+        _create_errata_table(conn)
+
+        errata_dir = self._make_errata_dir(tmp_path)
+        (errata_dir / "multi_spec_auto_errata.md").write_text(
+            "# Errata: multi_spec (auto-generated)\n\n"
+            "## Findings\n\n"
+            "### Finding 1\n\n"
+            "**Summary:** [critical] First problem\n"
+            "**Task Group:** 1\n\n"
+            "### Finding 2\n\n"
+            "**Summary:** [major] Second problem\n"
+            "**Task Group:** 1\n",
+            encoding="utf-8",
+        )
+
+        count = index_errata_from_markdown(conn, tmp_path)
+
+        assert count == 2
+        results = query_errata(conn, "multi_spec")
+        summaries = {r.finding_summary for r in results}
+        assert "[critical] First problem" in summaries
+        assert "[major] Second problem" in summaries
         conn.close()
