@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 from pathlib import Path
 
 import duckdb
@@ -256,6 +257,39 @@ class TestAuditJsonlSink:
         with caplog.at_level(logging.WARNING):
             sink.emit_audit_event(event)  # should not raise
         assert any("Failed to write audit event" in r.message for r in caplog.records)
+
+    def test_concurrent_writes_no_data_loss(self, tmp_path: Path) -> None:
+        """AC-1: Concurrent writes from multiple threads produce no data loss.
+
+        Spawns 5 threads each emitting 20 AuditEvents via a shared sink.
+        After all threads complete the JSONL file must contain exactly 100
+        lines, each parseable as JSON with the correct event_type.
+        """
+        audit_dir = tmp_path / "audit"
+        sink = AuditJsonlSink(audit_dir, "concurrent")
+        threads_count = 5
+        events_per_thread = 20
+        expected_total = threads_count * events_per_thread
+
+        def emit_events() -> None:
+            for _ in range(events_per_thread):
+                event = AuditEvent(run_id="concurrent", event_type=AuditEventType.RUN_START)
+                sink.emit_audit_event(event)
+
+        threads = [threading.Thread(target=emit_events) for _ in range(threads_count)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        file_path = audit_dir / "audit_concurrent.jsonl"
+        raw_lines = [ln for ln in file_path.read_text().splitlines() if ln.strip()]
+        assert len(raw_lines) == expected_total, (
+            f"Expected {expected_total} lines, got {len(raw_lines)} — data loss detected"
+        )
+        for line in raw_lines:
+            parsed = json.loads(line)
+            assert parsed["event_type"] == "run.start"
 
 
 # -- TS-40-7, TS-40-8: Migration Tests ----------------------------------------

@@ -78,12 +78,23 @@ async def _clean_conflicting_untracked(
     """Remove untracked files that exist in the incoming feature branch.
 
     Git refuses to merge when untracked working-tree files would be
-    overwritten. This finds the intersection of untracked files and
-    files introduced by the feature branch, and removes them so the
-    merge can proceed.
+    overwritten.  This finds the intersection of untracked files and
+    files introduced by the feature branch, then removes them *only*
+    when their on-disk content is identical to the branch version.
+
+    If any conflicting untracked file has content that differs from the
+    branch version (i.e. local work not yet committed), the function
+    raises IntegrationError rather than silently destroying that work.
+
+    If content cannot be verified (git error, unreadable file), the
+    file is preserved and a WARNING is logged.
 
     Only removes files — never directories — and only those that would
     actually conflict with the merge.
+
+    Raises:
+        IntegrationError: If any conflicting untracked file has content
+            that diverges from the feature branch version.
     """
     # List untracked files in the repo root
     rc, stdout, _ = await run_git(
@@ -113,17 +124,81 @@ async def _clean_conflicting_untracked(
     if not conflicts:
         return
 
-    logger.info(
-        "Removing %d untracked file(s) that would block merge: %s",
-        len(conflicts),
-        ", ".join(sorted(conflicts)[:5]),
-    )
-    for path in conflicts:
+    safe_to_remove: list[str] = []
+    divergent: list[str] = []
+    unverifiable: list[str] = []
+
+    for path in sorted(conflicts):
+        # Fetch the feature branch version of this file to compare content.
+        try:
+            show_rc, branch_content, _ = await run_git(
+                ["show", f"{feature_branch}:{path}"],
+                cwd=repo_root,
+                check=False,
+            )
+        except Exception:
+            # Encoding error (e.g. binary file) or other failure — cannot
+            # verify content; preserve the file conservatively.
+            logger.warning(
+                "Cannot verify untracked file '%s' against feature branch '%s'; "
+                "skipping deletion to preserve potential local work",
+                path,
+                feature_branch,
+            )
+            unverifiable.append(path)
+            continue
+
+        if show_rc != 0:
+            # git show returned an error — skip conservatively.
+            logger.warning(
+                "Cannot verify untracked file '%s' against feature branch '%s' "
+                "(git show returned %d); skipping deletion",
+                path,
+                feature_branch,
+                show_rc,
+            )
+            unverifiable.append(path)
+            continue
+
+        # Compare on-disk content with the branch version.
         full = repo_root / path
         try:
-            full.unlink(missing_ok=True)
+            disk_content = full.read_text()
         except OSError:
-            logger.debug("Could not remove untracked file %s", full)
+            unverifiable.append(path)
+            continue
+
+        if disk_content == branch_content:
+            safe_to_remove.append(path)
+        else:
+            divergent.append(path)
+
+    if divergent:
+        logger.warning(
+            "Refusing to remove %d untracked file(s) whose content differs from feature branch '%s': %s",
+            len(divergent),
+            feature_branch,
+            ", ".join(divergent),
+        )
+        raise IntegrationError(
+            f"Untracked file(s) with content that diverges from the feature "
+            f"branch would be overwritten by merge: {', '.join(divergent)}",
+            branch=feature_branch,
+        )
+
+    if safe_to_remove:
+        logger.warning(
+            "Removing %d untracked file(s) that would block merge (content matches feature branch '%s'): %s",
+            len(safe_to_remove),
+            feature_branch,
+            ", ".join(sorted(safe_to_remove)),
+        )
+        for path in safe_to_remove:
+            full = repo_root / path
+            try:
+                full.unlink(missing_ok=True)
+            except OSError:
+                logger.debug("Could not remove untracked file %s", full)
 
 
 async def _build_squash_message(

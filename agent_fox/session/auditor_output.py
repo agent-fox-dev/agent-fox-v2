@@ -36,6 +36,7 @@ def persist_auditor_results(
     attempt: int = 1,
     project_root: Path | None = None,
     conn: Any = None,
+    task_group: str = "0",
 ) -> None:
     """Write audit findings to .agent-fox/audit/audit_{spec_name}.md.
 
@@ -58,6 +59,11 @@ def persist_auditor_results(
             when not supplied, for backward compatibility.
         conn: Optional DuckDB connection for persisting findings to
             review_findings table (113-REQ-4.1).
+        task_group: The task group string derived from the audit-review node
+            context (e.g. ``"3"`` from node_id ``foo:3:reviewer:audit-review``).
+            Passed through to each ``ReviewFinding`` so supersession matches
+            on the correct ``(spec_name, task_group)`` pair. Defaults to
+            ``"0"`` for backward compatibility.
 
     Requirements: 46-REQ-8.1, 46-REQ-8.E2,
                   92-REQ-1.1, 92-REQ-1.2, 92-REQ-1.3, 92-REQ-1.E1,
@@ -134,7 +140,7 @@ def persist_auditor_results(
 
     # 113-REQ-4.1: Persist non-PASS audit entries to review_findings table
     if conn is not None:
-        _persist_audit_findings_to_db(conn, spec_name, result, attempt)
+        _persist_audit_findings_to_db(conn, spec_name, result, attempt, task_group=task_group)
 
 
 def _persist_audit_findings_to_db(
@@ -142,11 +148,17 @@ def _persist_audit_findings_to_db(
     spec_name: str,
     result: AuditResult,
     attempt: int,
+    *,
+    task_group: str,
 ) -> None:
     """Persist audit entries as review findings with category='audit'.
 
     Converts each non-PASS AuditEntry to a ReviewFinding and inserts
     into the review_findings table. Failures are logged and do not raise.
+
+    The ``task_group`` must be the real group number from the audit-review
+    node context (e.g. ``"3"`` for node ``foo:3:reviewer:audit-review``),
+    so that supersession correctly matches on ``(spec_name, task_group)``.
 
     Requirements: 113-REQ-4.1, 113-REQ-4.E1
     """
@@ -172,7 +184,7 @@ def _persist_audit_findings_to_db(
                 description=description,
                 requirement_ref=None,
                 spec_name=spec_name,
-                task_group="",
+                task_group=task_group,
                 session_id=session_id,
                 superseded_by=None,
                 category="audit",

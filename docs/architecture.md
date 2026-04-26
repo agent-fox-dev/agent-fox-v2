@@ -530,7 +530,7 @@ without modifying the package.
    (grouped by severity for reviews, tabular for verifications). This gives the
    agent visibility into prior quality assessments on this spec.
 
-3. **Steering directives.** Project-wide guidance from `.agent-fox/specs/steering.md`
+3. **Steering directives.** Project-wide guidance from `.agent-fox/steering.md`
    is included after spec files.
 
 4. **Knowledge facts.** Relevant facts from the knowledge store are retrieved by

@@ -12,7 +12,7 @@ understand the product — without ever looking at the code.
 
 ## Project Steering Directives
 
-If `{{SPEC_ROOT}}/steering.md` exists in the project root, read it and follow any
+If `.agent-fox/steering.md` exists in the project root, read it and follow any
 directives it contains before proceeding. These project-level directives apply
 to all agents and skills working on this project.
 

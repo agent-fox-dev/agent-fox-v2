@@ -29,14 +29,14 @@ def _make_spec_dir(root: Path) -> Path:
 
 
 def _make_steering_file(root: Path, content: str) -> Path:
-    """Create steering.md in the spec root directory.
+    """Create steering.md in the .agent-fox directory.
 
-    The spec root is the parent of spec directories (root / "specs" here),
-    matching the layout used by _make_spec_dir.
+    Steering now lives at {project_root}/.agent-fox/steering.md,
+    separate from the spec directories.
     """
-    specs_dir = root / "specs"
-    specs_dir.mkdir(exist_ok=True)
-    steering_path = specs_dir / "steering.md"
+    agent_fox_dir = root / ".agent-fox"
+    agent_fox_dir.mkdir(exist_ok=True)
+    steering_path = agent_fox_dir / "steering.md"
     steering_path.write_text(content)
     return steering_path
 

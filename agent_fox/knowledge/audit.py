@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -92,6 +93,8 @@ class AuditEventType(StrEnum):
     KNOWLEDGE_RETRIEVAL = "knowledge.retrieval"  # 113-REQ-7.1
     PREFLIGHT_SKIP = "preflight.skip"
     ERRATA_GENERATED = "errata.generated"
+    ADR_VALIDATION_FAILED = "adr.validation_failed"  # 117-REQ-7.2
+    ADR_INGESTED = "adr.ingested"  # 117-REQ-7.4
 
 
 # ---------------------------------------------------------------------------
@@ -218,17 +221,23 @@ class AuditJsonlSink:
         self._audit_dir = audit_dir
         self._run_id = run_id
         self._file_path = audit_dir / f"audit_{run_id}.jsonl"
+        self._lock = threading.Lock()
         try:
             self._audit_dir.mkdir(parents=True, exist_ok=True)
         except OSError:
             logger.warning("Failed to create audit directory: %s", self._audit_dir)
 
     def emit_audit_event(self, event: AuditEvent) -> None:
-        """Append a JSON line to the audit file."""
+        """Append a JSON line to the audit file.
+
+        Uses a threading.Lock to serialize concurrent writes from multiple
+        threads, preventing interleaved or lost appends.
+        """
         line = event_to_json(event)
         try:
-            with open(self._file_path, "a") as f:
-                f.write(line + "\n")
+            with self._lock:
+                with open(self._file_path, "a") as f:
+                    f.write(line + "\n")
         except OSError:
             logger.warning("Failed to write audit event to %s", self._file_path)
 

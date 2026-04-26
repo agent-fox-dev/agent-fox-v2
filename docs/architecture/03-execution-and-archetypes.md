@@ -255,7 +255,7 @@ The task context layer is assembled from the following sources, in order:
    Legacy on-disk review and verification files are migrated to the database
    on first access.
 
-4. **Steering directives.** Project-wide guidance from `.specs/steering.md`
+4. **Steering directives.** Project-wide guidance from `.agent-fox/steering.md`
    is included after spec files and before memory facts. Placeholder-only
    steering files (containing only HTML comment sentinels) are detected and
    skipped.

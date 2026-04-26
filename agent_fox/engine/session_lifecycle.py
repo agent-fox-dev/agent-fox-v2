@@ -554,19 +554,25 @@ class NodeSessionRunner:
         touched_files: list[str],
         commit_sha: str,
         session_status: str,
+        *,
+        repo_root: Path | None = None,
     ) -> None:
         """Ingest knowledge from a completed session via the KnowledgeProvider.
 
         Builds a context dict with session metadata and delegates to the
         provider's ingest() method.
 
-        Requirements: 114-REQ-4.1, 114-REQ-4.E1
+        Requirements: 114-REQ-4.1, 114-REQ-4.E1, 117-REQ-1.1
         """
         context: dict[str, object] = {
             "touched_files": touched_files,
             "commit_sha": commit_sha,
             "session_status": session_status,
         }
+        if repo_root is not None:
+            context["project_root"] = str(repo_root)
+            context["sink"] = self._sink
+            context["run_id"] = self._run_id
         try:
             self._knowledge_provider.ingest(node_id, self._spec_name, context)
         except Exception:
@@ -737,7 +743,10 @@ class NodeSessionRunner:
                 outcome_response=outcome.response,
             )
             # 114-REQ-4.1: Ingest knowledge via KnowledgeProvider
-            self._ingest_knowledge(node_id, touched_files, commit_sha, status)
+            self._ingest_knowledge(
+                node_id, touched_files, commit_sha, status,
+                repo_root=repo_root,
+            )
 
         return SessionRecord(
             node_id=node_id,

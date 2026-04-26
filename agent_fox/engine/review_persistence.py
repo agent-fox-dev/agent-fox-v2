@@ -377,6 +377,7 @@ def persist_review_findings(
                 attempt=attempt,
                 project_root=Path.cwd(),
                 conn=knowledge_db_conn,
+                task_group=tg,
             )
 
     except Exception:

@@ -298,7 +298,7 @@ def assemble_context(
     Appends relevant memory facts (if provided).
 
     When project_root is provided, includes steering directives from
-    .specs/steering.md after spec files and before memory facts
+    .agent-fox/steering.md after spec files and before memory facts
     (64-REQ-2.1, 64-REQ-2.2).
 
     When archetype is ``"verifier"``, appends a structured verification
@@ -318,6 +318,12 @@ def assemble_context(
 
     # Attempt legacy file migration first (27-REQ-10.1, 27-REQ-10.2)
     _migrate_legacy_files(conn, spec_dir, spec_name)
+
+    # Index errata markdown files into DB so _query_errata() has data
+    if project_root is not None:
+        from agent_fox.knowledge.errata import index_errata_from_markdown
+
+        index_errata_from_markdown(conn, project_root)
 
     # DB-backed rendering (27-REQ-5.1, 27-REQ-5.2, 38-REQ-4.3)
     review_md = render_review_context(conn, spec_name)

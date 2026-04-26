@@ -11,7 +11,7 @@ Before making any changes, orient yourself:
 2. **Read `docs/memory.md`** — accumulated knowledge from prior automated
    sessions: gotchas, patterns, decisions, conventions, fragile areas. Skipping
    this file means repeating mistakes that were already discovered.
-3. **Read `{{SPEC_ROOT}}/steering.md`** if it exists — project-level directives that
+3. **Read `.agent-fox/steering.md`** if it exists — project-level directives that
    apply to all agents and skills. Follow any instructions found there.
 4. **Read relevant specs** in `{{SPEC_ROOT}}/` for the area you're working on.
 5. **Read ADRs** in `docs/adr/` for architectural context.

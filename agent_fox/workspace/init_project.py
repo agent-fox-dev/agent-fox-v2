@@ -29,6 +29,7 @@ _GITIGNORE_ENTRIES = [
     "# agent-fox",
     ".agent-fox/*",
     "!.agent-fox/config.toml",
+    "!.agent-fox/steering.md",
     "!.agent-fox/specs/",
     "!.agent-fox/profiles/",
     "!.agent-fox/profiles/*",
@@ -337,7 +338,7 @@ def _ensure_agents_md(project_root: Path) -> str:
 
 
 def _ensure_steering_md(project_root: Path, specs_dir: Path | None = None) -> str:
-    """Create {spec_root}/steering.md placeholder if it does not exist.
+    """Create .agent-fox/steering.md placeholder if it does not exist.
 
     Returns:
         "created" if the file was written, "skipped" if it already existed
@@ -346,31 +347,28 @@ def _ensure_steering_md(project_root: Path, specs_dir: Path | None = None) -> st
     Requirements: 64-REQ-1.1, 64-REQ-1.2, 64-REQ-1.3, 64-REQ-1.4,
                   64-REQ-1.E1
     """
-    if specs_dir is None:
-        from agent_fox.core.config import AgentFoxConfig
-
-        specs_dir = project_root / AgentFoxConfig().paths.spec_root
-    steering_path = specs_dir / "steering.md"
+    agent_fox_dir = project_root / ".agent-fox"
+    steering_path = agent_fox_dir / "steering.md"
 
     # 64-REQ-1.2: Skip if already exists
     if steering_path.exists():
         return "skipped"
 
-    # 64-REQ-1.4: Create spec root directory if needed
+    # 64-REQ-1.4: Create .agent-fox directory if needed
     try:
-        specs_dir.mkdir(parents=True, exist_ok=True)
+        agent_fox_dir.mkdir(parents=True, exist_ok=True)
     except OSError as exc:
         # 64-REQ-1.E1: Permission error — log warning and continue
         logger.warning(
-            "Cannot create spec root directory at %s: %s — skipping steering.md",
-            specs_dir,
+            "Cannot create .agent-fox directory at %s: %s — skipping steering.md",
+            agent_fox_dir,
             exc,
         )
         return "skipped"
 
     # 64-REQ-1.1, 64-REQ-1.3: Write placeholder with sentinel
     steering_path.write_text(_STEERING_PLACEHOLDER, encoding="utf-8")
-    logger.debug("Created %s/steering.md placeholder", specs_dir)
+    logger.debug("Created %s/steering.md placeholder", agent_fox_dir)
     return "created"
 
 
