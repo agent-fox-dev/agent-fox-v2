@@ -8,7 +8,7 @@ prompt. Work within the context provided.
 
 Before making any changes, orient yourself:
 
-1. **Read `.specs/steering.md`** if it exists — project-level directives that
+1. **Read `.agent-fox/steering.md`** if it exists — project-level directives that
    apply to all agents and skills. Follow any instructions found there.
 2. **Read relevant specs** in `.specs/` for the area you're working on.
 3. **Read ADRs** in `docs/adr/` for architectural context.

@@ -20,7 +20,7 @@ injection, auth bugs, secrets, crypto misuse, or "is this code safe?"
 
 ## Project Steering Directives
 
-If `.agent-fox/specs/steering.md` exists in the project root, read it and follow any
+If `.agent-fox/steering.md` exists in the project root, read it and follow any
 directives it contains before proceeding. These project-level directives apply
 to all agents and skills working on this project.
 

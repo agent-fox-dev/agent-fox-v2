@@ -27,7 +27,7 @@ class TestLoadSteeringReturnsContentForRealDirectives:
         """load_steering() returns the file content (stripped) for real directives."""
         from agent_fox.session.prompt import load_steering
 
-        specs_dir = tmp_path / ".specs"
+        specs_dir = tmp_path / ".agent-fox"
         specs_dir.mkdir()
         (specs_dir / "steering.md").write_text("Always use type hints.\n")
 
@@ -38,7 +38,7 @@ class TestLoadSteeringReturnsContentForRealDirectives:
         """load_steering() returns non-None when file contains user directives."""
         from agent_fox.session.prompt import load_steering
 
-        specs_dir = tmp_path / ".specs"
+        specs_dir = tmp_path / ".agent-fox"
         specs_dir.mkdir()
         (specs_dir / "steering.md").write_text("Never modify legacy/ without approval.\n")
 
@@ -49,7 +49,7 @@ class TestLoadSteeringReturnsContentForRealDirectives:
         """Returned content has leading/trailing whitespace stripped."""
         from agent_fox.session.prompt import load_steering
 
-        specs_dir = tmp_path / ".specs"
+        specs_dir = tmp_path / ".agent-fox"
         specs_dir.mkdir()
         (specs_dir / "steering.md").write_text("   Directive here.   \n\n")
 
@@ -112,7 +112,7 @@ class TestLoadSteeringReturnNoneForPlaceholderOnly:
         """load_steering() returns None when file contains only the sentinel."""
         from agent_fox.session.prompt import load_steering
 
-        specs_dir = tmp_path / ".specs"
+        specs_dir = tmp_path / ".agent-fox"
         specs_dir.mkdir()
         (specs_dir / "steering.md").write_text("<!-- steering:placeholder -->\n")
 
@@ -123,7 +123,7 @@ class TestLoadSteeringReturnNoneForPlaceholderOnly:
         """load_steering() returns None for sentinel plus HTML comment content."""
         from agent_fox.session.prompt import load_steering
 
-        specs_dir = tmp_path / ".specs"
+        specs_dir = tmp_path / ".agent-fox"
         specs_dir.mkdir()
         content = (
             "<!-- steering:placeholder -->\n"
@@ -151,7 +151,7 @@ class TestLoadSteeringHandlesUnreadableFile:
         """load_steering() returns None when read_text raises PermissionError."""
         from agent_fox.session.prompt import load_steering
 
-        specs_dir = tmp_path / ".specs"
+        specs_dir = tmp_path / ".agent-fox"
         specs_dir.mkdir()
         steering_path = specs_dir / "steering.md"
         steering_path.write_text("Some directive")
@@ -176,7 +176,7 @@ class TestLoadSteeringHandlesUnreadableFile:
         """A warning is logged when steering.md cannot be read."""
         from agent_fox.session.prompt import load_steering
 
-        specs_dir = tmp_path / ".specs"
+        specs_dir = tmp_path / ".agent-fox"
         specs_dir.mkdir()
         steering_path = specs_dir / "steering.md"
         steering_path.write_text("Some directive")
@@ -212,7 +212,7 @@ class TestLoadSteeringRejectsSymlink:
         target = tmp_path / "sensitive_file.txt"
         target.write_text("sensitive content")
 
-        specs_dir = tmp_path / ".specs"
+        specs_dir = tmp_path / ".agent-fox"
         specs_dir.mkdir()
         symlink = specs_dir / "steering.md"
         symlink.symlink_to(target)
@@ -229,7 +229,7 @@ class TestLoadSteeringRejectsSymlink:
         target = tmp_path / "sensitive_file.txt"
         target.write_text("sensitive content")
 
-        specs_dir = tmp_path / ".specs"
+        specs_dir = tmp_path / ".agent-fox"
         specs_dir.mkdir()
         symlink = specs_dir / "steering.md"
         symlink.symlink_to(target)
@@ -243,7 +243,7 @@ class TestLoadSteeringRejectsSymlink:
         """Normal (non-symlink) steering.md continues to load correctly."""
         from agent_fox.session.prompt import load_steering
 
-        specs_dir = tmp_path / ".specs"
+        specs_dir = tmp_path / ".agent-fox"
         specs_dir.mkdir()
         (specs_dir / "steering.md").write_text("Always add type hints.")
 

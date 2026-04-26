@@ -1,7 +1,7 @@
 """Steering document loading.
 
-Loads project-level steering directives from {spec_root}/steering.md and
-detects placeholder-only content.
+Loads project-level steering directives from {project_root}/.agent-fox/steering.md
+and detects placeholder-only content.
 
 Requirements: 64-REQ-2.1 through 64-REQ-2.E1, 64-REQ-5.1, 64-REQ-5.2
 """
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 # Sentinel string that marks placeholder-only content (64-REQ-5.1)
 STEERING_PLACEHOLDER_SENTINEL: str = "<!-- steering:placeholder -->"
 
-# Steering filename within the spec root
+# Steering filename within the .agent-fox directory
 _STEERING_FILENAME: str = "steering.md"
 
 # HTML comment pattern for placeholder detection
@@ -25,12 +25,11 @@ _HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
 
 
 def load_steering(project_root: Path, spec_root: Path | None = None) -> str | None:
-    """Load steering content from {spec_root}/steering.md.
+    """Load steering content from {project_root}/.agent-fox/steering.md.
 
     Args:
         project_root: Project root directory.
-        spec_root: Absolute path to the spec root directory.
-            If None, resolved from config with backward compatibility.
+        spec_root: Deprecated, ignored. Kept for backward compatibility.
 
     Returns:
         The file content (stripped) if it contains real directives.
@@ -40,13 +39,7 @@ def load_steering(project_root: Path, spec_root: Path | None = None) -> str | No
     Requirements: 64-REQ-2.1, 64-REQ-2.3, 64-REQ-2.4, 64-REQ-2.E1,
                   64-REQ-5.1, 64-REQ-5.2
     """
-    if spec_root is not None:
-        steering_path = spec_root / _STEERING_FILENAME
-    else:
-        # Backward compatible fallback: try both locations
-        from agent_fox.core.config import AgentFoxConfig, resolve_spec_root
-
-        steering_path = resolve_spec_root(AgentFoxConfig(), project_root) / _STEERING_FILENAME
+    steering_path = project_root / ".agent-fox" / _STEERING_FILENAME
 
     # Security: reject symlinks to prevent path traversal (CWE-59)
     if steering_path.is_symlink():

@@ -298,7 +298,7 @@ def assemble_context(
     Appends relevant memory facts (if provided).
 
     When project_root is provided, includes steering directives from
-    .specs/steering.md after spec files and before memory facts
+    .agent-fox/steering.md after spec files and before memory facts
     (64-REQ-2.1, 64-REQ-2.2).
 
     When archetype is ``"verifier"``, appends a structured verification
