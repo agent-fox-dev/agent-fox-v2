@@ -133,20 +133,20 @@ them pass, and group 5 verifies end-to-end wiring.
     - [x] No linter warnings: `uv run ruff check agent_fox/knowledge/adr.py`
     - [x] Requirements 1.*, 2.*, 3.*, 6.2, 6.4, 6.5 acceptance criteria met
 
-- [ ] 3. ADR storage, supersession, and migration
-  - [ ] 3.1 Add DuckDB migration `_migrate_v22()` in `migrations.py`
+- [x] 3. ADR storage, supersession, and migration
+  - [x] 3.1 Add DuckDB migration `_migrate_v22()` in `migrations.py`
     - Create `adr_entries` table with schema from design.md
     - Register in `MIGRATIONS` list
     - _Requirements: 4.3_
 
-  - [ ] 3.2 Implement `store_adr()`
+  - [x] 3.2 Implement `store_adr()`
     - Insert row into `adr_entries`
     - Handle supersession: check existing active entry, set superseded_at
     - Handle duplicate content_hash: skip insertion
     - Handle missing table / closed connection gracefully
     - _Requirements: 4.1, 4.2, 4.4, 4.E1, 4.E2, 5.1, 5.2, 5.3, 5.E1_
 
-  - [ ] 3.3 Implement `ingest_adr()`
+  - [x] 3.3 Implement `ingest_adr()`
     - Read file from project_root / file_path
     - Compute SHA-256 content_hash
     - Call parse_madr → validate_madr → store_adr pipeline
@@ -154,18 +154,18 @@ them pass, and group 5 verifies end-to-end wiring.
     - Log WARNING on validation failure, skip ingestion
     - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.E1_
 
-  - [ ] 3.4 Add audit event types to `audit.py`
+  - [x] 3.4 Add audit event types to `audit.py`
     - Add `ADR_VALIDATION_FAILED = "adr.validation_failed"` to `AuditEventType`
     - Add `ADR_INGESTED = "adr.ingested"` to `AuditEventType`
     - _Requirements: 7.2, 7.4_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests pass: `uv run pytest -q tests/unit/knowledge/test_adr.py -k "store or ingest or supersede or duplicate or migration or audit"`
-    - [ ] Property tests pass: `uv run pytest -q tests/property/knowledge/test_adr_props.py -k "P4 or P7"`
-    - [ ] Smoke test 1 passes: `uv run pytest -q tests/unit/knowledge/test_adr.py -k "smoke_1 or SMOKE_1"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/knowledge/adr.py agent_fox/knowledge/migrations.py agent_fox/knowledge/audit.py`
-    - [ ] Requirements 4.*, 5.*, 7.* acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests pass: `uv run pytest -q tests/unit/knowledge/test_adr.py -k "store or ingest or supersede or duplicate or migration or audit"`
+    - [x] Property tests pass: `uv run pytest -q tests/property/knowledge/test_adr_props.py -k "P4 or P7"`
+    - [x] Smoke test 1 passes: `uv run pytest -q tests/unit/knowledge/test_adr.py -k "smoke_1 or SMOKE_1"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/knowledge/adr.py agent_fox/knowledge/migrations.py agent_fox/knowledge/audit.py`
+    - [x] Requirements 4.*, 5.*, 7.* acceptance criteria met
 
 - [ ] 4. ADR retrieval and FoxKnowledgeProvider integration
   - [ ] 4.1 Implement `query_adrs()`

@@ -16,6 +16,9 @@ import re
 import uuid
 
 import duckdb
+from hypothesis import given, settings
+from hypothesis import strategies as st
+
 from agent_fox.knowledge.adr import (
     ADREntry,
     detect_adr_changes,
@@ -25,8 +28,6 @@ from agent_fox.knowledge.adr import (
     store_adr,
     validate_madr,
 )
-from hypothesis import given, settings
-from hypothesis import strategies as st
 
 # ---------------------------------------------------------------------------
 # Helpers

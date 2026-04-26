@@ -748,6 +748,34 @@ def _migrate_v20(conn: duckdb.DuckDBPyConnection) -> None:
         conn.execute("ALTER TABLE session_outcomes ADD COLUMN IF NOT EXISTS coverage_data TEXT")
 
 
+def _migrate_v22(conn: duckdb.DuckDBPyConnection) -> None:
+    """Add adr_entries table for ADR ingestion into the knowledge system.
+
+    Stores parsed and validated Architecture Decision Records with structured
+    metadata for retrieval during session context assembly.  Uses
+    ``CREATE TABLE IF NOT EXISTS`` for idempotency.
+
+    Requirements: 117-REQ-4.3
+    """
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS adr_entries (
+            id              VARCHAR PRIMARY KEY,
+            file_path       VARCHAR NOT NULL,
+            title           VARCHAR NOT NULL,
+            status          VARCHAR NOT NULL DEFAULT 'proposed',
+            chosen_option   VARCHAR,
+            considered_options TEXT[],
+            justification   TEXT,
+            summary         TEXT NOT NULL,
+            content_hash    VARCHAR NOT NULL,
+            keywords        TEXT[] DEFAULT [],
+            spec_refs       TEXT[] DEFAULT [],
+            created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            superseded_at   TIMESTAMP
+        )
+    """)
+
+
 def _migrate_v21(conn: duckdb.DuckDBPyConnection) -> None:
     """Drop dead columns retrieval_summary and coverage_data from session_outcomes.
 
@@ -875,6 +903,11 @@ MIGRATIONS: list[Migration] = [
         version=21,
         description="drop dead columns retrieval_summary and coverage_data from session_outcomes",
         apply=_migrate_v21,
+    ),
+    Migration(
+        version=22,
+        description="add adr_entries table for ADR ingestion",
+        apply=_migrate_v22,
     ),
 ]
 

@@ -16,6 +16,7 @@ from typing import Any
 
 import duckdb
 import pytest
+
 from agent_fox.knowledge.adr import (
     ADREntry,
     detect_adr_changes,
@@ -953,15 +954,26 @@ Chosen option: "Only One Option", because there is no choice.
             run_id="test",
         )
 
-        # Validation failure: should not be ingested
+        # Validation failure: should not be ingested (117-REQ-7.3)
         assert result is None
 
-        # Should have emitted an audit event
+        # Should have emitted an audit event (117-REQ-7.2)
         events = sink.captured_events
-        assert any(
-            e.event_type.value == "adr.validation_failed"
-            for e in events
-        )
+        validation_events = [
+            e for e in events
+            if e.event_type.value == "adr.validation_failed"
+        ]
+        assert len(validation_events) >= 1
+
+        # Verify severity is WARNING (117-REQ-7.2)
+        evt = validation_events[0]
+        assert evt.severity.value == "warning"
+
+        # Verify payload includes file_path and diagnostics (117-REQ-7.1)
+        assert "file_path" in evt.payload
+        assert evt.payload["file_path"] == "docs/adr/01-bad.md"
+        assert "diagnostics" in evt.payload
+        assert len(evt.payload["diagnostics"]) > 0
 
 
 # ===========================================================================
@@ -996,11 +1008,25 @@ class TestIngestionAudit:
         )
         assert entry is not None
 
+        # Should have emitted an audit event (117-REQ-7.4)
         events = sink.captured_events
-        assert any(
-            e.event_type.value == "adr.ingested"
-            for e in events
-        )
+        ingestion_events = [
+            e for e in events
+            if e.event_type.value == "adr.ingested"
+        ]
+        assert len(ingestion_events) >= 1
+
+        # Verify severity is INFO (117-REQ-7.4)
+        evt = ingestion_events[0]
+        assert evt.severity.value == "info"
+
+        # Verify payload includes file_path, title, and option count (117-REQ-7.4)
+        assert "file_path" in evt.payload
+        assert evt.payload["file_path"] == "docs/adr/01-good.md"
+        assert "title" in evt.payload
+        assert evt.payload["title"] == "Use Widget Framework"
+        assert "considered_options_count" in evt.payload
+        assert evt.payload["considered_options_count"] == 3
 
 
 # ===========================================================================
