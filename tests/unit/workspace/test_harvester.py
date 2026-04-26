@@ -8,6 +8,7 @@ Requirements: 03-REQ-7.1 through 03-REQ-7.E2,
 
 from __future__ import annotations
 
+import logging
 import subprocess
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
@@ -16,7 +17,8 @@ import pytest
 
 from agent_fox.core.errors import IntegrationError
 from agent_fox.workspace import create_worktree
-from agent_fox.workspace.harvest import harvest
+from agent_fox.workspace.git import run_git as _real_run_git
+from agent_fox.workspace.harvest import _clean_conflicting_untracked, harvest
 
 from .conftest import add_commit_to_branch
 
@@ -388,3 +390,136 @@ class TestHarvesterConflictAutoResolve:
         ):
             with pytest.raises(IntegrationError, match="(?i)agent"):
                 await harvest(tmp_worktree_repo, ws)
+
+
+class TestCleanConflictingUntracked:
+    """Issue #546: safe-delete logic for untracked files during merge.
+
+    AC-1: Matching content → delete with WARNING log, merge restores file.
+    AC-2: Divergent content → IntegrationError, file preserved.
+    AC-3: git show failure → file preserved, WARNING logged.
+    AC-4: Log at WARNING level, full file list (no truncation).
+    AC-5: No conflicts → no-op (covered by existing TestHarvesterSquashMerge).
+    """
+
+    @pytest.mark.asyncio
+    async def test_matching_content_removed_with_warning(
+        self,
+        tmp_worktree_repo: Path,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """AC-1: Untracked file whose content matches the branch is deleted
+        (with a WARNING), and the file is restored after the squash merge."""
+        ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
+        file_content = "print('hello')\n"
+        add_commit_to_branch(ws.path, "new_file.py", file_content)
+
+        # Place the *same* content as an untracked file on develop.
+        untracked = tmp_worktree_repo / "new_file.py"
+        untracked.write_text(file_content)
+
+        with caplog.at_level(logging.WARNING, logger="agent_fox.workspace.harvest"):
+            files = await harvest(tmp_worktree_repo, ws)
+
+        # File should appear in the changed-files list.
+        assert "new_file.py" in files
+
+        # File should be present in the working tree after the merge.
+        assert (tmp_worktree_repo / "new_file.py").exists()
+
+        # A WARNING-level log entry must mention both "Removing" and the path.
+        warning_messages = [
+            r.message for r in caplog.records if r.levelno == logging.WARNING
+        ]
+        assert any(
+            "Removing" in msg and "new_file.py" in msg for msg in warning_messages
+        ), f"Expected WARNING about 'Removing new_file.py'; got: {warning_messages}"
+
+    @pytest.mark.asyncio
+    async def test_divergent_content_raises_integration_error(
+        self,
+        tmp_worktree_repo: Path,
+    ) -> None:
+        """AC-2: Untracked file with different content raises IntegrationError
+        and is left on disk untouched."""
+        ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
+        add_commit_to_branch(ws.path, "new_file.py", "branch content\n")
+
+        # Place a *different* file as untracked on develop.
+        untracked = tmp_worktree_repo / "new_file.py"
+        original_content = "local divergent content\n"
+        untracked.write_text(original_content)
+
+        with pytest.raises(IntegrationError, match="new_file.py"):
+            await harvest(tmp_worktree_repo, ws)
+
+        # File must still exist with its original content.
+        assert untracked.exists()
+        assert untracked.read_text() == original_content
+
+    @pytest.mark.asyncio
+    async def test_git_show_failure_preserves_file(
+        self,
+        tmp_worktree_repo: Path,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """AC-3: When git show returns non-zero, the untracked file is
+        preserved and a WARNING is logged."""
+        ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
+        add_commit_to_branch(ws.path, "new_file.py", "branch content\n")
+
+        untracked = tmp_worktree_repo / "new_file.py"
+        untracked.write_text("local content\n")
+
+        # Selective mock: 'show' always fails; all other subcommands use real run_git.
+        async def selective_run_git(cmd_args, **kwargs):
+            if cmd_args and cmd_args[0] == "show":
+                return 128, "", "fatal: bad revision"
+            return await _real_run_git(cmd_args, **kwargs)
+
+        with caplog.at_level(logging.WARNING, logger="agent_fox.workspace.harvest"):
+            with patch(
+                "agent_fox.workspace.harvest.run_git",
+                side_effect=selective_run_git,
+            ):
+                # Should not raise — unverifiable means conservatively skip.
+                await _clean_conflicting_untracked(tmp_worktree_repo, ws.branch)
+
+        # File must still exist unchanged.
+        assert untracked.exists()
+        assert untracked.read_text() == "local content\n"
+
+        # A WARNING-level log entry must mention the inability to verify.
+        warning_messages = [
+            r.message for r in caplog.records if r.levelno == logging.WARNING
+        ]
+        assert any(
+            "Cannot verify" in msg and "new_file.py" in msg for msg in warning_messages
+        ), f"Expected WARNING about 'Cannot verify new_file.py'; got: {warning_messages}"
+
+    @pytest.mark.asyncio
+    async def test_warning_lists_all_files_without_truncation(
+        self,
+        tmp_worktree_repo: Path,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """AC-4: WARNING message contains every removed file, not just the first 5."""
+        ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
+
+        filenames = [f"file_{i}.py" for i in range(7)]
+        content = "matching content\n"
+        for name in filenames:
+            add_commit_to_branch(ws.path, name, content)
+            (tmp_worktree_repo / name).write_text(content)
+
+        with caplog.at_level(logging.WARNING, logger="agent_fox.workspace.harvest"):
+            await harvest(tmp_worktree_repo, ws)
+
+        warning_messages = [
+            r.message for r in caplog.records if r.levelno == logging.WARNING
+        ]
+        # Every filename must appear in at least one WARNING message.
+        for name in filenames:
+            assert any(name in msg for msg in warning_messages), (
+                f"Expected '{name}' in WARNING messages; got: {warning_messages}"
+            )
