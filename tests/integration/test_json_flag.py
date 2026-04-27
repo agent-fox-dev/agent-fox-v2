@@ -275,10 +275,15 @@ class TestResetJson:
     """TS-23-13: reset --json emits JSON."""
 
     def test_reset_json_output(self, cli_runner: CliRunner, tmp_project: Path) -> None:
-        """reset --json with --all produces valid JSON."""
-        with patch("agent_fox.cli.reset._do_reset") as mock_reset:
-            mock_reset.return_value = {"tasks_reset": 0, "sessions_cleared": 0}
-            result = cli_runner.invoke(main, ["--json", "reset", "--all"])
+        """reset --json produces valid JSON."""
+
+        def fake_handler(*_args: object, **_kwargs: object) -> None:
+            from agent_fox.cli.json_io import emit
+
+            emit({"tasks_reset": 0, "sessions_cleared": 0})
+
+        with patch("agent_fox.cli.reset._handle_soft_reset_all", fake_handler):
+            result = cli_runner.invoke(main, ["--json", "reset", "--yes"])
             data = json.loads(result.output)
             assert isinstance(data, dict)
 

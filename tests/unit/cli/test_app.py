@@ -76,7 +76,7 @@ class TestBannerOnSubcommand:
 
     def test_banner_appears_with_subcommand(self, cli_runner: CliRunner) -> None:
         """Banner (fox art + version line) appears when a subcommand is invoked."""
-        result = cli_runner.invoke(main, ["status"])
+        result = cli_runner.invoke(main, ["reset", "--help"])
 
         assert "agent-fox v" in result.output, f"Expected version line in subcommand output, got:\n{result.output!r}"
         assert "/\\_/\\" in result.output, f"Expected fox art in subcommand output, got:\n{result.output!r}"
