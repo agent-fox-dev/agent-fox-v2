@@ -18,19 +18,17 @@ from pathlib import Path
 
 from agent_fox.core.config import AgentFoxConfig
 from agent_fox.core.errors import IntegrationError
-from agent_fox.core.models import ModelTier, calculate_cost, resolve_model
+from agent_fox.core.models import ModelTier, resolve_model
 from agent_fox.core.node_id import parse_node_id
 from agent_fox.core.prompt_safety import sanitize_prompt_content
-from agent_fox.engine.audit_helpers import emit_audit_event
+from agent_fox.engine.audit_helpers import calculate_session_cost, emit_audit_event
 from agent_fox.engine.review_persistence import persist_review_findings
 from agent_fox.engine.sdk_params import (
     clamp_instances,
-    resolve_fallback_model,
     resolve_max_budget,
-    resolve_max_turns,
     resolve_model_tier,
     resolve_security_config,
-    resolve_thinking,
+    resolve_session_params,
 )
 from agent_fox.engine.state import SessionRecord
 from agent_fox.knowledge.audit import AuditEventType, AuditSeverity
@@ -416,25 +414,21 @@ class NodeSessionRunner:
         """
         # 75-REQ-3.5: Apply per-node overrides when available, otherwise
         # fall back to config-based resolution.
-        if self._max_turns_override is not None:
-            resolved_max_turns: int | None = self._max_turns_override
-        else:
-            resolved_max_turns = resolve_max_turns(self._config, self._archetype, mode=self._mode)
-        resolved_thinking = resolve_thinking(self._config, self._archetype, mode=self._mode)
-        resolved_fallback = resolve_fallback_model(self._config)
-        resolved_budget = resolve_max_budget(self._config)
-
-        # Claude CLI rejects fallback_model when it equals the main model.
-        if resolved_fallback and resolved_fallback == self._resolved_model_id:
-            resolved_fallback = None
+        params = resolve_session_params(
+            self._config,
+            self._archetype,
+            mode=self._mode,
+            model_id=self._resolved_model_id,
+            max_turns_override=self._max_turns_override,
+        )
 
         logger.info(
             "Session %s: max_turns=%s, max_budget_usd=%s, fallback_model=%s, thinking=%s, timeout_override=%s",
             node_id,
-            resolved_max_turns,
-            resolved_budget,
-            resolved_fallback,
-            resolved_thinking,
+            params.max_turns,
+            params.max_budget_usd,
+            params.fallback_model,
+            params.thinking,
             self._timeout_override,
         )
 
@@ -449,10 +443,10 @@ class NodeSessionRunner:
             security_config=self._resolved_security,
             sink_dispatcher=self._sink,
             run_id=self._run_id,
-            max_turns=resolved_max_turns,
-            max_budget_usd=resolved_budget,
-            fallback_model=resolved_fallback,
-            thinking=resolved_thinking,
+            max_turns=params.max_turns,
+            max_budget_usd=params.max_budget_usd,
+            fallback_model=params.fallback_model,
+            thinking=params.thinking,
             session_timeout=self._timeout_override,
             archetype=self._archetype,
         )
@@ -645,14 +639,11 @@ class NodeSessionRunner:
             task_prompt,
         )
 
-        from agent_fox.core.config import PricingConfig
-
-        pricing = getattr(self._config, "pricing", PricingConfig())
-        cost = calculate_cost(
+        cost = calculate_session_cost(
+            self._config,
+            self._resolved_model_id,
             outcome.input_tokens,
             outcome.output_tokens,
-            self._resolved_model_id,
-            pricing,
             cache_read_input_tokens=outcome.cache_read_input_tokens,
             cache_creation_input_tokens=outcome.cache_creation_input_tokens,
         )

@@ -25,21 +25,21 @@ _CONTROL_RE = re.compile(
 DEFAULT_MAX_PROMPT_CHARS = 100_000
 
 
-def strip_ansi(text: str) -> str:
+def _strip_ansi(text: str) -> str:
     """Remove ANSI escape codes from text."""
     return _ANSI_RE.sub("", text)
 
 
-def strip_control_chars(text: str) -> str:
+def _strip_control_chars(text: str) -> str:
     """Strip ANSI escapes and C0 control characters from text.
 
     Preserves tabs, newlines, and carriage returns.
     """
-    text = strip_ansi(text)
+    text = _strip_ansi(text)
     return _CONTROL_RE.sub("", text)
 
 
-def truncate_content(text: str, *, max_chars: int) -> str:
+def _truncate_content(text: str, *, max_chars: int) -> str:
     """Truncate text to max_chars, appending a truncation notice."""
     if len(text) <= max_chars:
         return text
@@ -69,8 +69,8 @@ def sanitize_prompt_content(
     Returns:
         The sanitized content wrapped in boundary tags.
     """
-    cleaned = strip_control_chars(content)
-    cleaned = truncate_content(cleaned, max_chars=max_chars)
+    cleaned = _strip_control_chars(content)
+    cleaned = _truncate_content(cleaned, max_chars=max_chars)
     nonce = secrets.token_hex(8)
     tag = f"untrusted-{label}-{nonce}"
     return f"<{tag}>\n{cleaned}\n</{tag}>"

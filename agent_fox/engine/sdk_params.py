@@ -12,6 +12,7 @@ Requirements: 56-REQ-1.*, 56-REQ-2.*, 56-REQ-3.*, 56-REQ-4.*, 56-REQ-5.*
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 
 from agent_fox.archetypes import get_archetype
 from agent_fox.core.config import AgentFoxConfig, SecurityConfig
@@ -283,3 +284,48 @@ def resolve_security_config(
 
     # None means use global config.security
     return None
+
+
+@dataclass(frozen=True)
+class ResolvedSessionParams:
+    """All SDK session parameters resolved from config + archetype."""
+
+    max_turns: int | None
+    thinking: dict | None
+    fallback_model: str | None
+    max_budget_usd: float | None
+
+
+def resolve_session_params(
+    config: AgentFoxConfig,
+    archetype: str,
+    *,
+    mode: str | None = None,
+    model_id: str | None = None,
+    max_turns_override: int | None = None,
+) -> ResolvedSessionParams:
+    """Resolve all SDK session parameters in one call.
+
+    Consolidates the repeated pattern of calling resolve_max_turns,
+    resolve_thinking, resolve_fallback_model, and resolve_max_budget,
+    including the fallback-nulling guard when fallback equals the
+    main model.
+    """
+    max_turns = (
+        max_turns_override
+        if max_turns_override is not None
+        else resolve_max_turns(config, archetype, mode=mode)
+    )
+    thinking = resolve_thinking(config, archetype, mode=mode)
+    fallback = resolve_fallback_model(config)
+    budget = resolve_max_budget(config)
+
+    if fallback and model_id and fallback == model_id:
+        fallback = None
+
+    return ResolvedSessionParams(
+        max_turns=max_turns,
+        thinking=thinking,
+        fallback_model=fallback,
+        max_budget_usd=budget,
+    )
