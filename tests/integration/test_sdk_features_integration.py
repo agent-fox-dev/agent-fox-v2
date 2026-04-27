@@ -12,7 +12,7 @@ from typing import Any
 from unittest.mock import patch
 
 from agent_fox.session.backends.claude import ClaudeBackend
-from agent_fox.session.backends.protocol import ResultMessage
+from agent_fox.session.backends.types import ResultMessage
 
 # ---------------------------------------------------------------------------
 # TS-56-E7: SDK TypeError Fallback

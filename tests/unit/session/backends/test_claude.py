@@ -13,8 +13,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from agent_fox.session.backends.claude import ClaudeBackend, _coerce_int
-from agent_fox.session.backends.protocol import (
-    AgentBackend,
+from agent_fox.session.backends.types import (
     AssistantMessage,
     ResultMessage,
     ToolUseMessage,
@@ -27,11 +26,11 @@ from agent_fox.session.backends.protocol import (
 
 
 class TestClaudeBackendConforms:
-    """Verify ClaudeBackend can be imported and satisfies AgentBackend protocol."""
+    """Verify ClaudeBackend can be imported and instantiated."""
 
-    def test_import_and_protocol_check(self) -> None:
+    def test_import_and_instantiate(self) -> None:
         backend = ClaudeBackend()
-        assert isinstance(backend, AgentBackend)
+        assert backend is not None
 
     def test_name_returns_claude(self) -> None:
         backend = ClaudeBackend()

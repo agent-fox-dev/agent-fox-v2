@@ -1,6 +1,16 @@
 # Agent-Fox Memory
 
-_3176 facts | last updated: 2026-04-27_
+_3177 facts | last updated: 2026-04-27_
+
+**2026-04-27 remove AgentBackend protocol (issue #551):** Removed the
+single-implementation `AgentBackend` protocol from `session/backends/protocol.py`.
+Moved canonical message types (`ToolUseMessage`, `AssistantMessage`,
+`ResultMessage`, `AgentMessage`, `PermissionCallback`) to new `types.py`.
+Removed `get_backend()` factory. `ClaudeBackend` is now imported directly
+everywhere. Deleted `protocol.py`. Updated `__init__.py`, `claude.py`,
+`session.py`, and 10 test files. Removed 16 protocol-specific tests.
+4445 tests pass. Pre-existing lint errors unchanged (15 in engine.py,
+state_manager.py).
 
 **2026-04-27 standup overhaul & status removal:** Overhauled standup command
 output: fixed "pending" status bug (now inferred from session data when
