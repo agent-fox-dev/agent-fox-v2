@@ -15,6 +15,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from agent_fox.core.node_id import spec_name_of
 from agent_fox.engine.state import ExecutionState, SessionRecord, load_state_from_db
 from agent_fox.graph.persistence import load_plan
 from agent_fox.graph.types import TaskGraph
@@ -364,6 +365,8 @@ class StandupReport:
         default_factory=list,
     )  # per-task breakdown
     total_cost: float | None = None  # all-time total; None when no session data available
+    cost_by_spec: dict[str, float] = field(default_factory=dict)
+    cost_by_archetype: dict[str, float] = field(default_factory=dict)
 
 
 def generate_standup(
@@ -441,6 +444,13 @@ def generate_standup(
     # Build cost breakdown by model tier
     cost_breakdown = _build_cost_breakdown(windowed_sessions)
 
+    # Per-spec and per-archetype cost summaries from all sessions
+    cost_by_spec_agg: dict[str, float] = defaultdict(float)
+    cost_by_archetype_agg: dict[str, float] = defaultdict(float)
+    for record in all_sessions:
+        cost_by_spec_agg[spec_name_of(record.node_id)] += record.cost
+        cost_by_archetype_agg[record.archetype] += record.cost
+
     # Build queue summary from current task statuses
     queue = _build_queue_summary(graph, state)
 
@@ -466,6 +476,8 @@ def generate_standup(
         queue=queue,
         task_activities=task_activities,
         total_cost=all_time_cost,
+        cost_by_spec=dict(cost_by_spec_agg),
+        cost_by_archetype=dict(cost_by_archetype_agg),
     )
 
 

@@ -48,6 +48,8 @@ def _make_sample_report(
     file_overlaps: list[FileOverlap] | None = None,
     queue: QueueSummary | None = None,
     total_cost: float = 34.64,
+    cost_by_spec: dict[str, float] | None = None,
+    cost_by_archetype: dict[str, float] | None = None,
 ) -> StandupReport:
     """Build a sample StandupReport with all new fields populated."""
     if task_activities is None:
@@ -102,6 +104,10 @@ def _make_sample_report(
                 ],
             ),
         ]
+    if cost_by_spec is None:
+        cost_by_spec = {"spec_alpha": 10.50, "spec_beta": 5.25}
+    if cost_by_archetype is None:
+        cost_by_archetype = {"coder": 12.00, "reviewer": 3.75}
     if queue is None:
         queue = QueueSummary(
             total=76,
@@ -140,6 +146,8 @@ def _make_sample_report(
         ],
         queue=queue,
         total_cost=total_cost,
+        cost_by_spec=cost_by_spec,
+        cost_by_archetype=cost_by_archetype,
     )
 
 
@@ -293,26 +301,55 @@ class TestQueueStatusLine:
 
 
 # ---------------------------------------------------------------------------
-# TS-15-5: File Overlaps Section
-# Requirements: 15-REQ-5.1
+# Cost by Spec / Cost by Archetype sections
 # ---------------------------------------------------------------------------
 
 
-class TestFileOverlapsSection:
-    """TS-15-5: File overlap lines with em dash, SHAs, display IDs."""
+class TestCostBySpecSection:
+    """Cost by Spec section renders sorted spec costs."""
 
-    def test_file_overlaps_section_header(self) -> None:
-        """Output contains 'Heads Up — File Overlaps' header."""
+    def test_cost_by_spec_header(self) -> None:
         report = _make_sample_report()
         output = TableFormatter().format_standup(report)
-        assert "Heads Up — File Overlaps" in output
+        assert "Cost by Spec:" in output
 
-    def test_file_overlap_line_format(self) -> None:
-        """Overlap line shows path, truncated SHAs, display task IDs."""
+    def test_cost_by_spec_line_format(self) -> None:
         report = _make_sample_report()
         output = TableFormatter().format_standup(report)
-        expected = "  agent_fox/engine/state.py — commits: 7510417, 77156b5 | agents: 07_ops/3, 10_plat/2"
-        assert expected in output
+        assert "  spec_alpha: $10.50" in output
+        assert "  spec_beta: $5.25" in output
+
+    def test_cost_by_spec_sorted(self) -> None:
+        report = _make_sample_report()
+        output = TableFormatter().format_standup(report)
+        idx_alpha = output.index("spec_alpha")
+        idx_beta = output.index("spec_beta")
+        assert idx_alpha < idx_beta
+
+    def test_cost_by_spec_omitted_when_empty(self) -> None:
+        report = _make_sample_report(cost_by_spec={})
+        output = TableFormatter().format_standup(report)
+        assert "Cost by Spec:" not in output
+
+
+class TestCostByArchetypeSection:
+    """Cost by Archetype section renders sorted archetype costs."""
+
+    def test_cost_by_archetype_header(self) -> None:
+        report = _make_sample_report()
+        output = TableFormatter().format_standup(report)
+        assert "Cost by Archetype:" in output
+
+    def test_cost_by_archetype_line_format(self) -> None:
+        report = _make_sample_report()
+        output = TableFormatter().format_standup(report)
+        assert "  coder: $12.00" in output
+        assert "  reviewer: $3.75" in output
+
+    def test_cost_by_archetype_omitted_when_empty(self) -> None:
+        report = _make_sample_report(cost_by_archetype={})
+        output = TableFormatter().format_standup(report)
+        assert "Cost by Archetype:" not in output
 
 
 # ---------------------------------------------------------------------------
@@ -555,22 +592,6 @@ class TestNoHumanCommits:
         report = _make_sample_report(human_commits=[])
         output = TableFormatter().format_standup(report)
         assert "  (no human commits)" in output
-
-
-# ---------------------------------------------------------------------------
-# TS-15-E3: No File Overlaps
-# Requirements: 15-REQ-5.E1
-# ---------------------------------------------------------------------------
-
-
-class TestNoFileOverlaps:
-    """TS-15-E3: Empty file_overlaps omits the section entirely."""
-
-    def test_no_file_overlaps_section_omitted(self) -> None:
-        """Output does not contain 'Heads Up' when no overlaps."""
-        report = _make_sample_report(file_overlaps=[])
-        output = TableFormatter().format_standup(report)
-        assert "Heads Up" not in output
 
 
 # ---------------------------------------------------------------------------

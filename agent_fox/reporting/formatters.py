@@ -155,8 +155,11 @@ class TableFormatter:
               {total} total: {done} done | {in_progress} in progress | ...
               Ready: {id1}, {id2}
 
-            Heads Up — File Overlaps
-              {path} — commits: {sha1}, {sha2} | agents: {task1}, {task2}
+            Cost by Spec:
+              {spec}: ${cost}
+
+            Cost by Archetype:
+              {archetype}: ${cost}
 
             Total Cost: ${all_time}
 
@@ -225,13 +228,18 @@ class TableFormatter:
             lines.append(f"  Ready: {display_ids}")
         lines.append("")
 
-        # File Overlaps section — omitted when empty (15-REQ-5.1, 15-REQ-5.E1)
-        if report.file_overlaps:
-            lines.append("Heads Up \u2014 File Overlaps")
-            for overlap in report.file_overlaps:
-                commit_shas = ", ".join(sha[:7] for sha in overlap.human_commits)
-                agent_ids = ", ".join(_display_node_id(tid) for tid in overlap.agent_task_ids)
-                lines.append(f"  {overlap.path} \u2014 commits: {commit_shas} | agents: {agent_ids}")
+        # Per-spec cost breakdown
+        if report.cost_by_spec:
+            lines.append("Cost by Spec:")
+            for spec, cost in sorted(report.cost_by_spec.items()):
+                lines.append(f"  {spec}: ${cost:.2f}")
+            lines.append("")
+
+        # Per-archetype cost breakdown
+        if report.cost_by_archetype:
+            lines.append("Cost by Archetype:")
+            for archetype, cost in sorted(report.cost_by_archetype.items()):
+                lines.append(f"  {archetype}: ${cost:.2f}")
             lines.append("")
 
         # Total Cost line (15-REQ-6.1, 15-REQ-6.E1)

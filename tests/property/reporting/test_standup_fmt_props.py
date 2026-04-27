@@ -127,6 +127,15 @@ def standup_report_strategy(draw: st.DrawFn) -> StandupReport:
 
     total_cost = draw(st.floats(min_value=0.0, max_value=500.0))
 
+    # Per-spec and per-archetype cost dicts
+    n_specs = draw(st.integers(min_value=0, max_value=3))
+    cost_by_spec = {f"spec_{i}": draw(st.floats(min_value=0.01, max_value=100.0)) for i in range(n_specs)}
+    n_archetypes = draw(st.integers(min_value=0, max_value=3))
+    archetype_names = ["coder", "reviewer", "verifier"]
+    cost_by_archetype = {
+        archetype_names[i]: draw(st.floats(min_value=0.01, max_value=100.0)) for i in range(n_archetypes)
+    }
+
     return StandupReport(
         window_hours=hours,
         window_start="2026-03-01T00:00:00+00:00",
@@ -146,6 +155,8 @@ def standup_report_strategy(draw: st.DrawFn) -> StandupReport:
         cost_breakdown=[],
         queue=queue,
         total_cost=total_cost,
+        cost_by_spec=cost_by_spec,
+        cost_by_archetype=cost_by_archetype,
     )
 
 
@@ -303,9 +314,13 @@ class TestSectionOrdering:
 
         assert idx_activity < idx_agent_commits < idx_human < idx_queue < idx_cost
 
-        if "Heads Up" in output:
-            idx_overlap = output.index("Heads Up")
-            assert idx_queue < idx_overlap < idx_cost
+        if "Cost by Spec:" in output:
+            idx_spec = output.index("Cost by Spec:")
+            assert idx_queue < idx_spec < idx_cost
+
+        if "Cost by Archetype:" in output:
+            idx_arch = output.index("Cost by Archetype:")
+            assert idx_queue < idx_arch < idx_cost
 
 
 # ---------------------------------------------------------------------------
@@ -333,5 +348,8 @@ class TestEmptySectionsHandling:
         if len(report.human_commits) == 0:
             assert "(no human commits)" in output
 
-        if len(report.file_overlaps) == 0:
-            assert "Heads Up" not in output
+        if len(report.cost_by_spec) == 0:
+            assert "Cost by Spec:" not in output
+
+        if len(report.cost_by_archetype) == 0:
+            assert "Cost by Archetype:" not in output
