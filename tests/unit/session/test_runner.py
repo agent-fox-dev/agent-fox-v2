@@ -20,7 +20,7 @@ import pytest
 
 from agent_fox.core.config import AgentFoxConfig
 from agent_fox.knowledge.sink import SinkDispatcher, ToolCall, ToolError
-from agent_fox.session.backends.protocol import (
+from agent_fox.session.backends.types import (
     AgentMessage,
     AssistantMessage,
     PermissionCallback,
@@ -35,7 +35,7 @@ from agent_fox.workspace import WorkspaceInfo
 
 
 class MockBackend:
-    """A mock AgentBackend that yields pre-configured canonical messages."""
+    """A mock backend that yields pre-configured canonical messages."""
 
     def __init__(
         self,

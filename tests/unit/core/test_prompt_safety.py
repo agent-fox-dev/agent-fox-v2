@@ -9,9 +9,9 @@ from __future__ import annotations
 import re
 
 from agent_fox.core.prompt_safety import (
+    _strip_control_chars as strip_control_chars,
+    _truncate_content as truncate_content,
     sanitize_prompt_content,
-    strip_control_chars,
-    truncate_content,
 )
 
 

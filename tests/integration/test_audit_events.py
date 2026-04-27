@@ -424,41 +424,6 @@ class TestReportingMigration:
     Requirements: 40-REQ-14.1, 40-REQ-14.2, 40-REQ-14.3
     """
 
-    def test_status_from_audit(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
-        """TS-40-33: Status report reads session metrics from audit_events."""
-        from agent_fox.reporting.status import build_status_report_from_audit
-
-        # Insert session.complete events
-        for i in range(5):
-            knowledge_conn.execute(
-                """
-                INSERT INTO audit_events
-                    (id, timestamp, run_id, event_type, node_id, session_id,
-                     archetype, severity, payload)
-                VALUES (?, CURRENT_TIMESTAMP, 'r1', 'session.complete', '', '',
-                        'coder', 'info', ?)
-                """,
-                [
-                    str(uuid4()),
-                    json.dumps(
-                        {
-                            "archetype": "coder",
-                            "model_id": "test",
-                            "prompt_template": "coder",
-                            "tokens": 2000,
-                            "cost": 0.02,
-                            "duration_ms": 5000,
-                            "files_touched": [],
-                        }
-                    ),
-                ],
-            )
-
-        report = build_status_report_from_audit(knowledge_conn)
-        assert report is not None
-        assert report.total_sessions == 5
-        assert report.total_input_tokens > 0
-
     def test_standup_from_audit(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """TS-40-33 (standup): Standup report reads from audit_events."""
         from agent_fox.reporting.standup import build_standup_from_audit
@@ -490,9 +455,7 @@ class TestReportingMigration:
 
     def test_fallback(self, tmp_path: Path) -> None:
         """TS-40-34: Reporting handles unavailable DuckDB gracefully."""
-        from agent_fox.reporting.status import build_status_report_from_audit
+        from agent_fox.reporting.standup import build_standup_from_audit
 
-        # When conn is None, should not raise
-        result = build_status_report_from_audit(None)
-        # Returns None or empty report when no connection
-        assert result is None or hasattr(result, "total_sessions")
+        result = build_standup_from_audit(None)
+        assert result is None or hasattr(result, "window_hours")

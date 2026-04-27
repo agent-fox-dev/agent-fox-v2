@@ -124,9 +124,7 @@ _STOP_WORDS: frozenset[str] = frozenset(
 
 # Heading synonyms for mandatory MADR sections
 _CONTEXT_HEADINGS = frozenset({"context and problem statement", "context"})
-_OPTIONS_HEADINGS = frozenset(
-    {"considered options", "options considered", "considered alternatives"}
-)
+_OPTIONS_HEADINGS = frozenset({"considered options", "options considered", "considered alternatives"})
 _DECISION_HEADINGS = frozenset({"decision outcome", "decision"})
 
 
@@ -224,11 +222,7 @@ def parse_madr(content: str) -> ADREntry | None:
     for i, match in enumerate(section_matches):
         heading = match.group(1).strip()
         start = match.end()
-        end_pos = (
-            section_matches[i + 1].start()
-            if i + 1 < len(section_matches)
-            else len(body)
-        )
+        end_pos = section_matches[i + 1].start() if i + 1 < len(section_matches) else len(body)
         sections[heading] = body[start:end_pos].strip()
 
     # 4. Determine status: frontmatter > ## Status section > default
@@ -320,9 +314,7 @@ def validate_madr(entry: ADREntry) -> ADRValidationResult:
         diagnostics.append("Title is empty or missing.")
 
     if not entry.has_context_section:
-        diagnostics.append(
-            "Missing mandatory section: Context and Problem Statement."
-        )
+        diagnostics.append("Missing mandatory section: Context and Problem Statement.")
 
     if not entry.has_options_section:
         diagnostics.append("Missing mandatory section: Considered Options.")
@@ -332,8 +324,7 @@ def validate_madr(entry: ADREntry) -> ADRValidationResult:
 
     if len(entry.considered_options) < 3:
         diagnostics.append(
-            f"Considered options count ({len(entry.considered_options)}) "
-            f"is below the minimum required (3)."
+            f"Considered options count ({len(entry.considered_options)}) is below the minimum required (3)."
         )
 
     if not entry.chosen_option:
@@ -459,8 +450,7 @@ def store_adr(
     try:
         # Check for existing active entry with same file_path
         existing = conn.execute(
-            "SELECT content_hash FROM adr_entries "
-            "WHERE file_path = ? AND superseded_at IS NULL",
+            "SELECT content_hash FROM adr_entries WHERE file_path = ? AND superseded_at IS NULL",
             [entry.file_path],
         ).fetchone()
 

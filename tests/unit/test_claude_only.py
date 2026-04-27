@@ -1,81 +1,14 @@
 """Unit tests for Claude-only commitment (spec 55).
 
-Test Spec: TS-55-2, TS-55-3, TS-55-4, TS-55-5, TS-55-7, TS-55-8, TS-55-E1, TS-55-E2
+Test Spec: TS-55-2, TS-55-3, TS-55-E1
 """
 
 from __future__ import annotations
 
-import inspect
 import re
-from collections.abc import AsyncIterator
 from pathlib import Path
 
 import pytest
-
-# ---------------------------------------------------------------------------
-# TS-55-4: get_backend returns ClaudeBackend without arguments
-# ---------------------------------------------------------------------------
-
-
-def test_get_backend_returns_claude_backend() -> None:
-    """get_backend() returns a ClaudeBackend instance."""
-    from agent_fox.session.backends import get_backend
-    from agent_fox.session.backends.claude import ClaudeBackend
-
-    result = get_backend()
-    assert isinstance(result, ClaudeBackend)
-
-
-# ---------------------------------------------------------------------------
-# TS-55-5: get_backend accepts no name parameter
-# ---------------------------------------------------------------------------
-
-
-def test_get_backend_no_params() -> None:
-    """get_backend() signature has zero parameters."""
-    from agent_fox.session.backends import get_backend
-
-    sig = inspect.signature(get_backend)
-    params = [p for p in sig.parameters if p != "self"]
-    assert len(params) == 0, f"Expected 0 params, got: {list(sig.parameters)}"
-
-
-# ---------------------------------------------------------------------------
-# TS-55-7: AgentBackend protocol still exported
-# ---------------------------------------------------------------------------
-
-
-def test_protocol_exported() -> None:
-    """AgentBackend is importable from the backends package and is a Protocol."""
-    from typing import Protocol
-
-    from agent_fox.session.backends import AgentBackend
-
-    assert issubclass(AgentBackend, Protocol)  # type: ignore[arg-type]
-
-
-def test_protocol_is_runtime_checkable() -> None:
-    """AgentBackend supports isinstance() checks."""
-    from agent_fox.session.backends import AgentBackend
-
-    # runtime_checkable protocols have _is_runtime_protocol set
-    assert getattr(AgentBackend, "_is_runtime_protocol", False)
-
-
-# ---------------------------------------------------------------------------
-# TS-55-8: AgentBackend docstring mentions Claude-only
-# ---------------------------------------------------------------------------
-
-
-def test_protocol_docstring() -> None:
-    """AgentBackend docstring states ClaudeBackend is the only production impl."""
-    from agent_fox.session.backends.protocol import AgentBackend
-
-    doc = AgentBackend.__doc__
-    assert doc is not None, "AgentBackend must have a docstring"
-    assert "ClaudeBackend" in doc
-    assert "production" in doc.lower() or "only" in doc.lower()
-
 
 # ---------------------------------------------------------------------------
 # TS-55-2: ADR contains alternatives section
@@ -135,39 +68,3 @@ def test_adr_number_unique() -> None:
             numbers.append(match.group(1))
 
     assert len(numbers) == len(set(numbers)), f"Duplicate ADR numbers: {numbers}"
-
-
-# ---------------------------------------------------------------------------
-# TS-55-E2: Test mock satisfies protocol
-# ---------------------------------------------------------------------------
-
-
-def test_mock_satisfies_protocol() -> None:
-    """A mock backend implementing AgentBackend methods passes isinstance check."""
-    from agent_fox.session.backends.protocol import (
-        AgentBackend,
-        AgentMessage,
-        PermissionCallback,
-    )
-
-    class MockBackend:
-        @property
-        def name(self) -> str:
-            return "mock"
-
-        async def execute(
-            self,
-            prompt: str,
-            *,
-            system_prompt: str,
-            model: str,
-            cwd: str,
-            permission_callback: PermissionCallback | None = None,
-        ) -> AsyncIterator[AgentMessage]:
-            yield  # type: ignore[misc]
-
-        async def close(self) -> None:
-            pass
-
-    mock = MockBackend()
-    assert isinstance(mock, AgentBackend)

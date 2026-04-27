@@ -262,12 +262,6 @@ class TestRemainingBackingFunctions:
 
         assert callable(init_project)
 
-    def test_generate_status_importable(self) -> None:
-        """generate_status can be imported."""
-        from agent_fox.reporting.status import generate_status
-
-        assert callable(generate_status)
-
     def test_generate_standup_importable(self) -> None:
         """generate_standup can be imported."""
         from agent_fox.reporting.standup import generate_standup
@@ -308,14 +302,6 @@ class TestBackingFunctionsReturnResults:
 
     Requirement: 59-REQ-5.3
     """
-
-    def test_generate_status_returns_result(self) -> None:
-        """generate_status returns a non-None result."""
-        from agent_fox.reporting.status import generate_status
-
-        config = MagicMock()
-        result = generate_status(config)
-        assert result is not None
 
     def test_generate_standup_returns_result(self) -> None:
         """generate_standup returns a non-None result."""

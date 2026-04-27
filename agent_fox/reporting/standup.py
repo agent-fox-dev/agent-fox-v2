@@ -15,6 +15,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from agent_fox.core.node_id import spec_name_of
 from agent_fox.engine.state import ExecutionState, SessionRecord, load_state_from_db
 from agent_fox.graph.persistence import load_plan
 from agent_fox.graph.types import TaskGraph
@@ -364,6 +365,8 @@ class StandupReport:
         default_factory=list,
     )  # per-task breakdown
     total_cost: float | None = None  # all-time total; None when no session data available
+    cost_by_spec: dict[str, float] = field(default_factory=dict)
+    cost_by_archetype: dict[str, float] = field(default_factory=dict)
 
 
 def generate_standup(
@@ -419,13 +422,12 @@ def generate_standup(
     # Compute agent activity from windowed sessions
     agent = _compute_agent_activity(windowed_sessions)
 
-    # Compute per-task activity breakdowns (all sessions, not just windowed)
-    all_sessions = state.session_history if state else []
+    # Compute per-task activity breakdowns within the time window
     node_states: dict[str, str] = {}
     if state is not None:
         node_states = dict(state.node_states)
     node_archetypes = {nid: node.archetype for nid, node in graph.nodes.items()} if graph else None
-    task_activities = _compute_task_activities(all_sessions, node_states, node_archetypes)
+    task_activities = _compute_task_activities(windowed_sessions, node_states, node_archetypes)
 
     # Partition git commits into human and agent
     human_commits, agent_commits = partition_commits(
@@ -441,18 +443,19 @@ def generate_standup(
     # Build cost breakdown by model tier
     cost_breakdown = _build_cost_breakdown(windowed_sessions)
 
+    # Per-spec and per-archetype cost summaries within the time window.
+    # Total cost is derived from the same windowed data so all numbers
+    # are consistent and scoped to the reporting period.
+    cost_by_spec_agg: dict[str, float] = defaultdict(float)
+    cost_by_archetype_agg: dict[str, float] = defaultdict(float)
+    for record in windowed_sessions:
+        cost_by_spec_agg[spec_name_of(record.node_id)] += record.cost
+        cost_by_archetype_agg[record.archetype] += record.cost
+
+    total_cost: float | None = sum(cost_by_spec_agg.values()) if windowed_sessions else None
+
     # Build queue summary from current task statuses
     queue = _build_queue_summary(graph, state)
-
-    # All-time total cost: prefer DuckDB audit data, fall back to state.
-    # Use None (not 0.0) when no session data is available so the display
-    # layer can distinguish "no data" from "ran but cost nothing".
-    if audit_standup is not None and audit_standup.total_cost > 0:
-        all_time_cost: float | None = audit_standup.total_cost
-    elif state is not None:
-        all_time_cost = state.total_cost
-    else:
-        all_time_cost = None
 
     return StandupReport(
         window_hours=hours,
@@ -465,7 +468,9 @@ def generate_standup(
         cost_breakdown=cost_breakdown,
         queue=queue,
         task_activities=task_activities,
-        total_cost=all_time_cost,
+        total_cost=total_cost,
+        cost_by_spec=dict(cost_by_spec_agg),
+        cost_by_archetype=dict(cost_by_archetype_agg),
     )
 
 
@@ -567,7 +572,14 @@ def _compute_task_activities(
         total_input = sum(s.input_tokens for s in task_sessions)
         total_output = sum(s.output_tokens for s in task_sessions)
         total_cost = sum(s.cost for s in task_sessions)
-        current_status = node_states.get(task_id, "pending")
+        current_status = node_states.get(task_id)
+        if current_status is None:
+            if completed_count > 0:
+                current_status = "completed"
+            elif task_sessions:
+                current_status = "failed"
+            else:
+                current_status = "pending"
 
         # Resolve archetype: prefer graph data, fall back to session records
         if node_archetypes and task_id in node_archetypes:

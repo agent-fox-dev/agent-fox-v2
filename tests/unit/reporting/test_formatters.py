@@ -25,37 +25,8 @@ from agent_fox.reporting.standup import (
     QueueSummary,
     StandupReport,
 )
-from agent_fox.reporting.status import StatusReport, TaskSummary
 
 # -- Helpers ------------------------------------------------------------------
-
-
-def _make_status_report() -> StatusReport:
-    """Create a sample StatusReport for formatter tests."""
-    return StatusReport(
-        counts={
-            "completed": 3,
-            "failed": 1,
-            "blocked": 1,
-            "pending": 2,
-        },
-        total_tasks=7,
-        input_tokens=100_000,
-        output_tokens=50_000,
-        estimated_cost=2.50,
-        problem_tasks=[
-            TaskSummary(
-                task_id="spec_a:2",
-                title="Task A2",
-                status="failed",
-                reason="test failures",
-            ),
-        ],
-        per_spec={
-            "spec_a": {"completed": 2, "failed": 1},
-            "spec_b": {"completed": 1, "pending": 2, "blocked": 1},
-        },
-    )
 
 
 def _make_standup_report() -> StandupReport:
@@ -124,34 +95,6 @@ def _make_standup_report() -> StandupReport:
 class TestNoSessionDataDisplay:
     """Regression #379: formatters show 'no session data' instead of $0.00."""
 
-    def test_status_no_session_data_when_tokens_none(self) -> None:
-        """format_status shows 'no session data' when input_tokens is None."""
-        import dataclasses
-
-        formatter = TableFormatter()
-        report = dataclasses.replace(
-            _make_status_report(),
-            input_tokens=None,
-            output_tokens=None,
-            estimated_cost=None,
-        )
-        output = formatter.format_status(report)
-
-        assert "no session data" in output
-        assert "$" not in output.split("\n")[1], (
-            "Cost line must not show a dollar amount when tokens are None"
-        )
-
-    def test_status_tokens_and_cost_shown_when_data_available(self) -> None:
-        """format_status shows normal token/cost line when values are present."""
-        formatter = TableFormatter()
-        report = _make_status_report()  # has real values
-        output = formatter.format_status(report)
-
-        assert "Tokens:" in output
-        assert "$2.50" in output
-        assert "no session data" not in output
-
     def test_standup_no_session_data_when_cost_none(self) -> None:
         """format_standup shows 'no session data' when total_cost is None."""
         import dataclasses
@@ -181,43 +124,6 @@ class TestNoSessionDataDisplay:
 
 
 # ---------------------------------------------------------------------------
-# Issue #375: TableFormatter must not display Memory line in status header
-# ---------------------------------------------------------------------------
-
-
-class TestTableFormatter:
-    """Regression tests for TableFormatter.format_status text output."""
-
-    def test_memory_line_absent_when_zero_facts(self) -> None:
-        """'Memory: 0 facts' must not appear in status output (issue #375)."""
-        formatter = TableFormatter()
-        report = _make_status_report()  # memory_total defaults to 0
-
-        output = formatter.format_status(report)
-
-        assert "Memory" not in output, (
-            "Status header must not contain a Memory line (issue #375)"
-        )
-
-    def test_memory_line_absent_when_facts_present(self) -> None:
-        """'Memory: N facts' must not appear even when facts exist (issue #375)."""
-        import dataclasses
-
-        formatter = TableFormatter()
-        report = dataclasses.replace(
-            _make_status_report(),
-            memory_total=5,
-            memory_by_category={"pattern": 3, "decision": 2},
-        )
-
-        output = formatter.format_status(report)
-
-        assert "Memory" not in output, (
-            "Status header must not contain a Memory line even when facts exist (issue #375)"
-        )
-
-
-# ---------------------------------------------------------------------------
 # TS-07-9: JSON formatter produces valid JSON
 # Requirement: 07-REQ-3.2
 # ---------------------------------------------------------------------------
@@ -225,28 +131,6 @@ class TestTableFormatter:
 
 class TestJsonFormatter:
     """TS-07-9: JSON formatter produces valid JSON."""
-
-    def test_format_status_produces_valid_json(self) -> None:
-        """JSON output is parseable by json.loads."""
-        formatter = JsonFormatter()
-        report = _make_status_report()
-
-        output = formatter.format_status(report)
-        parsed = json.loads(output)
-
-        assert parsed["total_tasks"] == report.total_tasks
-        assert parsed["estimated_cost"] == report.estimated_cost
-
-    def test_format_status_includes_counts(self) -> None:
-        """Parsed JSON contains task counts."""
-        formatter = JsonFormatter()
-        report = _make_status_report()
-
-        output = formatter.format_status(report)
-        parsed = json.loads(output)
-
-        assert parsed["counts"]["completed"] == 3
-        assert parsed["counts"]["failed"] == 1
 
     def test_format_standup_produces_valid_json(self) -> None:
         """JSON output for standup is parseable."""

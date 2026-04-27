@@ -176,12 +176,9 @@ class FixPipeline:
         """
         from agent_fox.core.models import resolve_model
         from agent_fox.engine.sdk_params import (
-            resolve_fallback_model,
-            resolve_max_budget,
-            resolve_max_turns,
             resolve_model_tier,
             resolve_security_config,
-            resolve_thinking,
+            resolve_session_params,
         )
         from agent_fox.session.prompt import build_system_prompt
         from agent_fox.session.session import run_session
@@ -200,18 +197,15 @@ class FixPipeline:
         effective_task = task_prompt if task_prompt else spec.task_prompt
         node_id = f"fix-issue-{spec.issue_number}:0:{archetype}"
 
-        # Resolve SDK params per archetype, matching NodeSessionRunner
         config = self._config
         resolved_model_id = model_id or resolve_model(resolve_model_tier(config, archetype, mode=mode)).model_id
         resolved_security = resolve_security_config(config, archetype, mode=mode)
-        resolved_max_turns = resolve_max_turns(config, archetype, mode=mode)
-        resolved_thinking = resolve_thinking(config, archetype, mode=mode)
-        resolved_fallback = resolve_fallback_model(config)
-        resolved_budget = resolve_max_budget(config)
-
-        # Claude CLI rejects fallback_model when it equals the main model
-        if resolved_fallback and resolved_fallback == resolved_model_id:
-            resolved_fallback = None
+        params = resolve_session_params(
+            config,
+            archetype,
+            mode=mode,
+            model_id=resolved_model_id,
+        )
 
         return await run_session(
             workspace=workspace,
@@ -222,10 +216,10 @@ class FixPipeline:
             activity_callback=self._activity_callback,
             model_id=resolved_model_id,
             security_config=resolved_security,
-            max_turns=resolved_max_turns,
-            max_budget_usd=resolved_budget,
-            fallback_model=resolved_fallback,
-            thinking=resolved_thinking,
+            max_turns=params.max_turns,
+            max_budget_usd=params.max_budget_usd,
+            fallback_model=params.fallback_model,
+            thinking=params.thinking,
             archetype=archetype,
             sink_dispatcher=self._sink,
             run_id=self._run_id,
@@ -397,8 +391,7 @@ class FixPipeline:
 
         Requirements: 91-REQ-3.1, 91-REQ-3.2, 91-REQ-3.E1
         """
-        from agent_fox.core.config import PricingConfig
-        from agent_fox.core.models import calculate_cost
+        from agent_fox.engine.audit_helpers import calculate_session_cost
 
         status = getattr(outcome, "status", "failed")
         input_tokens = getattr(outcome, "input_tokens", 0)
@@ -409,14 +402,13 @@ class FixPipeline:
         error_message = getattr(outcome, "error_message", None)
 
         model_id = self._get_model_id(archetype)
-        pricing = getattr(self._config, "pricing", PricingConfig())
 
         if status == "completed":
-            cost = calculate_cost(
+            cost = calculate_session_cost(
+                self._config,
+                model_id,
                 input_tokens,
                 output_tokens,
-                model_id,
-                pricing,
                 cache_read_input_tokens=cache_read,
                 cache_creation_input_tokens=cache_creation,
             )

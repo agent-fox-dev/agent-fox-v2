@@ -1,6 +1,38 @@
 # Agent-Fox Memory
 
-_3176 facts | last updated: 2026-04-23_
+_3178 facts | last updated: 2026-04-27_
+
+**2026-04-27 Tier 1 code simplification:** Deleted dead `graph/critical_path.py`
+module (208 lines, zero production imports) and its 2 test files. Removed
+unused `_STREAM_TO_CONFIG` reverse-mapping from `nightshift/streams.py`.
+Fixed 15 pre-existing lint errors in `engine/engine.py` (5 unused imports,
+8 line-length violations) and `engine/state_manager.py` (2 unused
+TYPE_CHECKING imports). Fixed 9 pre-existing format violations across
+engine, knowledge, nightshift, and reporting modules. `ReloadResult` and
+`diff_configs` kept as re-exports from `engine/engine.py` (tests depend
+on that import path). 4433 tests pass, `make check` clean.
+
+**2026-04-27 remove AgentBackend protocol (issue #551):** Removed the
+single-implementation `AgentBackend` protocol from `session/backends/protocol.py`.
+Moved canonical message types (`ToolUseMessage`, `AssistantMessage`,
+`ResultMessage`, `AgentMessage`, `PermissionCallback`) to new `types.py`.
+Removed `get_backend()` factory. `ClaudeBackend` is now imported directly
+everywhere. Deleted `protocol.py`. Updated `__init__.py`, `claude.py`,
+`session.py`, and 10 test files. Removed 16 protocol-specific tests.
+4445 tests pass. Pre-existing lint errors unchanged (15 in engine.py,
+state_manager.py).
+
+**2026-04-27 standup overhaul & status removal:** Overhauled standup command
+output: fixed "pending" status bug (now inferred from session data when
+plan_nodes don't match), added "Cost by Spec" and "Cost by Archetype"
+sections, removed "Heads Up — File Overlaps" and "Queue Status" sections,
+scoped all sections to the reporting time window (--hours). Removed the
+entire `status` command (`agent_fox/cli/status.py`, `agent_fox/reporting/status.py`)
+as obsolete — standup now covers all its functionality. Deleted 4 status-only
+test files, updated 11 mixed test files to remove status references. 4459 tests
+pass. Pre-existing failures: test_banner_appears_with_subcommand and
+test_reset_json_output (both due to missing `_do_reset` in reset module,
+unrelated to this change).
 
 **2026-04-23 get-well plan (Tiers 1-2):** Implemented fixes from
 consolidated audit: B-1 (daemon stop event type), B-2 (assert→RuntimeError

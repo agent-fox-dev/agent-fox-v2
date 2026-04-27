@@ -31,7 +31,7 @@ from claude_agent_sdk.types import (
     ResultMessage as SDKResultMessage,
 )
 
-from agent_fox.session.backends.protocol import (
+from agent_fox.session.backends.types import (
     AgentMessage,
     AssistantMessage,
     PermissionCallback,

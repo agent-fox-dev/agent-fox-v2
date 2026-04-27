@@ -480,6 +480,16 @@ def _ensure_platform_labels(project_root: Path) -> int:
         return 0
 
 
+def _ensure_specs_dirs(project_root: Path) -> None:
+    """Create .agent-fox/specs/ and .agent-fox/specs/archive/ with a .gitkeep."""
+    specs_dir = project_root / ".agent-fox" / "specs"
+    archive_dir = specs_dir / "archive"
+    archive_dir.mkdir(parents=True, exist_ok=True)
+    gitkeep = archive_dir / ".gitkeep"
+    if not gitkeep.exists():
+        gitkeep.write_text("", encoding="utf-8")
+
+
 def _ensure_nightshift_ignore(project_root: Path) -> str:
     """Create the .night-shift seed file if it does not already exist.
 
@@ -545,6 +555,7 @@ def init_project(
 
         # Ensure structure is complete
         (agent_fox_dir / "worktrees").mkdir(parents=True, exist_ok=True)
+        _ensure_specs_dirs(path)
         _ensure_seed_files(path)
         _update_gitignore(path)
         _ensure_develop_branch(quiet=quiet)
@@ -571,6 +582,7 @@ def init_project(
     # Fresh initialization
     _secure_mkdir(agent_fox_dir)
     (agent_fox_dir / "worktrees").mkdir(exist_ok=True)
+    _ensure_specs_dirs(path)
 
     from agent_fox.core.config_gen import generate_default_config
 

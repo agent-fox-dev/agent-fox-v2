@@ -19,7 +19,6 @@ hack/**
 
 # other
 **/.env
-MagicMock/**
 
 # agent-fox
 .agent-fox/*
@@ -29,3 +28,8 @@ MagicMock/**
 !.agent-fox/profiles/
 !.agent-fox/profiles/*
 .claude/worktrees/
+
+# test artifacts
+docs/errata/spec_a_auto_errata.md
+docs/errata/test_spec_auto_errata.md
+MagicMock/**

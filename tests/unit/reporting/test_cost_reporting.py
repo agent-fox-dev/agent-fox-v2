@@ -11,13 +11,12 @@ from pathlib import Path
 
 from agent_fox.core.config import PricingConfig
 from agent_fox.core.models import calculate_cost
+from agent_fox.core.node_id import spec_name_of as extract_spec_name
 from agent_fox.core.token_tracker import (
     flush_auxiliary_usage,
     record_auxiliary_usage,
 )
 from agent_fox.engine.state import ExecutionState, SessionRecord, update_state_with_session
-from agent_fox.core.node_id import spec_name_of as extract_spec_name
-from agent_fox.reporting.status import StatusReport
 
 
 class TestAuxiliaryIntegration:
@@ -128,45 +127,9 @@ class TestArchetypeTracking:
 
         assert record.archetype == "skeptic"
 
-    def test_status_per_archetype(self) -> None:
-        """TS-34-11: StatusReport includes per-archetype cost breakdown."""
-        # This test validates that StatusReport has cost_by_archetype field
-        # and that it aggregates correctly from session records.
-        report = StatusReport(
-            counts={"completed": 3},
-            total_tasks=3,
-            input_tokens=0,
-            output_tokens=0,
-            estimated_cost=13.0,
-            problem_tasks=[],
-            per_spec={},
-            cost_by_archetype={"coder": 10.0, "skeptic": 3.0},
-            cost_by_spec={},
-        )
-
-        assert report.cost_by_archetype["coder"] == 10.0
-        assert report.cost_by_archetype["skeptic"] == 3.0
-
 
 class TestPerSpecCost:
     """TS-34-12, TS-34-13: Per-spec cost aggregation."""
-
-    def test_status_per_spec(self) -> None:
-        """TS-34-12: StatusReport includes per-spec cost breakdown."""
-        report = StatusReport(
-            counts={"completed": 3},
-            total_tasks=3,
-            input_tokens=0,
-            output_tokens=0,
-            estimated_cost=15.0,
-            problem_tasks=[],
-            per_spec={},
-            cost_by_archetype={},
-            cost_by_spec={"spec_a": 8.0, "spec_b": 7.0},
-        )
-
-        assert report.cost_by_spec["spec_a"] == 8.0
-        assert report.cost_by_spec["spec_b"] == 7.0
 
     def test_spec_name_extraction(self) -> None:
         """TS-34-13: Spec name extracted from node_id correctly."""

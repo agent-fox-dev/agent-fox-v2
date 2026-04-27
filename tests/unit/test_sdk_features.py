@@ -19,35 +19,35 @@ from typing import Any
 # ---------------------------------------------------------------------------
 
 
-class TestProtocolSignature:
-    """Verify AgentBackend.execute() includes new optional parameters."""
+class TestClaudeBackendSignature:
+    """Verify ClaudeBackend.execute() includes optional parameters."""
 
-    def test_protocol_has_max_turns(self) -> None:
+    def test_execute_has_max_turns(self) -> None:
         """TS-56-15: execute() signature includes max_turns."""
-        from agent_fox.session.backends.protocol import AgentBackend
+        from agent_fox.session.backends.claude import ClaudeBackend
 
-        sig = inspect.signature(AgentBackend.execute)
+        sig = inspect.signature(ClaudeBackend.execute)
         assert "max_turns" in sig.parameters
 
-    def test_protocol_has_max_budget_usd(self) -> None:
+    def test_execute_has_max_budget_usd(self) -> None:
         """TS-56-15: execute() signature includes max_budget_usd."""
-        from agent_fox.session.backends.protocol import AgentBackend
+        from agent_fox.session.backends.claude import ClaudeBackend
 
-        sig = inspect.signature(AgentBackend.execute)
+        sig = inspect.signature(ClaudeBackend.execute)
         assert "max_budget_usd" in sig.parameters
 
-    def test_protocol_has_fallback_model(self) -> None:
+    def test_execute_has_fallback_model(self) -> None:
         """TS-56-15: execute() signature includes fallback_model."""
-        from agent_fox.session.backends.protocol import AgentBackend
+        from agent_fox.session.backends.claude import ClaudeBackend
 
-        sig = inspect.signature(AgentBackend.execute)
+        sig = inspect.signature(ClaudeBackend.execute)
         assert "fallback_model" in sig.parameters
 
-    def test_protocol_has_thinking(self) -> None:
+    def test_execute_has_thinking(self) -> None:
         """TS-56-15: execute() signature includes thinking."""
-        from agent_fox.session.backends.protocol import AgentBackend
+        from agent_fox.session.backends.claude import ClaudeBackend
 
-        sig = inspect.signature(AgentBackend.execute)
+        sig = inspect.signature(ClaudeBackend.execute)
         assert "thinking" in sig.parameters
 
 
@@ -132,7 +132,7 @@ class TestMaxTurnsPassthrough:
         captured_options: list[Any] = []
 
         async def fake_stream(self: Any, *, prompt: str, options: Any) -> Any:
-            from agent_fox.session.backends.protocol import ResultMessage
+            from agent_fox.session.backends.types import ResultMessage
 
             captured_options.append(options)
             yield ResultMessage(
@@ -189,7 +189,7 @@ class TestBudgetPassthrough:
         captured_options: list[Any] = []
 
         async def fake_stream(self: Any, *, prompt: str, options: Any) -> Any:
-            from agent_fox.session.backends.protocol import ResultMessage
+            from agent_fox.session.backends.types import ResultMessage
 
             captured_options.append(options)
             yield ResultMessage(
@@ -247,7 +247,7 @@ class TestFallbackModelPassthrough:
         captured_options: list[Any] = []
 
         async def fake_stream(self: Any, *, prompt: str, options: Any) -> Any:
-            from agent_fox.session.backends.protocol import ResultMessage
+            from agent_fox.session.backends.types import ResultMessage
 
             captured_options.append(options)
             yield ResultMessage(
@@ -307,7 +307,7 @@ class TestThinkingPassthrough:
         captured_options: list[Any] = []
 
         async def fake_stream(self: Any, *, prompt: str, options: Any) -> Any:
-            from agent_fox.session.backends.protocol import ResultMessage
+            from agent_fox.session.backends.types import ResultMessage
 
             captured_options.append(options)
             yield ResultMessage(

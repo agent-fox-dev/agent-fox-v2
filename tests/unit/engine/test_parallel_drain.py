@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 
 import pytest
 
+from agent_fox.engine.dispatch import ParallelDispatcher
 from agent_fox.engine.state import SessionRecord
 
 
@@ -368,18 +369,23 @@ class TestReviewConcurrencyCapPool:
         runner = MagicMock()
         type(runner).max_parallelism = PropertyMock(return_value=3)
         runner.execute_one = AsyncMock(return_value=_make_record("x"))
-        orch._parallel_runner = runner
+
+        dispatch_mgr = MagicMock()
+        dispatch_mgr.parallel_runner = runner
+        dispatch_mgr.get_node_archetype = lambda nid: nodes[nid].archetype
 
         async def mock_prepare_launch(node_id, state, at, et):
             arch = nodes[node_id].archetype
             return ("allowed", 1, None, arch, 1, None, None)
 
-        orch._prepare_launch = mock_prepare_launch
+        dispatch_mgr.prepare_launch = mock_prepare_launch
+        orch._dispatch_mgr = dispatch_mgr
 
+        dispatcher = ParallelDispatcher(orch)
         pool: set[asyncio.Task[SessionRecord]] = set()
         candidates = ["spec_a:1", "spec_b:1", "spec_c:1"]
 
-        await orch._fill_parallel_pool(pool, candidates, MagicMock(), {}, {})
+        await dispatcher.fill_pool(pool, candidates, MagicMock(), {}, {})
 
         launched = [t.get_name().replace("parallel-", "") for t in pool]
 
@@ -438,18 +444,23 @@ class TestReviewConcurrencyCapPool:
         runner = MagicMock()
         type(runner).max_parallelism = PropertyMock(return_value=3)
         runner.execute_one = AsyncMock(return_value=_make_record("x"))
-        orch._parallel_runner = runner
+
+        dispatch_mgr = MagicMock()
+        dispatch_mgr.parallel_runner = runner
+        dispatch_mgr.get_node_archetype = lambda nid: nodes[nid].archetype
 
         async def mock_prepare_launch(node_id, state, at, et):
             arch = nodes[node_id].archetype
             return ("allowed", 1, None, arch, 1, None, None)
 
-        orch._prepare_launch = mock_prepare_launch
+        dispatch_mgr.prepare_launch = mock_prepare_launch
+        orch._dispatch_mgr = dispatch_mgr
 
+        dispatcher = ParallelDispatcher(orch)
         pool: set[asyncio.Task[SessionRecord]] = set()
         candidates = ["spec_a:0", "spec_b:0", "spec_c:1"]
 
-        await orch._fill_parallel_pool(pool, candidates, MagicMock(), {}, {})
+        await dispatcher.fill_pool(pool, candidates, MagicMock(), {}, {})
 
         launched = [t.get_name().replace("parallel-", "") for t in pool]
 
@@ -515,19 +526,24 @@ class TestReviewConcurrencyCapPool:
         runner = MagicMock()
         type(runner).max_parallelism = PropertyMock(return_value=3)
         runner.execute_one = AsyncMock(return_value=_make_record("x"))
-        orch._parallel_runner = runner
+
+        dispatch_mgr = MagicMock()
+        dispatch_mgr.parallel_runner = runner
+        dispatch_mgr.get_node_archetype = lambda nid: nodes[nid].archetype
 
         async def mock_prepare_launch(node_id, state, at, et):
             arch = nodes[node_id].archetype
             return ("allowed", 1, None, arch, 1, None, None)
 
-        orch._prepare_launch = mock_prepare_launch
+        dispatch_mgr.prepare_launch = mock_prepare_launch
+        orch._dispatch_mgr = dispatch_mgr
 
+        dispatcher = ParallelDispatcher(orch)
         pool: set[asyncio.Task[SessionRecord]] = set()
         # Reviews first, then coders — cap should let 1 review + 2 coders
         candidates = ["spec_a:2", "spec_b:2", "spec_c:2", "spec_d:1", "spec_e:1"]
 
-        await orch._fill_parallel_pool(pool, candidates, MagicMock(), {}, {})
+        await dispatcher.fill_pool(pool, candidates, MagicMock(), {}, {})
 
         launched = [t.get_name().replace("parallel-", "") for t in pool]
 
@@ -598,7 +614,10 @@ class TestReviewCapDoesNotConsumeRetries:
         runner = MagicMock()
         type(runner).max_parallelism = PropertyMock(return_value=3)
         runner.execute_one = AsyncMock(return_value=_make_record("x"))
-        orch._parallel_runner = runner
+
+        dispatch_mgr = MagicMock()
+        dispatch_mgr.parallel_runner = runner
+        dispatch_mgr.get_node_archetype = lambda nid: nodes[nid].archetype
 
         prepare_calls: list[str] = []
 
@@ -608,15 +627,17 @@ class TestReviewCapDoesNotConsumeRetries:
             at[node_id] = at.get(node_id, 0) + 1
             return ("allowed", at[node_id], None, arch, 1, None, None)
 
-        orch._prepare_launch = mock_prepare_launch
+        dispatch_mgr.prepare_launch = mock_prepare_launch
+        orch._dispatch_mgr = dispatch_mgr
 
+        dispatcher = ParallelDispatcher(orch)
         attempt_tracker: dict[str, int] = {}
         pool: set[asyncio.Task[SessionRecord]] = set()
 
         # max_review = max(1, int(3*0.34)) = 1
         # spec_a:1 should launch (first review slot), spec_b:1 should be
         # skipped by the cap BEFORE _prepare_launch is called.
-        await orch._fill_parallel_pool(
+        await dispatcher.fill_pool(
             pool, ["spec_a:1", "spec_b:1"], MagicMock(), attempt_tracker, {},
         )
 
@@ -668,15 +689,20 @@ class TestReviewCapDoesNotConsumeRetries:
         runner = MagicMock()
         type(runner).max_parallelism = PropertyMock(return_value=5)
         runner.execute_one = AsyncMock(return_value=_make_record("x"))
-        orch._parallel_runner = runner
+
+        dispatch_mgr = MagicMock()
+        dispatch_mgr.parallel_runner = runner
+        dispatch_mgr.get_node_archetype = lambda nid: nodes.get(nid, nodes.get(nid, MagicMock(archetype="reviewer"))).archetype
 
         async def mock_prepare_launch(node_id, state, at, et):
             arch = nodes[node_id].archetype
             at[node_id] = at.get(node_id, 0) + 1
             return ("allowed", at[node_id], None, arch, 1, None, None)
 
-        orch._prepare_launch = mock_prepare_launch
+        dispatch_mgr.prepare_launch = mock_prepare_launch
+        orch._dispatch_mgr = dispatch_mgr
 
+        dispatcher = ParallelDispatcher(orch)
         attempt_tracker: dict[str, int] = {}
         node_id = "spec_x:1:reviewer:audit-review"
 
@@ -696,7 +722,7 @@ class TestReviewCapDoesNotConsumeRetries:
                 title="r", optional=False, archetype="reviewer",
             )
 
-            await orch._fill_parallel_pool(
+            await dispatcher.fill_pool(
                 pool, [node_id], MagicMock(), attempt_tracker, {},
             )
 

@@ -124,21 +124,19 @@ def _make_workspace():  # type: ignore[no-untyped-def]
 
 
 @pytest.mark.asyncio
-async def test_smoke_fix_session_costs_in_status_report() -> None:
-    """Fix pipeline emits session.complete events visible in build_status_report_from_audit.
+async def test_smoke_fix_session_costs_in_audit_events() -> None:
+    """Fix pipeline emits session.complete events to DuckDB.
 
     Uses real DuckDB + real DuckDBSink + real SinkDispatcher. Does NOT mock
     emit_audit_event or DuckDBSink.
     """
     from agent_fox.nightshift.fix_pipeline import FixPipeline
-    from agent_fox.reporting.status import build_status_report_from_audit
 
     conn, sink = _make_in_memory_sink()
 
     config = _make_config()
     mock_platform = AsyncMock()
 
-    # FAILS at construction until FixPipeline accepts sink_dispatcher
     pipeline = FixPipeline(config, mock_platform, sink_dispatcher=sink)
 
     mock_outcome = _make_session_outcome(input_tokens=1500, output_tokens=400)
@@ -146,32 +144,24 @@ async def test_smoke_fix_session_costs_in_status_report() -> None:
     with (
         patch.object(pipeline, "_setup_workspace", AsyncMock(return_value=_make_workspace())),
         patch.object(pipeline, "_cleanup_workspace", AsyncMock()),
-        # Mock _run_session to return a known SessionOutcome without running Claude
         patch.object(pipeline, "_run_session", AsyncMock(return_value=mock_outcome)),
-        # Mock the coder-reviewer loop since we're only testing triage cost emission
         patch.object(pipeline, "_coder_review_loop", AsyncMock(return_value=False)),
     ):
         await pipeline.process_issue(_make_issue(42), issue_body="Fix the critical bug")
 
-    # Verify audit_events were written to DuckDB
     rows = conn.execute("SELECT event_type, payload FROM audit_events WHERE event_type = 'session.complete'").fetchall()
-
-    # FAILS until FixPipeline emits session.complete events
     assert len(rows) >= 1, "process_issue must emit at least one session.complete event to DuckDB"
 
-    # Verify the status report aggregates those costs
-    report = build_status_report_from_audit(conn)
-    assert report is not None, "build_status_report_from_audit must return a report"
+    payloads = [json.loads(r[1]) if isinstance(r[1], str) else r[1] for r in rows]
+    total_cost = sum(p.get("cost", 0) for p in payloads)
+    assert total_cost > 0, f"Total cost from audit events must be > 0, got {total_cost}"
 
-    # FAILS until total_cost is populated from the emitted events
-    assert report.total_cost > 0, f"StatusReport.total_cost must be > 0 after fix session, got {report.total_cost}"
-
-    # FAILS until cost_by_archetype includes fix session archetypes
+    archetypes = {p.get("archetype") for p in payloads}
     night_shift_archetypes = {"maintainer", "fix_coder", "fix_reviewer"}
-    matched = night_shift_archetypes & set(report.cost_by_archetype.keys())
+    matched = night_shift_archetypes & archetypes
     assert matched, (
-        f"cost_by_archetype must include at least one of {night_shift_archetypes}, "
-        f"got: {set(report.cost_by_archetype.keys())}"
+        f"audit events must include at least one of {night_shift_archetypes}, "
+        f"got: {archetypes}"
     )
 
 
@@ -182,19 +172,16 @@ async def test_smoke_fix_session_costs_in_status_report() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_smoke_auxiliary_costs_in_status_report() -> None:
-    """emit_auxiliary_cost writes to DuckDB and appears in the status report.
+def test_smoke_auxiliary_costs_in_audit_events() -> None:
+    """emit_auxiliary_cost writes to DuckDB audit_events.
 
     Uses real DuckDB + real DuckDBSink + real SinkDispatcher. Does NOT mock
     emit_audit_event or DuckDBSink.
     """
-    # FAILS with ModuleNotFoundError until cost_helpers.py is created
     from agent_fox.nightshift.cost_helpers import emit_auxiliary_cost  # type: ignore[import]
-    from agent_fox.reporting.status import build_status_report_from_audit
 
     conn, sink = _make_in_memory_sink()
 
-    # Mock API response with known token counts
     mock_response = MagicMock()
     mock_response.usage.input_tokens = 800
     mock_response.usage.output_tokens = 150
@@ -204,7 +191,6 @@ def test_smoke_auxiliary_costs_in_status_report() -> None:
     mock_pricing = MagicMock()
     mock_pricing.models = {}
 
-    # Emit directly (simulating a critic call)
     emit_auxiliary_cost(
         sink,
         "smoke-run-1",
@@ -214,24 +200,15 @@ def test_smoke_auxiliary_costs_in_status_report() -> None:
         mock_pricing,
     )
 
-    # Verify the event is in DuckDB
     rows = conn.execute("SELECT payload FROM audit_events WHERE event_type = 'session.complete'").fetchall()
     assert len(rows) >= 1, "emit_auxiliary_cost must write a session.complete row to DuckDB"
 
-    # Parse payload of first row to verify archetype
     payload = json.loads(rows[0][0]) if isinstance(rows[0][0], str) else rows[0][0]
     assert payload.get("archetype") == "hunt_critic", (
         f"Expected archetype='hunt_critic' in payload, got: {payload.get('archetype')}"
     )
-
-    # Verify status report aggregates it
-    report = build_status_report_from_audit(conn)
-    assert report is not None
-    assert report.total_cost > 0, (
-        f"StatusReport.total_cost must be > 0 after auxiliary cost emission, got {report.total_cost}"
-    )
-    assert "hunt_critic" in report.cost_by_archetype, (
-        f"cost_by_archetype must include 'hunt_critic', got: {set(report.cost_by_archetype.keys())}"
+    assert payload.get("cost", 0) > 0, (
+        f"cost must be > 0 after auxiliary cost emission, got {payload.get('cost')}"
     )
 
 

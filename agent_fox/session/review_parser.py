@@ -533,6 +533,24 @@ def _extract_json_blocks(text: str) -> list[str]:
     return blocks
 
 
+def _process_json_value(
+    data: object,
+    wrapper_key: str,
+    single_item_keys: tuple[str, ...],
+) -> list[dict]:
+    """Convert a parsed JSON value into a list of item dicts."""
+    if isinstance(data, dict):
+        resolved_key = _resolve_wrapper_key(data, wrapper_key)
+        if resolved_key is not None:
+            return list(data[resolved_key])
+        if all(k in data for k in single_item_keys):
+            return [data]
+        return []
+    if isinstance(data, list):
+        return list(data)
+    return []
+
+
 def _unwrap_items(
     response: str,
     wrapper_key: str,
@@ -557,19 +575,6 @@ def _unwrap_items(
     Requirements: 74-REQ-2.3, 74-REQ-2.E1, 74-REQ-2.E2
     """
 
-    def _process_data(data: object) -> list[dict]:
-        """Convert a parsed JSON value into a list of item dicts."""
-        if isinstance(data, dict):
-            resolved_key = _resolve_wrapper_key(data, wrapper_key)
-            if resolved_key is not None:
-                return list(data[resolved_key])
-            if all(k in data for k in single_item_keys):
-                return [data]
-            return []
-        if isinstance(data, list):
-            return list(data)
-        return []
-
     # ------------------------------------------------------------------
     # Fast path: try direct JSON parsing on the entire response.
     # This correctly handles JSON strings that contain brace characters.
@@ -577,7 +582,7 @@ def _unwrap_items(
     stripped = response.strip()
     try:
         direct = json.loads(stripped)
-        items = _process_data(direct)
+        items = _process_json_value(direct, wrapper_key, single_item_keys)
         if items:
             return items
         # A recognisable JSON value was found but yielded no items.
@@ -604,7 +609,7 @@ def _unwrap_items(
         except json.JSONDecodeError:
             logger.warning("Invalid JSON block in %s output, skipping", archetype_label)
             continue
-        all_items.extend(_process_data(data))
+        all_items.extend(_process_json_value(data, wrapper_key, single_item_keys))
 
     return all_items
 
@@ -674,6 +679,39 @@ def parse_oracle_output(
     return findings
 
 
+def _build_audit_result(data: object) -> AuditResult | None:
+    """Convert a parsed JSON value into an AuditResult, or return None."""
+    from agent_fox.session.convergence import AuditEntry, AuditResult
+
+    if not isinstance(data, dict):
+        return None
+    audit_key = _resolve_wrapper_key(data, "audit")
+    if audit_key is None:
+        return None
+
+    entries: list[AuditEntry] = []
+    for item in data[audit_key]:
+        if not isinstance(item, dict) or "ts_entry" not in item:
+            continue
+        entries.append(
+            AuditEntry(
+                ts_entry=item["ts_entry"],
+                test_functions=item.get("test_functions", []),
+                verdict=item.get("verdict", "MISSING"),
+                notes=item.get("notes"),
+            )
+        )
+
+    overall = data.get("overall_verdict", "FAIL")
+    summary = data.get("summary", "")
+
+    return AuditResult(
+        entries=entries,
+        overall_verdict=overall,
+        summary=summary,
+    )
+
+
 def parse_auditor_output(
     response: str,
 ) -> AuditResult | None:
@@ -691,38 +729,6 @@ def parse_auditor_output(
 
     Requirements: 46-REQ-8.1
     """
-    from agent_fox.session.convergence import AuditEntry, AuditResult
-
-    def _build_audit_result(data: object) -> AuditResult | None:
-        """Convert a parsed JSON value into an AuditResult, or return None."""
-        if not isinstance(data, dict):
-            return None
-        audit_key = _resolve_wrapper_key(data, "audit")
-        if audit_key is None:
-            return None
-
-        entries: list[AuditEntry] = []
-        for item in data[audit_key]:
-            if not isinstance(item, dict) or "ts_entry" not in item:
-                continue
-            entries.append(
-                AuditEntry(
-                    ts_entry=item["ts_entry"],
-                    test_functions=item.get("test_functions", []),
-                    verdict=item.get("verdict", "MISSING"),
-                    notes=item.get("notes"),
-                )
-            )
-
-        overall = data.get("overall_verdict", "FAIL")
-        summary = data.get("summary", "")
-
-        return AuditResult(
-            entries=entries,
-            overall_verdict=overall,
-            summary=summary,
-        )
-
     # ------------------------------------------------------------------
     # Fast path: try direct JSON parsing on the entire response.
     # The auditor prompt instructs bare JSON output with no fences, so this
