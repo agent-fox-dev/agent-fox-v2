@@ -117,7 +117,7 @@ class TestNoopUnchangedProperty:
             emitted.append(args)
 
         with patch(
-            "agent_fox.engine.engine.emit_audit_event",
+            "agent_fox.engine.config_reload.emit_audit_event",
             side_effect=_capture,
         ):
             orch._reload_config()  # type: ignore[attr-defined]  # AttributeError — will fail
@@ -173,7 +173,7 @@ class TestMutableFieldsUpdatedProperty:
 
         new_agent_cfg = AgentFoxConfig(orchestrator=new_cfg)
         with patch(
-            "agent_fox.engine.engine.load_config",
+            "agent_fox.engine.config_reload.load_config",
             return_value=new_agent_cfg,
         ):
             orch._reload_config()  # type: ignore[attr-defined]  # AttributeError — will fail
@@ -217,7 +217,7 @@ class TestCircuitBreakerRebuiltProperty:
 
         new_agent_cfg = AgentFoxConfig(orchestrator=OrchestratorConfig(max_cost=max_cost, parallel=1))
         with patch(
-            "agent_fox.engine.engine.load_config",
+            "agent_fox.engine.config_reload.load_config",
             return_value=new_agent_cfg,
         ):
             orch._reload_config()  # type: ignore[attr-defined]  # AttributeError — will fail
@@ -261,7 +261,7 @@ class TestParallelImmutableProperty:
         new_orch_cfg = OrchestratorConfig(parallel=new_parallel, inter_session_delay=0)
         new_agent_cfg = AgentFoxConfig(orchestrator=new_orch_cfg)
         with patch(
-            "agent_fox.engine.engine.load_config",
+            "agent_fox.engine.config_reload.load_config",
             return_value=new_agent_cfg,
         ):
             orch._reload_config()  # type: ignore[attr-defined]  # AttributeError — will fail
@@ -311,7 +311,7 @@ class TestErrorsPreserveConfigProperty:
         error_types = [exc_class, ConfigError]
         for err_type in error_types:
             with patch(
-                "agent_fox.engine.engine.load_config",
+                "agent_fox.engine.config_reload.load_config",
                 side_effect=err_type("test error"),
             ):
                 orch._reload_config()  # type: ignore[attr-defined]  # AttributeError — will fail
@@ -364,9 +364,9 @@ class TestAuditExactDiffProperty:
             emitted.append({"event_type": event_type, "payload": payload or {}})
 
         with (
-            patch("agent_fox.engine.engine.load_config", return_value=new_cfg),
+            patch("agent_fox.engine.config_reload.load_config", return_value=new_cfg),
             patch(
-                "agent_fox.engine.engine.emit_audit_event",
+                "agent_fox.engine.config_reload.emit_audit_event",
                 side_effect=_capture,
             ),
         ):

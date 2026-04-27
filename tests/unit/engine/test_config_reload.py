@@ -142,7 +142,7 @@ class TestNoopWhenHashMatches:
             emitted_events.append({"args": args, "kwargs": kwargs})
 
         with patch(
-            "agent_fox.engine.engine.emit_audit_event",
+            "agent_fox.engine.config_reload.emit_audit_event",
             side_effect=_capture,
         ):
             orch._reload_config()  # type: ignore[attr-defined]  # AttributeError — will fail
@@ -176,7 +176,7 @@ class TestReloadWhenHashDiffers:
         orch._run_id = "test_run"
 
         new_agent_config = AgentFoxConfig(orchestrator=OrchestratorConfig(max_cost=100.0, parallel=1))
-        with patch("agent_fox.engine.engine.load_config", return_value=new_agent_config):
+        with patch("agent_fox.engine.config_reload.load_config", return_value=new_agent_config):
             orch._reload_config()  # type: ignore[attr-defined]  # AttributeError — will fail
 
         assert orch._config.max_cost == 100.0
@@ -214,7 +214,7 @@ class TestOrchFieldsUpdated:
         )
         new_agent_cfg = AgentFoxConfig(orchestrator=new_orch_cfg)
         with patch(
-            "agent_fox.engine.engine.load_config",
+            "agent_fox.engine.config_reload.load_config",
             return_value=new_agent_cfg,
         ):
             orch._reload_config()  # type: ignore[attr-defined]  # AttributeError — will fail
@@ -249,7 +249,7 @@ class TestCircuitBreakerRebuilt:
 
         new_agent_cfg = AgentFoxConfig(orchestrator=OrchestratorConfig(max_cost=999.0, parallel=1))
         with patch(
-            "agent_fox.engine.engine.load_config",
+            "agent_fox.engine.config_reload.load_config",
             return_value=new_agent_cfg,
         ):
             orch._reload_config()  # type: ignore[attr-defined]  # AttributeError — will fail
@@ -289,10 +289,10 @@ class TestParallelChangeNotApplied:
         new_agent_cfg = AgentFoxConfig(orchestrator=OrchestratorConfig(parallel=4, inter_session_delay=0))
         with (
             patch(
-                "agent_fox.engine.engine.load_config",
+                "agent_fox.engine.config_reload.load_config",
                 return_value=new_agent_cfg,
             ),
-            caplog.at_level(logging.WARNING, logger="agent_fox.engine.engine"),
+            caplog.at_level(logging.WARNING, logger="agent_fox.engine.config_reload"),
         ):
             orch._reload_config()  # type: ignore[attr-defined]  # AttributeError — will fail
 
@@ -329,7 +329,7 @@ class TestArchetypesConfigUpdated:
             archetypes=new_arch,
         )
         with patch(
-            "agent_fox.engine.engine.load_config",
+            "agent_fox.engine.config_reload.load_config",
             return_value=new_agent_cfg,
         ):
             orch._reload_config()  # type: ignore[attr-defined]  # AttributeError — will fail
@@ -365,7 +365,7 @@ class TestPlanningConfigUpdated:
             planning=new_plan,
         )
         with patch(
-            "agent_fox.engine.engine.load_config",
+            "agent_fox.engine.config_reload.load_config",
             return_value=new_agent_cfg,
         ):
             orch._reload_config()  # type: ignore[attr-defined]  # AttributeError — will fail
@@ -404,11 +404,11 @@ class TestAuditEventEmitted:
 
         with (
             patch(
-                "agent_fox.engine.engine.load_config",
+                "agent_fox.engine.config_reload.load_config",
                 return_value=new_agent_cfg,
             ),
             patch(
-                "agent_fox.engine.engine.emit_audit_event",
+                "agent_fox.engine.config_reload.emit_audit_event",
                 side_effect=_capture,
             ),
         ):
@@ -481,7 +481,7 @@ class TestMissingFileKeepsConfig:
 
         original_max_cost = orch._config.max_cost
 
-        with caplog.at_level(logging.WARNING, logger="agent_fox.engine.engine"):
+        with caplog.at_level(logging.WARNING, logger="agent_fox.engine.config_reload"):
             orch._reload_config()  # type: ignore[attr-defined]  # AttributeError — will fail
 
         assert orch._config.max_cost == original_max_cost
@@ -519,10 +519,10 @@ class TestInvalidTomlKeepsConfig:
 
         with (
             patch(
-                "agent_fox.engine.engine.load_config",
+                "agent_fox.engine.config_reload.load_config",
                 side_effect=ConfigError("bad TOML"),
             ),
-            caplog.at_level(logging.WARNING, logger="agent_fox.engine.engine"),
+            caplog.at_level(logging.WARNING, logger="agent_fox.engine.config_reload"),
         ):
             orch._reload_config()  # type: ignore[attr-defined]  # AttributeError — will fail
 
@@ -562,7 +562,7 @@ class TestIOErrorKeepsConfig:
                 "pathlib.Path.read_text",
                 side_effect=OSError("permission denied"),
             ),
-            caplog.at_level(logging.WARNING, logger="agent_fox.engine.engine"),
+            caplog.at_level(logging.WARNING, logger="agent_fox.engine.config_reload"),
         ):
             orch._reload_config()  # type: ignore[attr-defined]  # AttributeError — will fail
 
@@ -595,7 +595,7 @@ class TestSyncIntervalZeroStopsBarriers:
 
         new_agent_cfg = AgentFoxConfig(orchestrator=OrchestratorConfig(sync_interval=0, parallel=1))
         with patch(
-            "agent_fox.engine.engine.load_config",
+            "agent_fox.engine.config_reload.load_config",
             return_value=new_agent_cfg,
         ):
             orch._reload_config()  # type: ignore[attr-defined]  # AttributeError — will fail

@@ -485,7 +485,7 @@ class TestTermination:
                 updated_at="2026-01-01T00:00:00Z",
             )
 
-        with patch("agent_fox.engine.engine._load_or_init_state", side_effect=_fake_load):
+        with patch("agent_fox.engine.engine.load_or_init_state", side_effect=_fake_load):
             with patch("asyncio.sleep", new_callable=AsyncMock):
                 final_state = await orch.run()
 
@@ -737,7 +737,7 @@ class TestEdgeCases:
                 updated_at="2026-01-01T00:00:00Z",
             )
 
-        with patch("agent_fox.engine.engine._load_or_init_state", side_effect=_fake_load):
+        with patch("agent_fox.engine.engine.load_or_init_state", side_effect=_fake_load):
             with patch("asyncio.sleep", new_callable=AsyncMock):
                 final_state = await orch.run()
 

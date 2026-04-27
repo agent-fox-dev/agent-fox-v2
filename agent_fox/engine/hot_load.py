@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from agent_fox.core.errors import PlanError
 from agent_fox.graph.resolver import resolve_order
@@ -521,6 +521,81 @@ def hot_load_specs(
     updated_graph.order = resolve_order(updated_graph)
 
     return updated_graph, added_spec_names
+
+
+async def hot_load_into_graph(
+    *,
+    specs_dir: Path,
+    graph: TaskGraph,
+    graph_sync: Any,
+    state: Any,
+    repo_root: Path,
+    knowledge_db_conn: Any | None = None,
+    archetypes_config: Any | None = None,
+) -> tuple[TaskGraph, Any]:
+    """Discover and incorporate new specs into a running graph.
+
+    Performs gated discovery, parsing, node/edge building, archetype
+    injection, and GraphSync rebuild. Returns the updated
+    (graph, graph_sync) pair.
+
+    Used by Orchestrator._hot_load_new_specs to keep engine.py thin.
+    """
+    from agent_fox.engine.graph_sync import GraphSync as _GraphSync
+    from agent_fox.engine.state_manager import build_edges_dict, defer_ready_reviews
+    from agent_fox.graph.injection import ensure_graph_archetypes
+
+    for nid, node in graph.nodes.items():
+        node.status = NodeStatus(state.node_states.get(nid, "pending"))
+
+    known_specs = {n.spec_name for n in graph.nodes.values()}
+    gated_specs = await discover_new_specs_gated(
+        specs_dir, known_specs, repo_root, db_conn=knowledge_db_conn
+    )
+
+    if not gated_specs:
+        return graph, graph_sync
+
+    all_spec_names = known_specs | {s.name for s in gated_specs}
+    valid_specs, spec_task_groups, spec_deps = _validate_and_parse_specs(gated_specs, all_spec_names)
+
+    if not valid_specs:
+        return graph, graph_sync
+
+    new_nodes, new_edges, added_spec_names = _build_nodes_and_edges(
+        valid_specs, spec_task_groups, spec_deps,
+        graph.nodes, graph.edges,
+    )
+
+    if not added_spec_names:
+        return graph, graph_sync
+
+    logger.info(
+        "Hot-loaded %d new spec(s): %s",
+        len(added_spec_names), ", ".join(added_spec_names),
+    )
+
+    for nid, node in new_nodes.items():
+        if nid not in graph.nodes:
+            graph.nodes[nid] = node
+            state.node_states[nid] = "pending"
+
+    existing_edge_set = {(e.source, e.target) for e in graph.edges}
+    for edge in new_edges:
+        if (edge.source, edge.target) not in existing_edge_set:
+            graph.edges.append(edge)
+
+    ensure_graph_archetypes(graph, archetypes_config, specs_dir)
+    for nid in graph.nodes:
+        if nid not in state.node_states:
+            state.node_states[nid] = "pending"
+
+    edges_dict = build_edges_dict(graph)
+    node_archetypes = {nid: n.archetype for nid, n in graph.nodes.items()}
+    graph_sync = _GraphSync(state.node_states, edges_dict, node_archetypes)
+    defer_ready_reviews(graph, graph_sync, knowledge_db_conn)
+
+    return graph, graph_sync
 
 
 def should_trigger_barrier(

@@ -105,7 +105,7 @@ class TestShutdownPersistsInterruptedRecords:
         # Build a minimal self-like namespace that _shutdown() needs.
         # _graph_sync=None tells the logging block to skip summary.
         fake_self = SimpleNamespace(
-            _parallel_runner=runner,
+            _dispatch_mgr=SimpleNamespace(parallel_runner=runner),
             _result_handler=mock_result_handler,
             _graph_sync=None,
         )
@@ -139,7 +139,7 @@ class TestShutdownPersistsInterruptedRecords:
         state = _make_minimal_state()
 
         fake_self = SimpleNamespace(
-            _parallel_runner=runner,
+            _dispatch_mgr=SimpleNamespace(parallel_runner=runner),
             _result_handler=mock_result_handler,
             _graph_sync=None,
         )
@@ -170,7 +170,7 @@ class TestShutdownPersistsInterruptedRecords:
         assert state.run_status == RunStatus.RUNNING
 
         fake_self = SimpleNamespace(
-            _parallel_runner=runner,
+            _dispatch_mgr=SimpleNamespace(parallel_runner=runner),
             _result_handler=None,
             _graph_sync=None,
         )
@@ -193,7 +193,7 @@ class TestShutdownPersistsInterruptedRecords:
         state = _make_minimal_state()
 
         fake_self = SimpleNamespace(
-            _parallel_runner=runner,
+            _dispatch_mgr=SimpleNamespace(parallel_runner=runner),
             _result_handler=mock_result_handler,
             _graph_sync=None,
         )
@@ -219,7 +219,7 @@ class TestShutdownPersistsInterruptedRecords:
 
         state = _make_minimal_state()
         fake_self = SimpleNamespace(
-            _parallel_runner=runner,
+            _dispatch_mgr=SimpleNamespace(parallel_runner=runner),
             _result_handler=None,
             _graph_sync=None,
         )
@@ -248,7 +248,7 @@ class TestDoubleSignintSystemExit:
         self,
     ) -> None:
         """_complete_run is invoked in run()'s finally block even when _shutdown raises SystemExit(1)."""
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import AsyncMock, MagicMock, patch
 
         from agent_fox.engine.engine import Orchestrator
 
@@ -259,6 +259,7 @@ class TestDoubleSignintSystemExit:
         # the class body, so the spec would reject them.
         mock_self = MagicMock()
         mock_self._init_run.return_value = (state, {}, {})
+        mock_self._finalize_run = AsyncMock()
         mock_self._signal.interrupted = True  # Enter _shutdown path immediately
         mock_self._graph = None  # _sync_plan_statuses returns early
         mock_self._graph_sync = None  # Skip audit cleanup + issue summaries
@@ -276,9 +277,8 @@ class TestDoubleSignintSystemExit:
         mock_self._shutdown = _shutdown_raises
 
         with patch("agent_fox.engine.engine.emit_audit_event"):
-            with patch("agent_fox.engine.state.complete_run") as mock_complete_run:
-                with pytest.raises(SystemExit) as exc_info:
-                    await Orchestrator.run(mock_self)
+            with pytest.raises(SystemExit) as exc_info:
+                await Orchestrator.run(mock_self)
 
         assert exc_info.value.code == 1, "SystemExit must propagate with code 1"
-        mock_complete_run.assert_called_once()
+        mock_self._finalize_run.assert_called_once()

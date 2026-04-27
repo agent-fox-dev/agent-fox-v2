@@ -411,7 +411,7 @@ class TestResumeWithInProgressTask:
         )
 
         with patch(
-            "agent_fox.engine.engine._load_or_init_state",
+            "agent_fox.engine.engine.load_or_init_state",
             return_value=prior_state,
         ):
             orchestrator = Orchestrator(
