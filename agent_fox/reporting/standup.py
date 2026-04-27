@@ -422,13 +422,12 @@ def generate_standup(
     # Compute agent activity from windowed sessions
     agent = _compute_agent_activity(windowed_sessions)
 
-    # Compute per-task activity breakdowns (all sessions, not just windowed)
-    all_sessions = state.session_history if state else []
+    # Compute per-task activity breakdowns within the time window
     node_states: dict[str, str] = {}
     if state is not None:
         node_states = dict(state.node_states)
     node_archetypes = {nid: node.archetype for nid, node in graph.nodes.items()} if graph else None
-    task_activities = _compute_task_activities(all_sessions, node_states, node_archetypes)
+    task_activities = _compute_task_activities(windowed_sessions, node_states, node_archetypes)
 
     # Partition git commits into human and agent
     human_commits, agent_commits = partition_commits(
@@ -444,17 +443,17 @@ def generate_standup(
     # Build cost breakdown by model tier
     cost_breakdown = _build_cost_breakdown(windowed_sessions)
 
-    # Per-spec and per-archetype cost summaries from all sessions.
-    # Total cost is derived from the same session_outcomes data so
-    # cost_by_spec, cost_by_archetype, and total_cost are consistent.
+    # Per-spec and per-archetype cost summaries within the time window.
+    # Total cost is derived from the same windowed data so all numbers
+    # are consistent and scoped to the reporting period.
     cost_by_spec_agg: dict[str, float] = defaultdict(float)
     cost_by_archetype_agg: dict[str, float] = defaultdict(float)
-    for record in all_sessions:
+    for record in windowed_sessions:
         cost_by_spec_agg[spec_name_of(record.node_id)] += record.cost
         cost_by_archetype_agg[record.archetype] += record.cost
 
-    all_time_cost: float | None = (
-        sum(cost_by_spec_agg.values()) if all_sessions else None
+    total_cost: float | None = (
+        sum(cost_by_spec_agg.values()) if windowed_sessions else None
     )
 
     # Build queue summary from current task statuses
@@ -471,7 +470,7 @@ def generate_standup(
         cost_breakdown=cost_breakdown,
         queue=queue,
         task_activities=task_activities,
-        total_cost=all_time_cost,
+        total_cost=total_cost,
         cost_by_spec=dict(cost_by_spec_agg),
         cost_by_archetype=dict(cost_by_archetype_agg),
     )
