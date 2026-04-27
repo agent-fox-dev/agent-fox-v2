@@ -476,23 +476,6 @@ class TestCliNightshiftNoEmbeddings:
 # ---------------------------------------------------------------------------
 
 
-class TestCliStatusNoRemoved:
-    """Verify cli/status.py does not import from project_model or knowledge.store.
-
-    Requirements: 114-REQ-9.3
-    """
-
-    def test_no_project_model(self) -> None:
-        path = _REPO_ROOT / "agent_fox" / "cli" / "status.py"
-        source = path.read_text(encoding="utf-8")
-        assert "project_model" not in source
-
-    def test_no_knowledge_store(self) -> None:
-        path = _REPO_ROOT / "agent_fox" / "cli" / "status.py"
-        source = path.read_text(encoding="utf-8")
-        assert "knowledge.store" not in source
-
-
 # ---------------------------------------------------------------------------
 # TS-114-34: CLI plan.py Still Functional
 # ---------------------------------------------------------------------------

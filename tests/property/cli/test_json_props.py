@@ -27,7 +27,6 @@ from agent_fox.reporting.standup import (
     QueueSummary,
     StandupReport,
 )
-from agent_fox.reporting.status import StatusReport
 
 
 @pytest.fixture
@@ -94,20 +93,6 @@ def tmp_project(tmp_path: Path) -> Generator[Path, None, None]:
 
 # Commands that can be tested with mocks for JSON exclusivity
 _BATCH_COMMANDS_WITH_MOCKS = {
-    "status": {
-        "patch_target": "agent_fox.cli.status.generate_status",
-        "mock_return": StatusReport(
-            counts={"completed": 0, "in_progress": 0, "pending": 0, "failed": 0},
-            total_tasks=0,
-            memory_total=0,
-            memory_by_category={},
-            input_tokens=0,
-            output_tokens=0,
-            estimated_cost=0.0,
-            problem_tasks=[],
-            per_spec={},
-        ),
-    },
     "standup": {
         "patch_target": "agent_fox.cli.standup.generate_standup",
         "mock_return": StandupReport(
@@ -176,19 +161,6 @@ class TestErrorEnvelopeStructure:
     Property 2: Error envelope structure.
     Requirements: 23-REQ-6.1, 23-REQ-6.3
     """
-
-    def test_error_envelope_on_status_failure(
-        self,
-        cli_runner: CliRunner,
-        tmp_project: Path,
-    ) -> None:
-        """Status command failure produces error envelope."""
-        with patch("agent_fox.cli.status._reporting_generate_status") as mock_gen:
-            mock_gen.side_effect = RuntimeError("test failure")
-            result = cli_runner.invoke(main, ["--json", "status"])
-            data = json.loads(result.output)
-            assert "error" in data
-            assert len(data["error"]) > 0
 
     def test_error_envelope_on_missing_specs(
         self,

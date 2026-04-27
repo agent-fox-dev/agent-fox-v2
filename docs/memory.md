@@ -1,6 +1,18 @@
 # Agent-Fox Memory
 
-_3176 facts | last updated: 2026-04-23_
+_3176 facts | last updated: 2026-04-27_
+
+**2026-04-27 standup overhaul & status removal:** Overhauled standup command
+output: fixed "pending" status bug (now inferred from session data when
+plan_nodes don't match), added "Cost by Spec" and "Cost by Archetype"
+sections, removed "Heads Up — File Overlaps" and "Queue Status" sections,
+scoped all sections to the reporting time window (--hours). Removed the
+entire `status` command (`agent_fox/cli/status.py`, `agent_fox/reporting/status.py`)
+as obsolete — standup now covers all its functionality. Deleted 4 status-only
+test files, updated 11 mixed test files to remove status references. 4459 tests
+pass. Pre-existing failures: test_banner_appears_with_subcommand and
+test_reset_json_output (both due to missing `_do_reset` in reset module,
+unrelated to this change).
 
 **2026-04-23 get-well plan (Tiers 1-2):** Implemented fixes from
 consolidated audit: B-1 (daemon stop event type), B-2 (assert→RuntimeError

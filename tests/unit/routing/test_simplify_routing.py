@@ -13,7 +13,6 @@ Test spec entries: TS-89-1 through TS-89-13, TS-89-E1,
 from __future__ import annotations
 
 import importlib
-import inspect
 from pathlib import Path
 
 import pytest
@@ -184,11 +183,10 @@ def test_pipeline_test_files_deleted(test_path: str) -> None:
     "source_path",
     [
         "agent_fox/engine/engine.py",
-        "agent_fox/cli/status.py",
     ],
 )
 def test_no_duration_imports(source_path: str) -> None:
-    """engine.py and status.py do not import from routing.duration."""
+    """engine.py does not import from routing.duration."""
     source = Path(source_path).read_text()
     assert "routing.duration" not in source, f"{source_path} must not import from agent_fox.routing.duration"
 
@@ -327,8 +325,7 @@ def test_prop_escalation_preserved(retries: int, start: ModelTier) -> None:
 )
 def test_prop_unknown_archetype_fallback(name: str) -> None:
     """Any archetype name not in the registry yields coder defaults (STANDARD)."""
-    from agent_fox.archetypes import ARCHETYPE_REGISTRY
-    from agent_fox.archetypes import get_archetype
+    from agent_fox.archetypes import ARCHETYPE_REGISTRY, get_archetype
 
     assert name not in ARCHETYPE_REGISTRY, f"'{name}' must not be in registry for this test"
     entry = get_archetype(name)

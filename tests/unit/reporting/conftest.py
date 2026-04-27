@@ -87,8 +87,7 @@ def make_execution_state(
 @contextmanager
 def mock_state(state: ExecutionState):
     """Context manager to mock load_state_from_db to return the given state."""
-    with patch("agent_fox.reporting.status.load_state_from_db", return_value=state), \
-         patch("agent_fox.reporting.standup.load_state_from_db", return_value=state):
+    with patch("agent_fox.reporting.standup.load_state_from_db", return_value=state):
         yield
 
 

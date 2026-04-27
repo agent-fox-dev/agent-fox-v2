@@ -16,7 +16,6 @@ from rich.console import Console
 
 from agent_fox.core.errors import AgentFoxError
 from agent_fox.reporting.standup import StandupReport
-from agent_fox.reporting.status import StatusReport
 
 logger = logging.getLogger(__name__)
 
@@ -66,75 +65,6 @@ class TableFormatter:
 
     def __init__(self, console: Console | None = None) -> None:
         self._console = console or Console()
-
-    def format_status(self, report: StatusReport) -> str:
-        """Render status report as compact text lines."""
-        lines: list[str] = []
-
-        # Tasks line
-        done = report.counts.get("completed", 0)
-        in_progress = report.counts.get("in_progress", 0)
-        pending = report.counts.get("pending", 0)
-        failed = report.counts.get("failed", 0)
-        task_parts = [
-            f"Tasks: {done}/{report.total_tasks} done",
-            f"{in_progress} in progress",
-            f"{pending} pending",
-            f"{failed} failed",
-        ]
-        if report.active_agents:
-            agent_names = ", ".join(report.active_agents)
-            task_parts.append(f"agents running: {agent_names}")
-        lines.append(" | ".join(task_parts))
-
-        # Tokens line — show "no session data" when the DB returned nothing
-        if report.input_tokens is None or report.estimated_cost is None:
-            lines.append("Tokens: no session data")
-        else:
-            in_tok = format_tokens(report.input_tokens)
-            out_tok = format_tokens(report.output_tokens)
-            lines.append(f"Tokens: {in_tok} in / {out_tok} out | ${report.estimated_cost:.2f}")
-
-        # Active Tasks section (72-REQ-2.1 through 72-REQ-2.5)
-        if report.in_progress_tasks:
-            lines.append("")
-            lines.append("Active Tasks")
-            for ta in report.in_progress_tasks:
-                display_id = _display_node_id(ta.task_id)
-                if ta.total_sessions > 0:
-                    in_tok = format_tokens(ta.input_tokens)
-                    out_tok = format_tokens(ta.output_tokens)
-                    lines.append(
-                        f"  {display_id} [{ta.archetype}]: {ta.current_status}. "
-                        f"{ta.completed_sessions}/{ta.total_sessions} sessions. "
-                        f"tokens {in_tok} in / {out_tok} out. "
-                        f"${ta.cost:.2f}"
-                    )
-                else:
-                    lines.append(f"  {display_id} [{ta.archetype}]: {ta.current_status}")
-
-        # Per-archetype cost breakdown (34-REQ-3.3)
-        if report.cost_by_archetype:
-            lines.append("")
-            lines.append("Cost by Archetype:")
-            for archetype, cost in sorted(report.cost_by_archetype.items()):
-                lines.append(f"  {archetype}: ${cost:.2f}")
-
-        # Per-spec cost breakdown (34-REQ-4.1)
-        if report.cost_by_spec:
-            lines.append("")
-            lines.append("Cost by Spec:")
-            for spec, cost in sorted(report.cost_by_spec.items()):
-                lines.append(f"  {spec}: ${cost:.2f}")
-
-        # Problem tasks (compact)
-        if report.problem_tasks:
-            lines.append("")
-            lines.append("Problems:")
-            for task in report.problem_tasks:
-                lines.append(f"  {task.task_id}: {task.status} — {task.reason}")
-
-        return "\n".join(lines) + "\n"
 
     def format_standup(self, report: StandupReport) -> str:
         """Render standup report as indented plain text.
@@ -235,10 +165,6 @@ class TableFormatter:
 
 class JsonFormatter:
     """JSON formatter for machine-readable output."""
-
-    def format_status(self, report: StatusReport) -> str:
-        """Serialize status report as JSON."""
-        return json.dumps(asdict(report), indent=2)
 
     def format_standup(self, report: StandupReport) -> str:
         """Serialize standup report as JSON."""
