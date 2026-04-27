@@ -40,7 +40,11 @@ from agent_fox.engine.assessment import AssessmentManager
 from agent_fox.engine.audit_helpers import emit_audit_event
 from agent_fox.engine.barrier import _count_node_status, run_sync_barrier_sequence
 from agent_fox.engine.circuit import CircuitBreaker
-from agent_fox.engine.config_reload import ConfigReloader, ReloadResult, diff_configs
+from agent_fox.engine.config_reload import (  # noqa: F401 — ReloadResult, diff_configs re-exported
+    ConfigReloader,
+    ReloadResult,
+    diff_configs,
+)
 from agent_fox.engine.dispatch import (
     DispatchManager,
     ParallelDispatcher,
@@ -50,7 +54,7 @@ from agent_fox.engine.dispatch import (
 from agent_fox.engine.graph_sync import GraphSync
 from agent_fox.engine.hot_load import hot_load_into_graph, should_trigger_barrier
 from agent_fox.engine.result_handler import SessionResultHandler
-from agent_fox.engine.state import ExecutionState, RunStatus, SessionRecord
+from agent_fox.engine.state import ExecutionState, RunStatus
 from agent_fox.engine.state_manager import (
     StateManager,
     build_edges_dict,
@@ -64,7 +68,7 @@ from agent_fox.engine.state_manager import (
 )
 from agent_fox.graph.injection import ensure_graph_archetypes
 from agent_fox.graph.persistence import load_plan, save_plan
-from agent_fox.graph.types import NodeStatus, TaskGraph
+from agent_fox.graph.types import TaskGraph
 from agent_fox.knowledge.audit import (
     AuditEventType,
     AuditJsonlSink,
@@ -73,7 +77,7 @@ from agent_fox.knowledge.audit import (
     generate_run_id,
 )
 from agent_fox.knowledge.sink import SinkDispatcher
-from agent_fox.ui.progress import TaskCallback, TaskEvent
+from agent_fox.ui.progress import TaskCallback
 
 logger = logging.getLogger(__name__)
 
@@ -268,6 +272,14 @@ class Orchestrator:
     def _emit_audit(self, *args: Any, **kwargs: Any) -> None:
         emit_audit_event(self._sink, self._run_id, *args, **kwargs)
 
+    def _emit_watch_poll(self, poll: int, *, new_tasks: bool) -> None:
+        emit_audit_event(
+            self._sink,
+            self._run_id,
+            AuditEventType.WATCH_POLL,
+            payload={"poll_number": poll, "new_tasks_found": new_tasks},
+        )
+
     def _get_node(self, node_id: str) -> Any | None:
         return self._dispatch_mgr.get_node(node_id)
 
@@ -287,14 +299,18 @@ class Orchestrator:
 
     def _block_task(self, node_id: str, state: ExecutionState, reason: str) -> None:
         self._state_mgr.block_task(
-            node_id, state, reason,
+            node_id,
+            state,
+            reason,
             graph_sync=self._graph_sync,
             get_archetype_fn=self._get_node_archetype,
         )
 
     def _check_block_budget(self, state: ExecutionState) -> bool:
         return self._state_mgr.check_block_budget(
-            state, sink=self._sink, run_id=self._run_id,
+            state,
+            sink=self._sink,
+            run_id=self._run_id,
         )
 
     def _sync_plan_statuses(self, state: ExecutionState) -> None:
@@ -318,6 +334,7 @@ class Orchestrator:
         if self._graph is not None:
             try:
                 from agent_fox.graph.persistence import compute_plan_hash
+
                 return compute_plan_hash(self._graph)
             except Exception:
                 pass
@@ -343,7 +360,8 @@ class Orchestrator:
         if self._audit_dir is not None and self._audit_db_conn is not None:
             try:
                 enforce_audit_retention(
-                    self._audit_dir, self._audit_db_conn,
+                    self._audit_dir,
+                    self._audit_db_conn,
                     max_runs=self._config.audit_retention_runs,
                 )
             except Exception:
@@ -361,7 +379,8 @@ class Orchestrator:
 
         if not graph.nodes and not self._watch:
             return ExecutionState(
-                plan_hash=self._compute_plan_hash(), node_states={},
+                plan_hash=self._compute_plan_hash(),
+                node_states={},
                 run_status=RunStatus.COMPLETED,
                 started_at=datetime.now(UTC).isoformat(),
                 updated_at=datetime.now(UTC).isoformat(),
@@ -384,6 +403,7 @@ class Orchestrator:
         if self._knowledge_db_conn is not None:
             try:
                 from agent_fox.engine.state import cleanup_stale_runs as _cleanup
+
                 cleaned = _cleanup(self._knowledge_db_conn, self._run_id)
                 if cleaned:
                     logger.info("Marked %d stale running run(s) as interrupted", cleaned)
@@ -393,6 +413,7 @@ class Orchestrator:
         if self._knowledge_db_conn is not None:
             try:
                 from agent_fox.engine.state import create_run as _create_run
+
                 _create_run(self._knowledge_db_conn, self._run_id, plan_hash)
             except Exception:
                 logger.debug("Failed to create DB run record", exc_info=True)
@@ -411,7 +432,9 @@ class Orchestrator:
             retries_before_escalation=self._routing.retries_before_escalation,
             max_retries=self._config.max_retries,
             task_callback=self._task_callback,
-            sink=self._sink, run_id=self._run_id, graph=self._graph,
+            sink=self._sink,
+            run_id=self._run_id,
+            graph=self._graph,
             archetypes_config=self._archetypes_config,
             knowledge_db_conn=self._knowledge_db_conn,
             block_task_fn=self._block_task,
@@ -435,7 +458,9 @@ class Orchestrator:
 
         self._signal.install()
         emit_audit_event(
-            self._sink, self._run_id, AuditEventType.RUN_START,
+            self._sink,
+            self._run_id,
+            AuditEventType.RUN_START,
             payload={
                 "plan_hash": self._compute_plan_hash(),
                 "total_nodes": len(self._graph.nodes) if self._graph else 0,
@@ -462,7 +487,9 @@ class Orchestrator:
                         limit_type, limit_value = "sessions", float(self._config.max_sessions or 0)
                     logger.info("Circuit breaker tripped: %s", stop_decision.reason)
                     emit_audit_event(
-                        self._sink, self._run_id, AuditEventType.RUN_LIMIT_REACHED,
+                        self._sink,
+                        self._run_id,
+                        AuditEventType.RUN_LIMIT_REACHED,
                         severity=AuditSeverity.WARNING,
                         payload={"limit_type": limit_type, "limit_value": limit_value},
                     )
@@ -475,7 +502,8 @@ class Orchestrator:
                     ready = self._dispatch_mgr.filter_file_conflicts(ready)
 
                 if not ready:
-                    max_slots = self._dispatch_mgr.parallel_runner.max_parallelism if self._dispatch_mgr.parallel_runner else 1
+                    pr = self._dispatch_mgr.parallel_runner
+                    max_slots = pr.max_parallelism if pr else 1
                     promoted = self._graph_sync.promote_deferred(limit=max_slots)
                     if promoted:
                         logger.info("Promoted %d deferred review node(s)", len(promoted))
@@ -507,7 +535,11 @@ class Orchestrator:
                     await self._parallel_dispatcher.dispatch(ready, state, attempt_tracker, error_tracker)
                 else:
                     first_dispatch = await self._serial_dispatcher.dispatch(
-                        ready, state, attempt_tracker, error_tracker, first_dispatch,
+                        ready,
+                        state,
+                        attempt_tracker,
+                        error_tracker,
+                        first_dispatch,
                     )
         finally:
             await self._finalize_run(state, run_start_time)
@@ -518,6 +550,7 @@ class Orchestrator:
 
         try:
             from agent_fox.session.auditor_output import cleanup_completed_spec_audits
+
             if self._graph_sync is not None:
                 completed = self._graph_sync.completed_spec_names()
                 if completed:
@@ -531,6 +564,7 @@ class Orchestrator:
         if self._knowledge_db_conn is not None:
             try:
                 from agent_fox.engine.state import complete_run as _complete_run
+
                 run_status_val = state.run_status.value if hasattr(state.run_status, "value") else str(state.run_status)
                 _complete_run(self._knowledge_db_conn, self._run_id, run_status_val)
             except Exception:
@@ -538,7 +572,9 @@ class Orchestrator:
 
         run_duration_ms = int((datetime.now(UTC) - run_start_time).total_seconds() * 1000)
         emit_audit_event(
-            self._sink, self._run_id, AuditEventType.RUN_COMPLETE,
+            self._sink,
+            self._run_id,
+            AuditEventType.RUN_COMPLETE,
             payload={
                 "total_sessions": len(state.session_history),
                 "total_cost": state.total_cost,
@@ -557,8 +593,15 @@ class Orchestrator:
                 _eff = self._specs_dir
                 if _eff is None and self._full_config is not None:
                     from agent_fox.core.config import resolve_spec_root as _rsr
+
                     _eff = _rsr(self._full_config, Path.cwd())
-                posted = await _post(self._platform, _eff or Path(".specs"), newly_completed, self._issue_summaries_posted, Path.cwd())
+                posted = await _post(
+                    self._platform,
+                    _eff or Path(".specs"),
+                    newly_completed,
+                    self._issue_summaries_posted,
+                    Path.cwd(),
+                )
                 self._issue_summaries_posted.update(posted)
         except Exception:
             logger.warning("Issue summary posting failed", exc_info=True)
@@ -569,7 +612,7 @@ class Orchestrator:
             poll = self._watch_poll_count
 
             if self._signal.interrupted:
-                emit_audit_event(self._sink, self._run_id, AuditEventType.WATCH_POLL, payload={"poll_number": poll, "new_tasks_found": False})
+                self._emit_watch_poll(poll, new_tasks=False)
                 state.run_status = RunStatus.INTERRUPTED
                 return state
 
@@ -578,13 +621,14 @@ class Orchestrator:
             await asyncio.sleep(interval)
 
             if self._signal.interrupted:
-                emit_audit_event(self._sink, self._run_id, AuditEventType.WATCH_POLL, payload={"poll_number": poll, "new_tasks_found": False})
+                self._emit_watch_poll(poll, new_tasks=False)
                 state.run_status = RunStatus.INTERRUPTED
                 return state
 
             stop_decision = self._circuit.should_stop(state)
             if not stop_decision.allowed:
-                state.run_status = RunStatus.COST_LIMIT if (self._config.max_cost is not None and state.total_cost >= self._config.max_cost) else RunStatus.SESSION_LIMIT
+                cost_exceeded = self._config.max_cost is not None and state.total_cost >= self._config.max_cost
+                state.run_status = RunStatus.COST_LIMIT if cost_exceeded else RunStatus.SESSION_LIMIT
                 return state
 
             try:
@@ -593,7 +637,7 @@ class Orchestrator:
                 logger.exception("Watch poll %d: barrier error", poll)
                 new_tasks = False
 
-            emit_audit_event(self._sink, self._run_id, AuditEventType.WATCH_POLL, payload={"poll_number": poll, "new_tasks_found": new_tasks})
+            self._emit_watch_poll(poll, new_tasks=new_tasks)
             if new_tasks:
                 return None
 
@@ -604,11 +648,16 @@ class Orchestrator:
         if not should_trigger_barrier(completed_count, self._config.sync_interval):
             return
         await run_sync_barrier_sequence(
-            state=state, sync_interval=self._config.sync_interval,
-            repo_root=self._repo_root, emit_audit=self._emit_audit,
-            specs_dir=self._specs_dir, hot_load_enabled=self._config.hot_load,
-            hot_load_fn=self._hot_load_new_specs, sync_plan_fn=self._sync_plan_statuses,
-            barrier_callback=None, knowledge_db_conn=self._knowledge_db_conn,
+            state=state,
+            sync_interval=self._config.sync_interval,
+            repo_root=self._repo_root,
+            emit_audit=self._emit_audit,
+            specs_dir=self._specs_dir,
+            hot_load_enabled=self._config.hot_load,
+            hot_load_fn=self._hot_load_new_specs,
+            sync_plan_fn=self._sync_plan_statuses,
+            barrier_callback=None,
+            knowledge_db_conn=self._knowledge_db_conn,
             reload_config_fn=self._reload_config,
         )
 
@@ -618,11 +667,16 @@ class Orchestrator:
         logger.info("End-of-run discovery: checking for new specs")
         try:
             await run_sync_barrier_sequence(
-                state=state, sync_interval=self._config.sync_interval,
-                repo_root=self._repo_root, emit_audit=self._emit_audit,
-                specs_dir=self._specs_dir, hot_load_enabled=self._config.hot_load,
-                hot_load_fn=self._hot_load_new_specs, sync_plan_fn=self._sync_plan_statuses,
-                barrier_callback=None, knowledge_db_conn=self._knowledge_db_conn,
+                state=state,
+                sync_interval=self._config.sync_interval,
+                repo_root=self._repo_root,
+                emit_audit=self._emit_audit,
+                specs_dir=self._specs_dir,
+                hot_load_enabled=self._config.hot_load,
+                hot_load_fn=self._hot_load_new_specs,
+                sync_plan_fn=self._sync_plan_statuses,
+                barrier_callback=None,
+                knowledge_db_conn=self._knowledge_db_conn,
                 reload_config_fn=self._reload_config,
             )
         except Exception:
@@ -655,8 +709,10 @@ class Orchestrator:
 
     def _reload_config(self) -> None:
         result = self._config_reloader.reload(
-            current_config=self._config, circuit=self._circuit,
-            sink=self._sink, run_id=self._run_id,
+            current_config=self._config,
+            circuit=self._circuit,
+            sink=self._sink,
+            run_id=self._run_id,
         )
         if result is None:
             return
@@ -666,7 +722,8 @@ class Orchestrator:
         self._planning_config = result.planning
 
     async def _shutdown(
-        self, state: ExecutionState,
+        self,
+        state: ExecutionState,
         attempt_tracker: dict[str, int] | None = None,
         error_tracker: dict[str, str | None] | None = None,
     ) -> None:
@@ -679,14 +736,25 @@ class Orchestrator:
                     actual_attempt = _at.get(record.node_id, record.attempt)
                     if record.attempt != actual_attempt:
                         from dataclasses import replace as _dc_replace
+
                         record = _dc_replace(record, attempt=actual_attempt)
                     try:
                         self._result_handler.process(record, actual_attempt, state, _at, _et)
                     except Exception:
-                        logger.debug("Failed to persist interrupted session record for %s", record.node_id, exc_info=True)
+                        logger.debug(
+                            "Failed to persist interrupted session record for %s",
+                            record.node_id,
+                            exc_info=True,
+                        )
 
         state.run_status = RunStatus.INTERRUPTED
         summary = self._graph_sync.summary() if self._graph_sync else {}
         completed = summary.get("completed", 0)
         total = sum(summary.values()) if summary else 0
-        logger.info("Execution interrupted. %d/%d tasks completed, %d remaining. Resume with: agent-fox code", completed, total, total - completed)
+        remaining = total - completed
+        logger.info(
+            "Execution interrupted. %d/%d tasks completed, %d remaining. Resume with: agent-fox code",
+            completed,
+            total,
+            remaining,
+        )

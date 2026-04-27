@@ -70,8 +70,6 @@ _CONFIG_TO_STREAM: dict[str, str] = {
     "hunts": "hunt-scan",
 }
 
-_STREAM_TO_CONFIG: dict[str, str] = {v: k for k, v in _CONFIG_TO_STREAM.items()}
-
 
 # ---------------------------------------------------------------------------
 # SpecExecutorStream

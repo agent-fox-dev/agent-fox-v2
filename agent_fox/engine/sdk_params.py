@@ -312,9 +312,7 @@ def resolve_session_params(
     main model.
     """
     max_turns = (
-        max_turns_override
-        if max_turns_override is not None
-        else resolve_max_turns(config, archetype, mode=mode)
+        max_turns_override if max_turns_override is not None else resolve_max_turns(config, archetype, mode=mode)
     )
     thinking = resolve_thinking(config, archetype, mode=mode)
     fallback = resolve_fallback_model(config)

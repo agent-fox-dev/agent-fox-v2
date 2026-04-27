@@ -735,7 +735,10 @@ class NodeSessionRunner:
             )
             # 114-REQ-4.1: Ingest knowledge via KnowledgeProvider
             self._ingest_knowledge(
-                node_id, touched_files, commit_sha, status,
+                node_id,
+                touched_files,
+                commit_sha,
+                status,
                 repo_root=repo_root,
             )
 

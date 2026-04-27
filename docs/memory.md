@@ -1,6 +1,16 @@
 # Agent-Fox Memory
 
-_3177 facts | last updated: 2026-04-27_
+_3178 facts | last updated: 2026-04-27_
+
+**2026-04-27 Tier 1 code simplification:** Deleted dead `graph/critical_path.py`
+module (208 lines, zero production imports) and its 2 test files. Removed
+unused `_STREAM_TO_CONFIG` reverse-mapping from `nightshift/streams.py`.
+Fixed 15 pre-existing lint errors in `engine/engine.py` (5 unused imports,
+8 line-length violations) and `engine/state_manager.py` (2 unused
+TYPE_CHECKING imports). Fixed 9 pre-existing format violations across
+engine, knowledge, nightshift, and reporting modules. `ReloadResult` and
+`diff_configs` kept as re-exports from `engine/engine.py` (tests depend
+on that import path). 4433 tests pass, `make check` clean.
 
 **2026-04-27 remove AgentBackend protocol (issue #551):** Removed the
 single-implementation `AgentBackend` protocol from `session/backends/protocol.py`.

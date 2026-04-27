@@ -452,9 +452,7 @@ def generate_standup(
         cost_by_spec_agg[spec_name_of(record.node_id)] += record.cost
         cost_by_archetype_agg[record.archetype] += record.cost
 
-    total_cost: float | None = (
-        sum(cost_by_spec_agg.values()) if windowed_sessions else None
-    )
+    total_cost: float | None = sum(cost_by_spec_agg.values()) if windowed_sessions else None
 
     # Build queue summary from current task statuses
     queue = _build_queue_summary(graph, state)

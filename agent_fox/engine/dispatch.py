@@ -268,7 +268,7 @@ class ParallelDispatcher:
         for t in pool:
             name = t.get_name()
             if name.startswith("parallel-"):
-                pool_node_id = name[len("parallel-"):]
+                pool_node_id = name[len("parallel-") :]
                 if not _is_auto_pre(pool_node_id):
                     pool_archetype = orch._dispatch_mgr.get_node_archetype(pool_node_id)
                     if pool_archetype in _REVIEW_ARCHETYPES:

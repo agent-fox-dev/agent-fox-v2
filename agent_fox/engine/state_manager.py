@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from agent_fox.engine.audit_helpers import emit_audit_event
 from agent_fox.engine.graph_sync import GraphSync, _is_auto_pre
@@ -26,10 +26,6 @@ from agent_fox.engine.state import (
 from agent_fox.graph.types import NodeStatus, TaskGraph
 from agent_fox.knowledge.audit import AuditEventType, AuditSeverity
 from agent_fox.ui.progress import TaskCallback, TaskEvent
-
-if TYPE_CHECKING:
-    from agent_fox.engine.barrier import _count_node_status
-    from agent_fox.knowledge.sink import SinkDispatcher
 
 logger = logging.getLogger(__name__)
 

@@ -201,7 +201,10 @@ class FixPipeline:
         resolved_model_id = model_id or resolve_model(resolve_model_tier(config, archetype, mode=mode)).model_id
         resolved_security = resolve_security_config(config, archetype, mode=mode)
         params = resolve_session_params(
-            config, archetype, mode=mode, model_id=resolved_model_id,
+            config,
+            archetype,
+            mode=mode,
+            model_id=resolved_model_id,
         )
 
         return await run_session(

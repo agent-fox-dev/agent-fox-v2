@@ -549,9 +549,7 @@ async def hot_load_into_graph(
         node.status = NodeStatus(state.node_states.get(nid, "pending"))
 
     known_specs = {n.spec_name for n in graph.nodes.values()}
-    gated_specs = await discover_new_specs_gated(
-        specs_dir, known_specs, repo_root, db_conn=knowledge_db_conn
-    )
+    gated_specs = await discover_new_specs_gated(specs_dir, known_specs, repo_root, db_conn=knowledge_db_conn)
 
     if not gated_specs:
         return graph, graph_sync
@@ -563,8 +561,11 @@ async def hot_load_into_graph(
         return graph, graph_sync
 
     new_nodes, new_edges, added_spec_names = _build_nodes_and_edges(
-        valid_specs, spec_task_groups, spec_deps,
-        graph.nodes, graph.edges,
+        valid_specs,
+        spec_task_groups,
+        spec_deps,
+        graph.nodes,
+        graph.edges,
     )
 
     if not added_spec_names:
@@ -572,7 +573,8 @@ async def hot_load_into_graph(
 
     logger.info(
         "Hot-loaded %d new spec(s): %s",
-        len(added_spec_names), ", ".join(added_spec_names),
+        len(added_spec_names),
+        ", ".join(added_spec_names),
     )
 
     for nid, node in new_nodes.items():
