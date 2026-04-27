@@ -444,25 +444,21 @@ def generate_standup(
     # Build cost breakdown by model tier
     cost_breakdown = _build_cost_breakdown(windowed_sessions)
 
-    # Per-spec and per-archetype cost summaries from all sessions
+    # Per-spec and per-archetype cost summaries from all sessions.
+    # Total cost is derived from the same session_outcomes data so
+    # cost_by_spec, cost_by_archetype, and total_cost are consistent.
     cost_by_spec_agg: dict[str, float] = defaultdict(float)
     cost_by_archetype_agg: dict[str, float] = defaultdict(float)
     for record in all_sessions:
         cost_by_spec_agg[spec_name_of(record.node_id)] += record.cost
         cost_by_archetype_agg[record.archetype] += record.cost
 
+    all_time_cost: float | None = (
+        sum(cost_by_spec_agg.values()) if all_sessions else None
+    )
+
     # Build queue summary from current task statuses
     queue = _build_queue_summary(graph, state)
-
-    # All-time total cost: prefer DuckDB audit data, fall back to state.
-    # Use None (not 0.0) when no session data is available so the display
-    # layer can distinguish "no data" from "ran but cost nothing".
-    if audit_standup is not None and audit_standup.total_cost > 0:
-        all_time_cost: float | None = audit_standup.total_cost
-    elif state is not None:
-        all_time_cost = state.total_cost
-    else:
-        all_time_cost = None
 
     return StandupReport(
         window_hours=hours,
