@@ -151,10 +151,6 @@ class TableFormatter:
               {sha7} {author}: {subject}
               ...
 
-            Queue Status
-              {total} total: {done} done | {in_progress} in progress | ...
-              Ready: {id1}, {id2}
-
             Cost by Spec:
               {spec}: ${cost}
 
@@ -212,20 +208,6 @@ class TableFormatter:
                 lines.append(f"  {sha7} {commit.author}: {commit.subject}")
         else:
             lines.append("  (no human commits)")
-        lines.append("")
-
-        # Queue Status section (15-REQ-4.1, 15-REQ-4.2, 15-REQ-4.E1)
-        lines.append("Queue Status")
-        q = report.queue
-        lines.append(
-            f"  {q.total} total: {q.completed} done | "
-            f"{q.in_progress} in progress | "
-            f"{q.pending} pending | {q.ready} ready | "
-            f"{q.blocked} blocked | {q.failed} failed"
-        )
-        if q.ready_task_ids:
-            display_ids = ", ".join(_display_node_id(tid) for tid in q.ready_task_ids)
-            lines.append(f"  Ready: {display_ids}")
         lines.append("")
 
         # Per-spec cost breakdown

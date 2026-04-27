@@ -309,18 +309,17 @@ class TestSectionOrdering:
         idx_activity = output.index("Agent Activity")
         idx_agent_commits = output.index("Agent Commits")
         idx_human = output.index("Human Commits")
-        idx_queue = output.index("Queue Status")
         idx_cost = output.index("Total Cost")
 
-        assert idx_activity < idx_agent_commits < idx_human < idx_queue < idx_cost
+        assert idx_activity < idx_agent_commits < idx_human < idx_cost
 
         if "Cost by Spec:" in output:
             idx_spec = output.index("Cost by Spec:")
-            assert idx_queue < idx_spec < idx_cost
+            assert idx_human < idx_spec < idx_cost
 
         if "Cost by Archetype:" in output:
             idx_arch = output.index("Cost by Archetype:")
-            assert idx_queue < idx_arch < idx_cost
+            assert idx_human < idx_arch < idx_cost
 
 
 # ---------------------------------------------------------------------------

@@ -272,35 +272,6 @@ class TestHumanCommitsLines:
 
 
 # ---------------------------------------------------------------------------
-# TS-15-4: Queue Status Summary Line
-# Requirements: 15-REQ-4.1, 15-REQ-4.2
-# ---------------------------------------------------------------------------
-
-
-class TestQueueStatusLine:
-    """TS-15-4: Queue status on one summary line plus ready list."""
-
-    def test_queue_status_section_header(self) -> None:
-        """Output contains 'Queue Status' section header."""
-        report = _make_sample_report()
-        output = TableFormatter().format_standup(report)
-        assert "Queue Status" in output
-
-    def test_queue_summary_line(self) -> None:
-        """Summary line shows all counts."""
-        report = _make_sample_report()
-        output = TableFormatter().format_standup(report)
-        expected = "  76 total: 73 done | 0 in progress | 3 pending | 2 ready | 0 blocked | 0 failed"
-        assert expected in output
-
-    def test_ready_task_ids_line(self) -> None:
-        """Ready line lists task IDs in display format."""
-        report = _make_sample_report()
-        output = TableFormatter().format_standup(report)
-        assert "  Ready: fix_01/1, fix_02/1" in output
-
-
-# ---------------------------------------------------------------------------
 # Cost by Spec / Cost by Archetype sections
 # ---------------------------------------------------------------------------
 
@@ -367,13 +338,13 @@ class TestTotalCostLine:
         output = TableFormatter().format_standup(report)
         assert "Total Cost: $34.64" in output
 
-    def test_total_cost_after_queue_status(self) -> None:
-        """Total Cost appears after Queue Status."""
+    def test_total_cost_after_human_commits(self) -> None:
+        """Total Cost appears after Human Commits."""
         report = _make_sample_report()
         output = TableFormatter().format_standup(report)
-        idx_queue = output.index("Queue Status")
+        idx_human = output.index("Human Commits")
         idx_cost = output.index("Total Cost")
-        assert idx_cost > idx_queue
+        assert idx_cost > idx_human
 
 
 # ---------------------------------------------------------------------------
@@ -592,33 +563,6 @@ class TestNoHumanCommits:
         report = _make_sample_report(human_commits=[])
         output = TableFormatter().format_standup(report)
         assert "  (no human commits)" in output
-
-
-# ---------------------------------------------------------------------------
-# TS-15-E4: No Ready Tasks
-# Requirements: 15-REQ-4.E1
-# ---------------------------------------------------------------------------
-
-
-class TestNoReadyTasks:
-    """TS-15-E4: No ready tasks omits the Ready: line."""
-
-    def test_no_ready_line_when_none_ready(self) -> None:
-        """Output does not contain 'Ready:' when no tasks are ready."""
-        queue = QueueSummary(
-            total=5,
-            ready=0,
-            pending=2,
-            in_progress=1,
-            blocked=1,
-            failed=1,
-            completed=0,
-            ready_task_ids=[],
-        )
-        report = _make_sample_report(queue=queue)
-        output = TableFormatter().format_standup(report)
-        assert "Queue Status" in output
-        assert "Ready:" not in output
 
 
 # ---------------------------------------------------------------------------
