@@ -567,7 +567,14 @@ def _compute_task_activities(
         total_input = sum(s.input_tokens for s in task_sessions)
         total_output = sum(s.output_tokens for s in task_sessions)
         total_cost = sum(s.cost for s in task_sessions)
-        current_status = node_states.get(task_id, "pending")
+        current_status = node_states.get(task_id)
+        if current_status is None:
+            if completed_count > 0:
+                current_status = "completed"
+            elif task_sessions:
+                current_status = "failed"
+            else:
+                current_status = "pending"
 
         # Resolve archetype: prefer graph data, fall back to session records
         if node_archetypes and task_id in node_archetypes:

@@ -23,6 +23,7 @@ from agent_fox.reporting.standup import (
     QueueSummary,
     StandupReport,
     TaskActivity,
+    _compute_task_activities,
     generate_standup,
 )
 
@@ -462,6 +463,20 @@ class TestPerTaskActivityGeneration:
         assert s2.input_tokens == 2000
         assert s2.output_tokens == 1000
         assert pytest.approx(s2.cost, abs=0.001) == 0.20
+
+    def test_status_inferred_from_sessions_when_plan_nodes_missing(self) -> None:
+        """Tasks absent from node_states infer status from session outcomes."""
+        sessions = [
+            make_session_record(node_id="old:1", status="completed", timestamp=hours_ago(2)),
+            make_session_record(node_id="old:2", status="failed", timestamp=hours_ago(3)),
+            make_session_record(node_id="old:2", status="failed", timestamp=hours_ago(4)),
+        ]
+        # node_states is empty — simulates sessions from a prior plan
+        activities = _compute_task_activities(sessions, node_states={})
+        by_id = {a.task_id: a for a in activities}
+
+        assert by_id["old:1"].current_status == "completed"
+        assert by_id["old:2"].current_status == "failed"
 
 
 # ---------------------------------------------------------------------------
