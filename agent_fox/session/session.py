@@ -1,6 +1,6 @@
-"""Session runner: execute coding sessions via an AgentBackend.
+"""Session runner: execute coding sessions via ClaudeBackend.
 
-Depends only on the AgentBackend protocol and canonical message types.
+Depends only on ClaudeBackend and canonical message types.
 All SDK-specific code is isolated in the backend adapter modules.
 
 Requirements: 03-REQ-3.1 through 03-REQ-3.E2, 03-REQ-6.E1,
@@ -26,8 +26,8 @@ from agent_fox.knowledge.audit import (
 )
 from agent_fox.knowledge.sink import SessionOutcome, SinkDispatcher, ToolCall, ToolError
 from agent_fox.security.security import make_pre_tool_use_hook
-from agent_fox.session.backends.protocol import (
-    AgentBackend,
+from agent_fox.session.backends.claude import ClaudeBackend
+from agent_fox.session.backends.types import (
     AssistantMessage,
     ResultMessage,
     ToolUseMessage,
@@ -69,7 +69,7 @@ async def run_session(
     task_prompt: str,
     config: AgentFoxConfig,
     *,
-    backend: AgentBackend | None = None,
+    backend: ClaudeBackend | None = None,
     activity_callback: ActivityCallback | None = None,
     model_id: str | None = None,
     security_config: Any | None = None,
@@ -86,7 +86,7 @@ async def run_session(
 
     1. Resolve the coding model
     2. Build a permission callback from the security allowlist
-    3. Stream messages from the backend via AgentBackend.execute()
+    3. Stream messages from the backend via ClaudeBackend.execute()
     4. Collect the terminal ResultMessage for outcome metrics
     5. Wrap the entire query in asyncio.wait_for with the
        configured session_timeout
@@ -98,7 +98,7 @@ async def run_session(
         system_prompt: System instructions for the agent.
         task_prompt: Task prompt to send to the agent.
         config: Application configuration.
-        backend: AgentBackend to use. Defaults to ClaudeBackend via factory.
+        backend: ClaudeBackend instance to use. Defaults to a new ClaudeBackend.
         activity_callback: Optional callback for UI activity events.
         model_id: Optional model tier or model ID override. When set,
             overrides ``config.models.coding`` for this session.
@@ -122,11 +122,8 @@ async def run_session(
     # Resolve security config (archetype override or config default)
     effective_security = security_config if security_config is not None else config.security
 
-    # Resolve backend (lazy import to keep SDK isolation)
     if backend is None:
-        from agent_fox.session.backends import get_backend
-
-        backend = get_backend()
+        backend = ClaudeBackend()
 
     # Track metrics via mutable state (supports partial reads on timeout/failure)
     state = _QueryExecutionState()
@@ -196,7 +193,7 @@ async def _execute_query(
     model_id: str,
     cwd: str,
     config: AgentFoxConfig,
-    backend: AgentBackend,
+    backend: ClaudeBackend,
     state: _QueryExecutionState,
     node_id: str = "",
     activity_callback: ActivityCallback | None = None,
@@ -209,7 +206,7 @@ async def _execute_query(
     thinking: dict[str, Any] | None = None,
     archetype: str | None = None,
 ) -> None:
-    """Execute the query via an AgentBackend and collect results.
+    """Execute the query via ClaudeBackend and collect results.
 
     Updates *state* in place with token usage, duration, status, and error info.
     """
