@@ -29,8 +29,8 @@ This plan implements session summary storage and retrieval in five task groups:
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create test file for summary_store unit tests
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create test file for summary_store unit tests
     - Create `tests/unit/knowledge/test_summary_store.py`
     - Implement test fixtures: in-memory DuckDB with full schema applied
     - Write test functions for TS-119-1 through TS-119-4 (insert, schema, append-only, migration)
@@ -38,33 +38,33 @@ This plan implements session summary storage and retrieval in five task groups:
     - Write test functions for TS-119-11, TS-119-13 through TS-119-15 (cross-spec query tests)
     - _Test Spec: TS-119-1, TS-119-2, TS-119-3, TS-119-4, TS-119-5, TS-119-7, TS-119-8, TS-119-9, TS-119-10, TS-119-11, TS-119-13, TS-119-14, TS-119-15_
 
-  - [ ] 1.2 Create test file for edge case tests
+  - [x] 1.2 Create test file for edge case tests
     - Add to `tests/unit/knowledge/test_summary_store.py` or create separate file
     - Write test functions for TS-119-E1 through TS-119-E9
     - _Test Spec: TS-119-E1, TS-119-E2, TS-119-E3, TS-119-E4, TS-119-E5, TS-119-E6, TS-119-E7, TS-119-E8, TS-119-E9_
 
-  - [ ] 1.3 Create test file for fox_provider summary tests
+  - [x] 1.3 Create test file for fox_provider summary tests
     - Create `tests/unit/knowledge/test_fox_provider_summaries.py`
     - Write test functions for TS-119-6 (CONTEXT prefix formatting)
     - Write test functions for TS-119-12 (CROSS-SPEC prefix formatting)
     - _Test Spec: TS-119-6, TS-119-12_
 
-  - [ ] 1.4 Create test file for property tests
+  - [x] 1.4 Create test file for property tests
     - Create `tests/unit/knowledge/test_summary_properties.py`
     - Write property tests for TS-119-P1 through TS-119-P6
     - Use Hypothesis strategies for task group numbers, spec names, archetype strings, attempt counts
     - _Test Spec: TS-119-P1, TS-119-P2, TS-119-P3, TS-119-P4, TS-119-P5, TS-119-P6_
 
-  - [ ] 1.5 Create test file for integration tests
-    - Create `tests/integration/test_summary_lifecycle.py`
+  - [x] 1.5 Create test file for integration tests
+    - Create `tests/integration/knowledge/test_summary_lifecycle.py`
     - Write test functions for TS-119-16 through TS-119-20 (audit event, ingest, lifecycle)
     - Write test functions for TS-119-SMOKE-1 through TS-119-SMOKE-3
     - _Test Spec: TS-119-16, TS-119-17, TS-119-18, TS-119-19, TS-119-20, TS-119-SMOKE-1, TS-119-SMOKE-2, TS-119-SMOKE-3_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/`
 
 - [ ] 2. Schema and data model
   - [ ] 2.1 Add migration v24 for session_summaries table
