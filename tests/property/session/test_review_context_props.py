@@ -27,16 +27,25 @@ from tests.unit.knowledge.conftest import create_schema
 
 VALID_SEVERITIES = ("critical", "major", "minor", "observation")
 
+# Only these severities are persisted by insert_findings() (issue #553).
+ACTIONABLE_SEVERITIES = ("critical", "major")
+
 
 @st.composite
 def review_finding_list(draw: st.DrawFn) -> list[ReviewFinding]:
-    """Generate a list of ReviewFinding objects for a single session."""
+    """Generate a list of ReviewFinding objects with actionable severities.
+
+    Restricted to critical/major because insert_findings() drops minor and
+    observation findings (issue #553). The rendering properties tested here
+    are about what appears in the output given the DB state — non-actionable
+    findings are never in the DB and thus never appear in renders.
+    """
     n = draw(st.integers(min_value=1, max_value=10))
     session_id = f"session-{draw(st.uuids())}"
     return [
         ReviewFinding(
             id=str(uuid.uuid4()),
-            severity=draw(st.sampled_from(list(VALID_SEVERITIES))),
+            severity=draw(st.sampled_from(list(ACTIONABLE_SEVERITIES))),
             description=draw(
                 st.text(
                     min_size=1,

@@ -2,7 +2,7 @@
 
 Extracted from result_handler.py to isolate blocking decision logic.
 
-Requirements: 26-REQ-9.3, 30-REQ-2.3, 84-REQ-3.1, 84-REQ-3.E1
+Requirements: 26-REQ-9.3, 30-REQ-2.3, 84-REQ-3.1, 84-REQ-3.E1, 554-REQ-1
 """
 
 from __future__ import annotations
@@ -72,6 +72,63 @@ def _format_block_reason(
     return f"{header} — {detail}"
 
 
+def _evaluate_audit_review_blocking(
+    knowledge_db_conn: Any,
+    spec_name: str,
+    task_group: str,
+    coder_node_id: str,
+    node_id: str,
+) -> BlockDecision:
+    """Evaluate audit-review blocking: any active critical/major audit finding triggers retry.
+
+    Uses ``query_active_findings`` filtered by ``category='audit'`` because the
+    session_id format for audit findings (``{spec_name}:audit:{N}``) does not
+    match the reviewer node_id format used by ``query_findings_by_session``.
+
+    Returns a blocking decision when any non-superseded critical or major audit
+    finding exists for (spec_name, task_group).  An empty or minor-only finding
+    set returns ``should_block=False`` so execution proceeds normally.
+
+    Requirements: 554-REQ-1
+    """
+    try:
+        from agent_fox.knowledge.review_store import query_active_findings
+
+        audit_findings = [
+            f
+            for f in query_active_findings(knowledge_db_conn, spec_name, task_group)
+            if getattr(f, "category", None) == "audit"
+        ]
+
+        if not audit_findings:
+            return BlockDecision(should_block=False)
+
+        n = len(audit_findings)
+        shown = audit_findings[:3]
+        detail = ", ".join(
+            "F-" + f.id.replace("-", "")[:8] + ": " + f.description[:60] + ("…" if len(f.description) > 60 else "")
+            for f in shown
+        )
+        if n > 3:
+            detail += f", and {n - 3} more"
+        reason = (
+            f"reviewer:audit-review found {n} critical/major audit finding(s) for {spec_name}:{task_group} — {detail}"
+        )
+        logger.warning("AUDIT-REVIEW blocking %s: %s", coder_node_id, reason)
+        return BlockDecision(
+            should_block=True,
+            coder_node_id=coder_node_id,
+            reason=reason,
+        )
+    except Exception:
+        logger.warning(
+            "Failed to evaluate audit-review blocking for %s",
+            node_id,
+            exc_info=True,
+        )
+        return BlockDecision(should_block=False)
+
+
 def evaluate_review_blocking(
     record: SessionRecord,
     archetypes_config: ArchetypesConfig | None,
@@ -97,10 +154,10 @@ def evaluate_review_blocking(
     """
     archetype = record.archetype
 
-    # Only reviewer pre-review and drift-review modes can block.
-    # Audit-review and fix-review do not participate in blocking.
+    # Only reviewer pre-review, drift-review, and audit-review modes can block.
+    # fix-review does not participate in blocking.
     if archetype == "reviewer":
-        if mode not in ("pre-review", "drift-review"):
+        if mode not in ("pre-review", "drift-review", "audit-review"):
             return BlockDecision(should_block=False)
     elif archetype not in ("skeptic", "oracle"):
         # Legacy names kept for backward compat with old session records
@@ -117,6 +174,14 @@ def evaluate_review_blocking(
 
     # Display label for log messages
     display_name = f"reviewer:{mode}" if archetype == "reviewer" and mode else archetype
+
+    # Audit-review uses a distinct blocking path: any active critical/major
+    # audit finding for (spec_name, task_group) triggers a retry.  The
+    # session_id format used by audit findings (``{spec_name}:audit:{attempt}``)
+    # does not match the reviewer node_id format, so we query by
+    # spec+task_group filtered by category='audit' rather than by session_id.
+    if mode == "audit-review":
+        return _evaluate_audit_review_blocking(knowledge_db_conn, spec_name, task_group, coder_node_id, record.node_id)
 
     try:
         from agent_fox.knowledge.review_store import query_findings_by_session

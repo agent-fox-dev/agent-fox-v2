@@ -21,6 +21,31 @@ from agent_fox.knowledge.db import KnowledgeDB
 
 logger = logging.getLogger(__name__)
 
+# Severity ordering for sorting — lower value = higher priority.
+_SEVERITY_RANK: dict[str, int] = {"critical": 0, "major": 1, "minor": 2, "observation": 3}
+
+
+def _extract_keywords(task_description: str) -> frozenset[str]:
+    """Extract lowercase words from *task_description* for relevance scoring.
+
+    Returns an empty frozenset when *task_description* is blank, which
+    causes ``_score_relevance`` to return 0 for every item and preserves
+    the existing severity/description sort order (AC-3).
+    """
+    return frozenset(word.lower() for word in task_description.split() if word)
+
+
+def _score_relevance(text: str, keywords: frozenset[str]) -> int:
+    """Count how many *keywords* appear as substrings in *text* (case-insensitive).
+
+    Returns 0 when *keywords* is empty so that an absent or blank
+    ``task_description`` has no effect on ordering (AC-3).
+    """
+    if not keywords:
+        return 0
+    text_lower = text.lower()
+    return sum(1 for kw in keywords if kw in text_lower)
+
 
 class FoxKnowledgeProvider:
     """Concrete KnowledgeProvider: review carry-forward + ADR retrieval.
@@ -47,6 +72,8 @@ class FoxKnowledgeProvider:
         self,
         spec_name: str,
         task_description: str,
+        task_group: str | None = None,
+        session_id: str | None = None,
     ) -> list[str]:
         """Retrieve knowledge context for an upcoming session.
 
@@ -54,9 +81,23 @@ class FoxKnowledgeProvider:
         summaries for the given spec and returns them as prefixed strings,
         capped at ``max_items``.
 
+        When *session_id* is provided, the IDs of every review finding and
+        verification verdict that appears in the returned list are recorded in
+        the ``finding_injections`` table.  A subsequent successful
+        ``ingest()`` call for the same session then supersedes those findings
+        so they are not re-injected into future sessions.
+
         Args:
             spec_name: Name of the spec being worked on.
             task_description: Human-readable description of the task.
+            task_group: Optional task group identifier to restrict review
+                findings to those tagged for this group.  When ``None``,
+                findings from all task groups are returned.
+            session_id: Optional node ID of the current session.  When
+                provided, injected finding/verdict IDs are persisted for
+                later deduplication.  Callers that omit this parameter
+                get the same retrieval behaviour as before (backward-
+                compatible default).
 
         Returns:
             List of formatted text blocks ready for prompt injection.
@@ -65,28 +106,63 @@ class FoxKnowledgeProvider:
             KnowledgeStoreError: If the database connection is closed or
                 a query fails unexpectedly.
 
-        Requirements: 117-REQ-6.1, 117-REQ-6.3
+        Requirements: 117-REQ-6.1, 117-REQ-6.3, 558-AC-1, 558-AC-4
         """
         try:
             conn = self._knowledge_db.connection
         except KnowledgeStoreError:
             raise
 
-        reviews = self._query_reviews(conn, spec_name)
+        reviews, review_ids = self._query_reviews(
+            conn, spec_name, task_group=task_group, task_description=task_description
+        )
         errata = self._query_errata(conn, spec_name)
         adrs = self._query_adrs(conn, spec_name, task_description)
+        verdicts, verdict_ids = self._query_verdicts(
+            conn, spec_name, task_group=task_group, task_description=task_description
+        )
 
-        combined = reviews + errata + adrs
+        # Build a parallel list of (text, optional_id) so we can track which
+        # finding/verdict IDs survive the max_items cap.
+        items_with_ids: list[tuple[str, str | None]] = []
+        for text, id_ in zip(reviews, review_ids):
+            items_with_ids.append((text, id_))
+        for text in errata:
+            items_with_ids.append((text, None))
+        for text in adrs:
+            items_with_ids.append((text, None))
+        for text, id_ in zip(verdicts, verdict_ids):
+            items_with_ids.append((text, id_))
+
+        capped = items_with_ids[: self._config.max_items]
+        result = [text for text, _ in capped]
 
         logger.debug(
-            "Retrieved %d review + %d errata + %d ADR items for %s",
+            "Retrieved %d review + %d errata + %d ADR + %d verdict items for %s",
             len(reviews),
             len(errata),
             len(adrs),
+            len(verdicts),
             spec_name,
         )
 
-        return combined[: self._config.max_items]
+        # Record which finding/verdict IDs were injected into this session so
+        # that a successful ingest() can supersede them later (558-AC-1).
+        if session_id:
+            injected_ids = [id_ for _, id_ in capped if id_ is not None]
+            if injected_ids:
+                try:
+                    from agent_fox.knowledge.review_store import record_finding_injections
+
+                    record_finding_injections(conn, injected_ids, session_id)
+                except Exception:
+                    logger.warning(
+                        "Failed to record injection log for session %s",
+                        session_id,
+                        exc_info=True,
+                    )
+
+        return result
 
     def ingest(
         self,
@@ -96,9 +172,14 @@ class FoxKnowledgeProvider:
     ) -> None:
         """Ingest knowledge from a completed session.
 
-        Detects ADR files in ``touched_files`` and ingests them into
-        the knowledge database.  Gotcha extraction was removed in
-        spec 116.
+        On successful completion (``context['session_status'] == 'completed'``),
+        supersedes all review findings and verification verdicts that were
+        previously injected into the session (recorded in the
+        ``finding_injections`` table), preventing them from being re-injected
+        into subsequent sessions for the same spec.
+
+        Also detects ADR files in ``touched_files`` and ingests them into
+        the knowledge database.  Gotcha extraction was removed in spec 116.
 
         Args:
             session_id: Node ID of the completed session.
@@ -106,8 +187,37 @@ class FoxKnowledgeProvider:
             context: Dict with ``session_status``, ``touched_files``,
                 ``commit_sha``, and ``project_root``.
 
-        Requirements: 117-REQ-1.1, 117-REQ-7.4
+        Requirements: 117-REQ-1.1, 117-REQ-7.4, 558-AC-2
         """
+        session_status = context.get("session_status", "")
+
+        # Acquire the DB connection once for both finding supersession and
+        # ADR ingestion.  If unavailable, log and bail out early.
+        try:
+            conn = self._knowledge_db.connection
+        except KnowledgeStoreError:
+            logger.warning(
+                "Knowledge DB unavailable for ingestion in session %s",
+                session_id,
+            )
+            return
+
+        # Supersede injected findings when the session completed successfully
+        # (558-AC-2).  A failed or incomplete session must NOT supersede findings
+        # so retry sessions still see them (558-AC-3).
+        if session_status == "completed":
+            try:
+                from agent_fox.knowledge.review_store import supersede_injected_findings
+
+                supersede_injected_findings(conn, session_id)
+            except Exception:
+                logger.warning(
+                    "Failed to supersede injected findings for session %s",
+                    session_id,
+                    exc_info=True,
+                )
+
+        # ADR ingestion (unchanged from spec 117).
         from agent_fox.knowledge.adr import detect_adr_changes, ingest_adr
 
         touched_files = context.get("touched_files") or []
@@ -118,15 +228,6 @@ class FoxKnowledgeProvider:
         project_root = Path(str(project_root_str))
         adr_paths = detect_adr_changes(touched_files)
         if not adr_paths:
-            return
-
-        try:
-            conn = self._knowledge_db.connection
-        except KnowledgeStoreError:
-            logger.warning(
-                "Knowledge DB unavailable for ADR ingestion in session %s",
-                session_id,
-            )
             return
 
         # Extract sink and run_id from context if available
@@ -158,34 +259,68 @@ class FoxKnowledgeProvider:
         self,
         conn: Any,
         spec_name: str,
-    ) -> list[str]:
+        task_group: str | None = None,
+        task_description: str = "",
+    ) -> tuple[list[str], list[str]]:
         """Query unresolved critical/major review findings for the spec.
 
+        Returns a tuple of ``(formatted_strings, finding_ids)`` so that
+        ``retrieve()`` can record which finding IDs were injected.
+
         Handles missing ``review_findings`` table gracefully by returning
-        an empty list (116-REQ-6.E1).  Filters to ``critical`` and
+        empty lists (116-REQ-6.E1).  Filters to ``critical`` and
         ``major`` severity only (116-REQ-6.1).
+
+        When ``task_group`` is provided, only findings tagged for that group
+        are returned, reducing noise for sessions focused on a specific
+        task group.  When ``None``, all active findings for the spec are
+        returned (backward-compatible behaviour).
+
+        Findings are sorted by:
+          1. Severity (critical before major — primary key, always preserved).
+          2. Relevance score — keyword overlap with ``task_description``
+             (higher overlap ranks first within a severity tier).
+          3. Description (alphabetical — stable tiebreaker).
+
+        When ``task_description`` is blank, relevance scores are all zero and
+        the sort reduces to the existing severity/description order (AC-3).
+
+        ``query_active_findings`` already excludes non-actionable severities;
+        the ``if f.severity in (...)`` guard below is defense-in-depth and
+        kept consistent with that filter (issue #553).
         """
         try:
             from agent_fox.knowledge.review_store import query_active_findings
 
-            findings = query_active_findings(conn, spec_name)
+            findings = query_active_findings(conn, spec_name, task_group=task_group)
         except Exception:
             # Table may not exist in a fresh database (116-REQ-6.E1).
             logger.debug(
                 "Could not query review findings for %s",
                 spec_name,
             )
-            return []
+            return [], []
+
+        keywords = _extract_keywords(task_description)
+        actionable = [f for f in findings if f.severity in ("critical", "major")]
+        actionable.sort(
+            key=lambda f: (
+                _SEVERITY_RANK.get(f.severity, 99),
+                -_score_relevance(f"{f.category or ''} {f.description}", keywords),
+                f.description,
+            )
+        )
 
         result: list[str] = []
-        for f in findings:
-            if f.severity in ("critical", "major"):
-                parts = [f"[{f.severity}]"]
-                if f.category:
-                    parts.append(f"{f.category}:")
-                parts.append(f.description)
-                result.append(f"[REVIEW] {' '.join(parts)}")
-        return result
+        ids: list[str] = []
+        for f in actionable:
+            parts = [f"[{f.severity}]"]
+            if f.category:
+                parts.append(f"{f.category}:")
+            parts.append(f.description)
+            result.append(f"[REVIEW] {' '.join(parts)}")
+            ids.append(f.id)
+        return result, ids
 
     def _query_errata(
         self,
@@ -233,3 +368,63 @@ class FoxKnowledgeProvider:
                 spec_name,
             )
             return []
+
+    def _query_verdicts(
+        self,
+        conn: Any,
+        spec_name: str,
+        task_group: str | None = None,
+        task_description: str = "",
+    ) -> tuple[list[str], list[str]]:
+        """Query active FAIL verdicts and format as prompt-ready strings.
+
+        Returns a tuple of ``(formatted_strings, verdict_ids)`` so that
+        ``retrieve()`` can record which verdict IDs were injected.
+
+        Only FAIL verdicts are returned — PASS verdicts indicate the
+        requirement was satisfied and need not be re-injected.  Handles
+        a missing ``verification_results`` table gracefully by returning
+        empty lists (AC-3).
+
+        When ``task_group`` is provided, only verdicts tagged for that
+        group are returned (AC-4).
+
+        Verdicts are sorted by:
+          1. Relevance score — keyword overlap with ``task_description``
+             (higher overlap ranks first).
+          2. Requirement ID (stable alphabetical tiebreaker).
+
+        When ``task_description`` is blank, relevance scores are all zero
+        and the sort reduces to requirement_id order.
+
+        Requirements: 555-AC-1, 555-AC-2, 555-AC-3, 555-AC-4
+        """
+        try:
+            from agent_fox.knowledge.review_store import query_active_verdicts
+
+            verdicts = query_active_verdicts(conn, spec_name, task_group=task_group)
+        except Exception:
+            logger.debug(
+                "Could not query verification verdicts for %s",
+                spec_name,
+            )
+            return [], []
+
+        keywords = _extract_keywords(task_description)
+        fail_verdicts = [v for v in verdicts if v.verdict == "FAIL"]
+        fail_verdicts.sort(
+            key=lambda v: (
+                -_score_relevance(f"{v.requirement_id} {v.evidence or ''}", keywords),
+                v.requirement_id,
+            )
+        )
+
+        result: list[str] = []
+        ids: list[str] = []
+        for v in fail_verdicts:
+            parts = [f"[FAIL] {v.requirement_id}"]
+            if v.evidence:
+                parts.append(v.evidence)
+            result.append(f"[VERIFY] {' '.join(parts)}")
+            ids.append(v.id)
+        return result, ids

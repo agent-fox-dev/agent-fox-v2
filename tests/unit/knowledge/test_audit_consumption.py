@@ -250,6 +250,105 @@ class TestUnparseableAuditReport:
 
 
 # ---------------------------------------------------------------------------
+# Issue #553: PASS audit entries must not produce observation rows in DB
+# ---------------------------------------------------------------------------
+
+
+class TestPassAuditEntriesNotPersisted:
+    """AC-3: Audit PASS entries (observation severity) are not written to review_findings.
+
+    Issue #553: PASS entries were previously stored as observation-severity
+    findings even though they have no downstream consumers.
+    """
+
+    def test_pass_entries_not_stored(
+        self,
+        knowledge_conn_with_schema: duckdb.DuckDBPyConnection,
+        tmp_path: Path,
+    ) -> None:
+        """PASS entries in an AuditResult produce no rows in review_findings."""
+        from agent_fox.session.auditor_output import persist_auditor_results
+        from agent_fox.session.convergence import AuditEntry, AuditResult
+
+        result = AuditResult(
+            entries=[
+                AuditEntry(ts_entry="TS-1", verdict="MISSING", notes="Function not found"),
+                AuditEntry(ts_entry="TS-2", verdict="WEAK", notes="Coverage partial"),
+                AuditEntry(ts_entry="TS-3", verdict="PASS", notes="All good"),
+            ],
+            overall_verdict="FAIL",
+            summary="Two issues found.",
+        )
+        spec_dir = tmp_path / "05_bar"
+        spec_dir.mkdir()
+
+        persist_auditor_results(
+            spec_dir,
+            result,
+            attempt=1,
+            project_root=tmp_path,
+            conn=knowledge_conn_with_schema,
+        )
+
+        obs_rows = knowledge_conn_with_schema.execute(
+            "SELECT COUNT(*) FROM review_findings WHERE severity = 'observation'"
+        ).fetchone()
+        assert obs_rows[0] == 0, (
+            f"Expected 0 observation rows, got {obs_rows[0]}"
+        )
+
+        # Critical (MISSING) and major (WEAK) rows must be present
+        critical_rows = knowledge_conn_with_schema.execute(
+            "SELECT COUNT(*) FROM review_findings WHERE severity = 'critical'"
+        ).fetchone()
+        assert critical_rows[0] == 1, (
+            f"Expected 1 critical row (MISSING), got {critical_rows[0]}"
+        )
+        major_rows = knowledge_conn_with_schema.execute(
+            "SELECT COUNT(*) FROM review_findings WHERE severity = 'major'"
+        ).fetchone()
+        assert major_rows[0] == 1, (
+            f"Expected 1 major row (WEAK), got {major_rows[0]}"
+        )
+
+    def test_all_pass_produces_no_db_rows(
+        self,
+        knowledge_conn_with_schema: duckdb.DuckDBPyConnection,
+        tmp_path: Path,
+    ) -> None:
+        """An AuditResult where every entry is PASS stores nothing in review_findings."""
+        from agent_fox.session.auditor_output import persist_auditor_results
+        from agent_fox.session.convergence import AuditEntry, AuditResult
+
+        result = AuditResult(
+            entries=[
+                AuditEntry(ts_entry="TS-1", verdict="PASS"),
+                AuditEntry(ts_entry="TS-2", verdict="PASS"),
+            ],
+            # Forced non-PASS overall so the DB persistence branch runs
+            overall_verdict="FAIL",
+            summary="Forced non-PASS to trigger DB path.",
+        )
+        spec_dir = tmp_path / "05_baz"
+        spec_dir.mkdir()
+
+        persist_auditor_results(
+            spec_dir,
+            result,
+            attempt=1,
+            project_root=tmp_path,
+            conn=knowledge_conn_with_schema,
+        )
+
+        total = knowledge_conn_with_schema.execute(
+            "SELECT COUNT(*) FROM review_findings"
+        ).fetchone()
+        assert total[0] == 0, (
+            f"Expected 0 rows in review_findings, got {total[0]}"
+        )
+
+
+# ---------------------------------------------------------------------------
 # Helper
 # ---------------------------------------------------------------------------
 

@@ -46,11 +46,13 @@ class TestPersistSkepticFindings:
         )
         runner._persist_review_findings(transcript, "my_spec:0", 1)
 
+        # Only the critical finding is persisted; minor findings are dropped
+        # at write time (issue #553 — non-actionable severities have no consumers).
         rows = knowledge_db._conn.execute(  # type: ignore[union-attr]
             "SELECT severity, description, requirement_ref, spec_name, task_group "
             "FROM review_findings ORDER BY severity"
         ).fetchall()
-        assert len(rows) == 2
+        assert len(rows) == 1
         assert rows[0] == (
             "critical",
             "Missing error handling for null input",
@@ -58,7 +60,6 @@ class TestPersistSkepticFindings:
             "my_spec",
             "0",
         )
-        assert rows[1] == ("minor", "Docstring inconsistency", None, "my_spec", "0")
 
     def test_no_json_logs_warning_no_crash(self, knowledge_db: KnowledgeDB) -> None:
         runner = NodeSessionRunner(

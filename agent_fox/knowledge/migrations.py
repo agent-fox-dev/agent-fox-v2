@@ -798,6 +798,36 @@ def _migrate_v22(conn: duckdb.DuckDBPyConnection) -> None:
     """)
 
 
+def _migrate_v23(conn: duckdb.DuckDBPyConnection) -> None:
+    """Add finding_injections table for deduplication tracking across sessions.
+
+    Records which review findings and verification verdict IDs were injected
+    into each session.  When a coder session completes successfully, these
+    records are used to supersede the injected findings so they are not
+    re-injected into subsequent sessions.
+
+    A unique index on (finding_id, session_id) prevents duplicate records if
+    retrieve() is called more than once for the same session.
+
+    Uses ``CREATE TABLE IF NOT EXISTS`` and ``CREATE UNIQUE INDEX IF NOT
+    EXISTS`` for idempotency.
+
+    Requirements: 558-AC-5
+    """
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS finding_injections (
+            id          VARCHAR PRIMARY KEY,
+            finding_id  VARCHAR NOT NULL,
+            session_id  VARCHAR NOT NULL,
+            injected_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    conn.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_finding_injections_dedup
+            ON finding_injections (finding_id, session_id)
+    """)
+
+
 def _migrate_v21(conn: duckdb.DuckDBPyConnection) -> None:
     """Drop dead columns retrieval_summary and coverage_data from session_outcomes.
 
@@ -930,6 +960,11 @@ MIGRATIONS: list[Migration] = [
         version=22,
         description="add adr_entries table for ADR ingestion",
         apply=_migrate_v22,
+    ),
+    Migration(
+        version=23,
+        description="add finding_injections table for injection deduplication tracking",
+        apply=_migrate_v23,
     ),
 ]
 

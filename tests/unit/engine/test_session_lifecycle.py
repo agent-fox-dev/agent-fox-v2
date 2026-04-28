@@ -18,9 +18,8 @@ from agent_fox.core.config import AgentFoxConfig, ArchetypesConfig
 from agent_fox.engine.sdk_params import clamp_instances
 from agent_fox.engine.session_lifecycle import NodeSessionRunner
 from agent_fox.knowledge.db import KnowledgeDB
-from agent_fox.workspace import WorkspaceInfo
-
 from agent_fox.knowledge.sink import SessionOutcome
+from agent_fox.workspace import WorkspaceInfo
 
 _MOCK_KB = MagicMock(spec=KnowledgeDB)
 
@@ -410,4 +409,55 @@ class TestNoDuplicateHarvestCompleteEvent:
         assert AuditEventType.HARVEST_COMPLETE not in audit_calls, (
             "harvest.complete was emitted directly by _run_and_harvest — "
             "this causes duplicate events (issue #482)"
+        )
+
+
+# ---------------------------------------------------------------------------
+# AC-2 (issue #556): _build_prompts passes task_group to knowledge_provider.retrieve()
+# ---------------------------------------------------------------------------
+
+
+class TestBuildPromptsPassesTaskGroup:
+    """AC-2: NodeSessionRunner._build_prompts() passes str(task_group) to retrieve().
+
+    Issue #556: task_group was not forwarded to the knowledge provider, so
+    findings from all groups were injected indiscriminately.
+    """
+
+    def test_retrieve_called_with_task_group(self, tmp_path: Path) -> None:
+        """_build_prompts calls knowledge_provider.retrieve() with task_group='2'."""
+        from unittest.mock import MagicMock
+
+        # Mock a knowledge provider that records retrieve() calls
+        mock_provider = MagicMock()
+        mock_provider.retrieve.return_value = []
+
+        mock_kb = MagicMock(spec=KnowledgeDB)
+        mock_kb.connection = MagicMock()
+
+        runner = NodeSessionRunner(
+            "spec_01:2",
+            AgentFoxConfig(),
+            knowledge_db=mock_kb,
+            knowledge_provider=mock_provider,
+        )
+
+        # _build_prompts needs a spec_dir; patch resolve_spec_root + assemble_context
+        # resolve_spec_root is imported lazily inside _build_prompts from agent_fox.core.config
+        with (
+            patch("agent_fox.core.config.resolve_spec_root") as mock_spec_root,
+            patch("agent_fox.engine.session_lifecycle.assemble_context") as mock_assemble,
+            patch("agent_fox.engine.session_lifecycle.build_system_prompt", return_value="sys"),
+            patch("agent_fox.engine.session_lifecycle.build_task_prompt", return_value="task"),
+            patch("agent_fox.engine.session_lifecycle.extract_subtask_descriptions", return_value=["do X"]),
+        ):
+            mock_spec_root.return_value = tmp_path
+            mock_assemble.return_value = MagicMock()
+            runner._build_prompts(tmp_path, attempt=1, previous_error=None)
+
+        mock_provider.retrieve.assert_called_once()
+        call_kwargs = mock_provider.retrieve.call_args
+        # task_group should be passed as keyword argument '2'
+        assert call_kwargs.kwargs.get("task_group") == "2", (
+            f"Expected task_group='2', got: {call_kwargs}"
         )

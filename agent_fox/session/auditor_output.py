@@ -171,8 +171,13 @@ def _persist_audit_findings_to_db(
         session_id = f"{spec_name}:audit:{attempt}"
 
         for entry in result.entries:
-            # Derive severity: prefer explicit severity field, fall back from verdict
+            # Derive severity: prefer explicit severity field, fall back from verdict.
+            # PASS → observation (via _verdict_to_severity), which is non-actionable.
             severity = entry.severity if entry.severity else _verdict_to_severity(entry.verdict)
+            # Skip non-actionable severities (minor/observation) to avoid storing
+            # dead rows that have no downstream consumers (issue #553).
+            if severity not in ("critical", "major"):
+                continue
             # Derive description: prefer explicit description, fall back to notes/ts_entry
             description = (
                 entry.description if entry.description else (entry.notes or f"[{entry.verdict}] {entry.ts_entry}")

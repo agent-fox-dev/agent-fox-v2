@@ -262,7 +262,12 @@ class NodeSessionRunner:
         try:
             descriptions = extract_subtask_descriptions(spec_dir, self._task_group)
             task_description = "\n".join(descriptions) if descriptions else self._spec_name
-            retrieved = self._knowledge_provider.retrieve(self._spec_name, task_description)
+            retrieved = self._knowledge_provider.retrieve(
+                self._spec_name,
+                task_description,
+                task_group=str(self._task_group),
+                session_id=self._node_id,
+            )
             if retrieved:
                 memory_facts = retrieved
         except Exception:
@@ -800,7 +805,11 @@ class NodeSessionRunner:
 
         Requirements: 53-REQ-5.1, 53-REQ-5.2, 53-REQ-5.E1
         """
-        return build_retry_context(self._knowledge_db, spec_name)
+        return build_retry_context(
+            self._knowledge_db,
+            spec_name,
+            task_group=str(self._task_group),
+        )
 
     async def _setup_workspace(
         self,
@@ -942,6 +951,7 @@ class NodeSessionRunner:
 def build_retry_context(
     knowledge_db: KnowledgeDB,
     spec_name: str,
+    task_group: str | None = None,
 ) -> str:
     """Query active critical/major findings for the spec and format them.
 
@@ -949,13 +959,16 @@ def build_retry_context(
     listing all active critical and major review findings. Returns an
     empty string if no such findings exist or if the DB is unavailable.
 
+    When ``task_group`` is provided, only findings tagged for that group
+    are included, avoiding noise from other task groups' findings.
+
     Requirements: 53-REQ-5.1, 53-REQ-5.2, 53-REQ-5.E1
     """
     try:
         from agent_fox.knowledge.review_store import query_active_findings
 
         conn = knowledge_db.connection
-        findings = query_active_findings(conn, spec_name)
+        findings = query_active_findings(conn, spec_name, task_group=task_group)
         critical_major = [f for f in findings if f.severity in ("critical", "major")]
         if not critical_major:
             return ""

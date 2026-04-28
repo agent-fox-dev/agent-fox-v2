@@ -43,9 +43,15 @@ class TestProtocolDefinition:
         assert hasattr(KnowledgeProvider, "retrieve")
 
     def test_retrieve_parameter_names(self) -> None:
-        """retrieve() has (self, spec_name, task_description) parameters."""
+        """retrieve() has (self, spec_name, task_description, task_group, session_id) parameters."""
         sig = inspect.signature(KnowledgeProvider.retrieve)
-        assert list(sig.parameters.keys()) == ["self", "spec_name", "task_description"]
+        assert list(sig.parameters.keys()) == [
+            "self",
+            "spec_name",
+            "task_description",
+            "task_group",
+            "session_id",
+        ]
 
     def test_retrieve_return_annotation(self) -> None:
         """retrieve() return annotation is list[str]."""
@@ -227,3 +233,48 @@ class TestNoOpAnyArgs:
     def test_normal_args(self) -> None:
         noop = NoOpKnowledgeProvider()
         assert noop.retrieve("spec_01", "normal task") == []
+
+
+# ---------------------------------------------------------------------------
+# AC-3 (issue #556): task_group parameter is optional; backward-compat
+# ---------------------------------------------------------------------------
+
+
+class TestTaskGroupOptionalParameter:
+    """AC-3: KnowledgeProvider and NoOpKnowledgeProvider accept optional task_group.
+
+    Issue #556: filter findings by task group to avoid injecting noise into
+    sessions working on different groups.  The parameter must default to None
+    so existing callers that omit it continue to work.
+    """
+
+    def test_protocol_has_task_group_parameter(self) -> None:
+        """KnowledgeProvider.retrieve() declares task_group parameter."""
+        sig = inspect.signature(KnowledgeProvider.retrieve)
+        assert "task_group" in sig.parameters
+
+    def test_task_group_defaults_to_none_in_protocol(self) -> None:
+        """task_group defaults to None in KnowledgeProvider protocol."""
+        sig = inspect.signature(KnowledgeProvider.retrieve)
+        param = sig.parameters["task_group"]
+        assert param.default is None
+
+    def test_noop_retrieve_without_task_group(self) -> None:
+        """NoOpKnowledgeProvider.retrieve() works without task_group."""
+        noop = NoOpKnowledgeProvider()
+        assert noop.retrieve("s", "d") == []
+
+    def test_noop_retrieve_with_task_group(self) -> None:
+        """NoOpKnowledgeProvider.retrieve() works with task_group='1'."""
+        noop = NoOpKnowledgeProvider()
+        assert noop.retrieve("s", "d", task_group="1") == []
+
+    def test_noop_retrieve_with_none_task_group(self) -> None:
+        """NoOpKnowledgeProvider.retrieve() works with task_group=None."""
+        noop = NoOpKnowledgeProvider()
+        assert noop.retrieve("s", "d", task_group=None) == []
+
+    def test_isinstance_still_satisfied(self) -> None:
+        """NoOpKnowledgeProvider still satisfies KnowledgeProvider after the change."""
+        noop = NoOpKnowledgeProvider()
+        assert isinstance(noop, KnowledgeProvider)

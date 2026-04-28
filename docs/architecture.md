@@ -1,4 +1,4 @@
-# Coding Session Architecture 2
+# Coding Session Architecture
 
 How agent-fox turns a collection of specifications into committed code through
 autonomous, parallel, knowledge-accumulating coding sessions.
@@ -29,7 +29,7 @@ A spec is not documentation written after the fact. It is the input artifact
 that drives every downstream decision: which agents run, in what order, with
 what constraints, and with what success criteria.
 
-### 1.2 The Separation of Concerns
+### 1.2 The Three Pillars
 
 Three concerns are explicitly kept separate:
 
@@ -41,18 +41,18 @@ Three concerns are explicitly kept separate:
   agent inside an isolated workspace for a single task group. The agent reads
   files, writes code, runs commands, and commits results.
 
-- **The knowledge system** is the institutional memory. It operates
-  asynchronously relative to the session lifecycle — extracting facts from
-  session transcripts after the fact and injecting relevant facts into the
-  context of future sessions.
+- **The knowledge system** is the institutional memory. It accumulates
+  review findings, errata, and architecture decision records across sessions
+  and injects relevant context into future sessions for the same or related
+  specs.
 
 ---
 
 ## 2. Persistent State in DuckDB
 
-All system state lives in a single DuckDB database (`.agent-fox/knowledge.db`).
-There is no external server; the database is an embedded file opened by the
-orchestrator process.
+All system state lives in a single DuckDB database
+(`.agent-fox/knowledge.duckdb`). There is no external server; the database is
+an embedded file opened by the orchestrator process.
 
 ### 2.1 Plan State
 
@@ -79,42 +79,57 @@ session completes and writes it back to DuckDB.
 
 Two tables track runtime history:
 
-- **`session_outcomes`** — One row per session attempt: node ID, spec name, status,
-  model used, input/output tokens, cost, duration, touched file paths, commit SHA,
-  and a retrieval summary (which knowledge signals fired and how many facts were
-  injected).
-- **`run_records`** — One row per orchestrator run: run ID, plan hash, start time,
-  end time, final status.
+- **`session_outcomes`** — One row per session attempt: node ID, spec name,
+  status, model used, input/output tokens, cost, duration, touched file paths,
+  commit SHA, attempt number, archetype, error message, and transport error
+  flag.
+- **`runs`** — One row per orchestrator run: run ID, plan content hash, start
+  time, end time, final status, aggregate token counts and cost.
 
 ### 2.3 Quality Assurance State
 
-Four tables store the outputs of review and verification agents:
+Three tables store the outputs of review and verification agents:
 
-- **`review_findings`** — Findings from pre-review and drift-review, classified
-  by severity (`critical`, `major`, `minor`, `observation`). Each finding has
-  provenance (spec, session, attempt) and a `superseded_by` column so resolved
-  findings can be retired without deletion.
+- **`review_findings`** — Findings from pre-review and audit-review sessions,
+  classified by severity (`critical`, `major`, `minor`, `observation`). Each
+  finding has provenance (spec, task group, session) and a `superseded_by`
+  column so resolved findings can be retired without deletion.
 - **`drift_findings`** — Spec-to-code discrepancies detected by drift-review.
+  Structured identically to review_findings with additional spec and artifact
+  reference fields.
 - **`verification_results`** — Per-requirement verdicts (`PASS`, `FAIL`,
   `PARTIAL`) from the Verifier archetype, with evidence text.
-- **`blocking_decisions`** — Records of when quality gates blocked downstream
-  tasks, with outcome tracking for future threshold calibration.
 
 ### 2.4 Knowledge State
 
-Five tables store the institutional memory:
+Three tables store the institutional memory:
 
-- **`memory_facts`** — Typed facts extracted from session transcripts. Each fact
-  has a UUID, content (1-2 sentences), category, confidence float, keywords,
-  spec provenance, session ID, commit SHA, and a `superseded_by` chain.
-- **`memory_embeddings`** — Vector embeddings keyed by fact UUID for similarity
-  search. Uses DuckDB's native VSS extension.
-- **`fact_causes`** — Directed edges between fact UUIDs forming a causal graph.
-  An edge `(A → B)` means "fact A led to fact B."
-- **`audit_events`** — Structured log of every significant operation: run start,
-  session start/complete/fail, git merge, fact extraction, harvest complete,
-  config reload. Each event has a type, severity, run ID, node ID, and a JSON
-  payload.
+- **`errata`** — Spec divergence records indexed from `docs/errata/` markdown
+  files. Each record is keyed by spec name and carries a content hash for
+  deduplication.
+- **`adr_entries`** — Architecture Decision Records parsed from
+  `docs/adr/*.md` in MADR 4.0.0 format. Fields: file path, title, status,
+  chosen option, justification, considered options, summary, content hash,
+  keywords, and spec references.
+- **`audit_events`** — Structured log of every significant operation: run
+  start, session start/complete/fail, git merge, config reload, preflight
+  skip. Each event has a type, severity, run ID, node ID, and a JSON payload.
+
+### 2.5 Telemetry State
+
+Two tables record tool-level telemetry:
+
+- **`tool_calls`** — One row per tool invocation during a session: session ID,
+  node ID, tool name, timestamp.
+- **`tool_errors`** — Failed tool invocations: session ID, node ID, tool name,
+  timestamp.
+
+### 2.6 Schema Evolution
+
+The database uses forward-only migrations applied at open time. Each migration
+is versioned and idempotent. A `schema_version` table tracks which migrations
+have been applied. The migration system ensures databases created by earlier
+versions of agent-fox are brought up to date transparently.
 
 ---
 
@@ -172,7 +187,9 @@ both injection rules and defaults.
 between groups in different specs. The planner validates that both endpoints
 exist. Spec-level dependencies (coarse format) resolve to the last group of the
 referenced spec; group-level dependencies (fine format) create edges between
-precise groups.
+precise groups. Cross-spec edges are propagated to any auto_pre review nodes
+that gate the target — with the exception of `pre-review` nodes, which validate
+spec content rather than upstream implementation and can therefore run early.
 
 ### 3.3 Execution Order
 
@@ -204,11 +221,38 @@ specs are merged into the live graph — new nodes, new edges, archetype injecti
 
 ## 4. The Orchestrator's Dispatch Loop
 
-The orchestrator (`engine/engine.py`) is a pure state machine with zero LLM
-calls. It loads the graph, loads or initializes execution state, installs signal
-handlers, and enters a loop.
+The orchestrator is a pure state machine with zero LLM calls. It delegates to
+three collaborators:
 
-### 4.1 The Main Loop
+- **StateManager** — state loading, initialization, persistence, node status
+  tracking, cascade blocking.
+- **DispatchManager** — session runners, dispatchers, launch preparation,
+  preflight checks.
+- **ConfigReloader** — configuration hot-reload from disk.
+
+### 4.1 Initialization
+
+Before entering the main loop, the orchestrator performs startup:
+
+1. **Generate a run ID** for audit trail correlation.
+2. **Load the task graph** from DuckDB. If no plan exists, error out.
+3. **Inject missing archetype nodes** if the current archetype configuration
+   differs from the plan's configuration.
+4. **Load or initialize execution state.** If prior state exists in DuckDB:
+   - Same plan hash: reuse state, adding any new nodes as `pending`.
+   - Different plan hash: merge — carry forward `completed`/`skipped` statuses
+     for nodes that still exist; reset everything else to `pending`.
+   - No prior state: seed entirely from the task graph.
+5. **Reset stale statuses.** Any `in_progress` nodes (from a prior crash) are
+   reset to `pending`. Blocked nodes are also reset for fresh retry attempts.
+6. **Build the GraphSync** state machine from node states and edge adjacency.
+7. **Defer ready reviews.** Non-auto_pre review nodes whose predecessors are
+   already completed are set to `deferred` — they run after coder work, not
+   before.
+8. **Initialize the result handler** with escalation ladders, retry
+   configuration, and timeout tracking.
+
+### 4.2 The Main Loop
 
 Each iteration:
 
@@ -218,7 +262,7 @@ Each iteration:
 2. **Check circuit breaker.** Three limits gate execution:
    - Cost ceiling: total accumulated LLM cost across all sessions.
    - Session ceiling: total session invocations (including retries).
-   - Per-task retry ceiling: maximum attempts before a task is marked blocked.
+   - Block budget: fraction of tasks that are blocked exceeds a threshold.
    If a limit is exceeded, stop dispatching and return with a status code.
 
 3. **Identify ready tasks.** A task is ready when all its predecessor nodes are
@@ -226,55 +270,92 @@ Each iteration:
    maintains this set incrementally — when a node completes, it decrements
    in-degree counts for successors and surfaces any that become ready.
 
-4. **Filter file conflicts.** When parallel execution is enabled and multiple
+4. **Promote deferred reviews.** If no tasks are ready, deferred review nodes
+   are promoted back to `pending` to fill idle slots.
+
+5. **Filter file conflicts.** When parallel execution is enabled and multiple
    tasks are ready, the file conflict detector compares predicted file impacts
    (extracted from spec text). Conflicting pairs are serialized — only one of
    them dispatches in this iteration.
 
-5. **Dispatch.** Available parallel slots are filled with ready tasks, each
-   launching a session in an isolated worktree.
+6. **Dispatch.** Available parallel slots are filled with ready tasks, each
+   launching a session in an isolated worktree. See Section 4.4 for serial vs.
+   parallel dispatch strategies.
 
-6. **Process results.** Completed sessions return a `SessionRecord`. The result
+7. **Process results.** Completed sessions return a `SessionRecord`. The result
    handler classifies the outcome (success, failure, timeout), applies retry or
    escalation logic, persists state, and updates the graph.
 
-7. **Sync barrier.** At configurable intervals (every N completed tasks), the
+8. **Sync barrier.** At configurable intervals (every N completed tasks), the
    orchestrator pauses dispatch, pulls remote changes, checks for new specs,
-   runs knowledge consolidation for completed specs, reloads config, and
-   executes user-configured hooks.
+   reloads config, and executes user-configured hooks.
 
-8. **Repeat** until all tasks complete, a circuit breaker trips, or SIGINT
-   arrives.
+9. **Stall detection.** If no tasks are ready and the graph is not fully
+   completed, the orchestrator detects a stall (all remaining tasks are blocked
+   by failed predecessors or circular dependencies).
 
-### 4.2 Ready Task Ordering
+10. **End-of-run discovery.** Before reporting completion, the orchestrator runs
+    one final hot-load check for new specs. If new tasks are discovered, the
+    loop continues.
+
+11. **Watch mode.** If `--watch` is enabled, the orchestrator enters a polling
+    loop after all tasks complete, checking for new specs at a configurable
+    interval.
+
+12. **Repeat** until all tasks complete, a circuit breaker trips, or SIGINT
+    arrives.
+
+### 4.3 Ready Task Ordering
 
 When multiple tasks are simultaneously ready, the dispatcher uses **spec-fair
 round-robin**: tasks are grouped by spec (sorted by numeric prefix), and the
 dispatcher takes one task from each spec per round. Within a spec, tasks are
 sorted by predicted duration descending — longest tasks dispatch first to
-minimize wall-clock time.
+minimize wall-clock time. Fan-out weights can bias ordering toward specs whose
+downstream dependents are most impactful.
 
-### 4.3 Parallel Execution Model
+### 4.4 Dispatch Strategies
 
-The parallel runner maintains a bounded pool (max 8 concurrent slots, controlled
-by `--parallel N`). It uses a streaming pool rather than a batch model: when a
-session completes and frees a slot, the orchestrator immediately evaluates which
-tasks are now ready and fills the slot. Completing one task may unblock several
-downstream tasks — the streaming model starts them without waiting for the rest
-of the current batch.
+Two dispatch strategies are available:
 
-Only tasks that are actually running carry the `in_progress` status. Tasks that
-are ready but waiting for a pool slot remain `pending`.
+**Serial dispatch** (default, `parallel=1`). The dispatcher picks the first
+ready task, prepares launch parameters, marks it `in_progress`, executes the
+session, processes the result, and loops. An inter-session delay can be
+configured to avoid API rate limits.
 
-Review archetype sessions (other than `auto_pre` group-0 nodes) are capped at a
-configurable fraction of the pool to prevent review tasks from crowding out
-coder sessions when many review nodes become ready simultaneously.
+**Parallel dispatch** (`parallel=2..8`). A streaming asyncio task pool
+maintains up to N concurrent sessions. When a session completes and frees a
+slot, the orchestrator immediately evaluates which tasks are now ready and
+fills the slot. Review archetype sessions (other than auto_pre group-0 nodes)
+are capped at a configurable fraction of the pool to prevent review tasks from
+crowding out coder sessions.
 
-### 4.4 Signal Handling
+Only tasks that are actually running carry the `in_progress` status. Tasks
+that are ready but waiting for a pool slot remain `pending`.
+
+### 4.5 Launch Preparation
+
+Before dispatching a task, the `DispatchManager` runs a preparation pipeline:
+
+1. **Assessment.** The assessor creates an escalation ladder for the node based
+   on its archetype's default model tier and the configured tier ceiling.
+2. **Circuit breaker check.** The per-task retry limit is evaluated. If
+   exhausted, the task is blocked.
+3. **Preflight check** (coder tasks only, first attempt). The preflight
+   verifier checks whether all checkboxes in `tasks.md` are already marked
+   complete, no active critical findings exist, and tests pass. If all three
+   hold, the session is skipped — the work is already done.
+4. **Parameter resolution.** The archetype's model tier, security allowlist,
+   session timeout, max turns, thinking configuration, and budget cap are
+   resolved from the archetype registry, mode overrides, and configuration.
+
+### 4.6 Signal Handling
 
 The orchestrator installs a two-stage SIGINT handler. The first interrupt sets
-an `interrupted` flag: no new dispatches, but in-flight sessions finish cleanly.
-A second interrupt cancels in-flight sessions and exits immediately.
+an `interrupted` flag: no new dispatches, but in-flight sessions finish cleanly
+and their results are persisted. A second interrupt cancels in-flight sessions
+and exits immediately. Signal handlers are restored on exit so the parent
+process is unaffected.
 
 ---
 
@@ -289,11 +370,10 @@ in an isolated workspace. The session lifecycle has four phases.
 │                                                             │
 │  1. PREPARE                                                 │
 │     ensure_develop → create_worktree → build_prompts        │
-│         → run pre-session hooks                             │
 │                                                             │
 │  2. EXECUTE                                                 │
-│     run_session(system_prompt, task_prompt)                 │
-│         → Claude SDK streams tool_use / assistant messages  │
+│     run_session(system_prompt, task_prompt)                  │
+│         → Claude SDK streams tool_use / assistant messages   │
 │                                                             │
 │  3. HARVEST                                                 │
 │     acquire merge_lock → git merge --squash feature branch  │
@@ -302,32 +382,29 @@ in an isolated workspace. The session lifecycle has four phases.
 │                                                             │
 │  4. ASSESS                                                  │
 │     parse review findings → persist to DuckDB               │
-│         → extract knowledge facts → generate embeddings     │
-│         → dedup / contradiction detection / causal links    │
-│         → emit audit events → record session outcome        │
+│         → ingest ADRs → emit audit events                   │
+│         → record session outcome                            │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ### 5.1 Prepare
 
 **Workspace creation.** The system first ensures the `develop` branch exists and
-is synchronized with the remote. It then creates an isolated git worktree at a
-temporary path, on a new feature branch named `feature/{spec_name}/{task_group}`.
-A worktree is a fully checked-out working copy of the repository at the current
-state of `develop`, with its own branch that can diverge independently. Multiple
-sessions can run in parallel in separate worktrees without touching each other.
+is synchronized with the remote. It then creates an isolated git worktree at
+`.agent-fox/worktrees/{spec_name}/{task_group}`, on a new feature branch named
+`feature/{spec_name}/{task_group}`. A worktree is a fully checked-out working
+copy of the repository at the current state of `develop`, with its own branch
+that can diverge independently. Multiple sessions can run in parallel in
+separate worktrees without touching each other.
 
 Worktree creation includes stale artifact cleanup: orphaned empty directories
-from prior crashes are removed, stale branch references are pruned, and
-conflicting branches are deleted if they are no longer used by any active
-worktree.
+from prior crashes are removed, stale branch references are pruned (with a
+second prune attempt if references persist), and conflicting branches are
+deleted along with their remote tracking branches.
 
 **Prompt construction.** The system builds two prompts — a system prompt and a
 task prompt — tailored to the session's archetype, mode, and task. The full
 prompt construction process is described in Section 7.
-
-**Pre-session hooks.** User-configured shell commands run before the session
-starts for any per-project preparation.
 
 ### 5.2 Execute
 
@@ -337,22 +414,27 @@ tool allowlist), and produces output over multiple turns.
 
 Per-session SDK parameters are resolved before dispatch:
 
-- **Model ID** — Determined by the adaptive routing system (see Section 6.2).
+- **Model ID** — Determined by the escalation ladder (see Section 6.2).
 - **Max turns** — Archetype-specific cap on the number of agent turns (300 for
   Coder, 120 for Verifier, 80 for Reviewer).
 - **Thinking mode** — Extended thinking with configurable token budget. Currently
   enabled only for the Coder archetype (`adaptive` mode, 64K budget).
-- **Timeout** — Wall-clock limit. Timeout failures receive specialized retry
-  handling (see Section 6.3).
-- **Budget cap** — Optional per-session USD ceiling.
+- **Timeout** — Wall-clock limit in minutes. Timeout failures receive
+  specialized retry handling (see Section 6.3).
+- **Budget cap** — Optional per-session USD ceiling. When hit, the SDK signals
+  budget exhaustion and the orchestrator skips retries (repeating the session
+  would burn the same budget again).
 - **Fallback model** — Alternative model if the primary is unavailable.
 
-The backend streams canonical events (tool use, tool results, assistant text,
-thinking blocks) to the sink dispatcher. These events are logged for audit and
-are the source material for knowledge extraction.
+The backend streams canonical message types — `ToolUseMessage`,
+`AssistantMessage`, `ResultMessage` — to the sink dispatcher. Tool invocations
+and errors are recorded for telemetry. Agent conversation traces (session init,
+tool use, assistant messages, session result) are emitted as structured events
+for later transcript reconstruction.
 
-On completion, the SDK returns a `SessionOutcome` carrying status, token counts,
-cost, duration, full response text, and any error message.
+On completion, the SDK returns a `SessionOutcome` carrying status, token
+counts (including cache read and creation), cost, duration, full response text,
+and any error message.
 
 ### 5.3 Harvest
 
@@ -366,52 +448,59 @@ On successful session completion, the feature branch is integrated into
    atomic file lock (`O_CREAT | O_EXCL` with rename-based stale detection)
    serializes all merge operations. No two sessions can merge simultaneously.
 
-3. **Squash merge.** `git merge --squash feature/{spec}/{group}` collapses the
+3. **Clean working tree.** Any dirty tracked files from a prior failed harvest
+   are reset. Untracked files that would conflict with the incoming merge are
+   removed — but only if their on-disk content is identical to the feature
+   branch version. Files with divergent content raise an error rather than
+   being silently overwritten.
+
+4. **Squash merge.** `git merge --squash feature/{spec}/{group}` collapses the
    feature branch into a single staged diff on `develop`, regardless of how many
    commits the feature branch contains. This keeps `develop` history linear.
 
-4. **Conflict resolution.** If the squash merge has conflicts, a dedicated merge
-   agent session is spawned — a restricted Claude session whose only job is to
-   resolve the conflicting hunks without making other changes. If the merge agent
-   also fails, the merge is aborted and the session is marked failed.
+5. **Conflict resolution.** If the squash merge has conflicts, a dedicated merge
+   agent session is spawned — a restricted Claude session using the ADVANCED
+   model tier whose only job is to resolve the conflicting hunks. If the merge
+   agent also fails, the merge is aborted (`git reset --merge`) and the session
+   is marked failed.
 
-5. **Commit.** The squash commit is created on `develop` with a message derived
+6. **Commit.** The squash commit is created on `develop` with a message derived
    from the tip commit of the feature branch. For multi-commit branches, earlier
    commit subjects are appended as a bullet list.
 
-6. **Push.** `develop` is pushed to origin (best-effort). If origin is ahead,
-   the system reconciles first. Push failures are logged as warnings and do not
-   fail the session.
+7. **Push.** `develop` is pushed to origin (best-effort). If origin is ahead,
+   the system reconciles first via fetch and rebase. Push failures are logged as
+   warnings and do not fail the session.
 
-7. **Worktree cleanup.** The feature branch worktree is always destroyed at the
-   end of the session lifecycle, even if the session failed. Cleanup failures are
-   logged but do not affect the outcome record.
+8. **Worktree cleanup.** The feature branch worktree is always destroyed at the
+   end of the session lifecycle, even if the session failed. The feature branch
+   is deleted, its remote tracking branch is removed, and empty ancestor
+   directories are cleaned up. Cleanup failures are logged but do not affect the
+   outcome record.
 
 ### 5.4 Assess
 
 After harvest, the system processes the session's outputs.
 
-**Review persistence.** For review archetypes (Reviewer in all modes, Verifier),
-the session output is parsed for structured JSON. The parser is tolerant: it
-handles fenced code blocks, bare JSON, wrapper objects with various key names,
-and single-object responses. Parsed findings are written to the appropriate
-DuckDB quality tables (`review_findings`, `drift_findings`,
-`verification_results`).
+**Review finding persistence.** For review archetypes (Reviewer in all modes,
+Verifier), the session output is parsed for structured findings. Parsed
+findings are written to the appropriate DuckDB quality tables
+(`review_findings`, `drift_findings`, `verification_results`).
 
-If the initial parse fails and the session is still responsive, a format retry
-is attempted — the system asks the agent to re-emit its output in the correct
-JSON format. This recovers from common formatting mistakes without failing the
-session.
-
-**Knowledge extraction.** For coder sessions, the session transcript is
-processed through the knowledge pipeline (Section 8).
+**Knowledge ingestion.** For completed sessions, the `KnowledgeProvider`
+ingests session context. The concrete implementation detects ADR files
+(`docs/adr/*.md`) among the session's touched files and indexes them into
+the `adr_entries` table — parsing title, status, chosen option, justification,
+considered options, and keywords. This makes architectural decisions
+discoverable by future sessions working on related specs.
 
 **Outcome recording.** The `SessionRecord` (node ID, attempt, status, token
-counts, cost, duration, touched files, model, commit SHA, retrieval summary)
-is appended to `session_outcomes` in DuckDB.
+counts, cost, duration, touched files, model, commit SHA, archetype) is
+written to `session_outcomes` in DuckDB.
 
 **Audit events.** `session.complete` or `session.fail` events are emitted to
-the audit trail with full metadata.
+the audit trail with full metadata including token counts, cost, duration,
+and archetype.
 
 ---
 
@@ -431,29 +520,25 @@ When their session completes with failing outputs (MISSING tests, FAIL
 requirements), the orchestrator may re-run the preceding coder session with the
 review/verification findings injected as context.
 
-### 6.2 Model Routing and the Assessment Pipeline
+### 6.2 Model Routing and the Escalation Ladder
 
-Before dispatching a task, the **assessor** computes a complexity feature vector:
+Before dispatching a task, the **assessor** creates an escalation ladder from
+the node's resolved model tier. Each archetype has a default starting tier
+(STANDARD for coder, reviewer, verifier, maintainer). The tier ceiling is
+ADVANCED.
 
-- Subtask count, spec word count
-- Presence of property tests, edge case count
-- Dependency count, estimated file count
-- Cross-spec integration flag, language count
-- Historical median duration for this spec
+The escalation ladder is a per-task state machine that tracks:
+- Current model tier
+- Attempt count at the current tier
+- Escalation count (how many times the tier has been raised)
 
-Based on the amount of historical data available, the assessment method is
-selected:
+Model tiers map to concrete model IDs through a registry:
 
-- **Below training threshold**: Rules-based heuristic using simple thresholds
-  (cross-spec integration or high file count → ADVANCED).
-- **Above threshold, adequate accuracy**: Logistic regression classifier trained
-  on `(feature_vector, actual_tier)` pairs from `session_outcomes`.
-- **Above threshold, poor accuracy**: Hybrid — the statistical model and an LLM
-  query are compared, and the method with higher historical accuracy wins.
-
-The predicted tier (SIMPLE, STANDARD, ADVANCED) is clamped to a configured
-ceiling. The escalation ladder never exceeds the ceiling even after repeated
-failures.
+| Tier | Default Model |
+|---|---|
+| SIMPLE | `claude-haiku-4-5` |
+| STANDARD | `claude-sonnet-4-6` |
+| ADVANCED | `claude-opus-4-6` |
 
 ### 6.3 Timeout Handling
 
@@ -468,10 +553,10 @@ normal failure escalation path.
 
 ### 6.4 Failure and Escalation
 
-Non-timeout failures enter the **escalation ladder**. The ladder is a per-task
-state machine that tracks current tier, attempt count, and escalation count:
+Non-timeout failures enter the escalation ladder:
 
-1. If retries remain at the current tier, reset to `pending` for another attempt.
+1. If retries remain at the current tier (controlled by
+   `retries_before_escalation`), reset to `pending` for another attempt.
 2. If retries at the current tier are exhausted, escalate to the next tier
    (SIMPLE → STANDARD → ADVANCED) and reset the retry counter.
 3. If the highest tier's retries are also exhausted, mark the task `blocked` and
@@ -481,16 +566,31 @@ Escalation is strictly non-decreasing — a task never drops back to a lower tie
 The tier ceiling prevents over-escalation.
 
 On each retry, the previous error message is sanitized and appended to the task
-prompt. Active critical and major review findings are also prepended so the coder
-can address identified issues.
+prompt. Active critical and major review findings are also prepended so the
+coder can address identified issues.
+
+### 6.5 Budget Exhaustion
+
+When a session's cost approaches the configured per-session budget cap (≥90% of
+the limit) and the SDK reports a failure with no specific error message, the
+orchestrator classifies this as budget exhaustion. These sessions are not
+retried — repeating the same work would burn the same budget again.
+
+### 6.6 Transport Errors
+
+Transient connection errors (network failures, API timeouts) are flagged on the
+session outcome. The Claude backend retries transport errors internally with
+exponential backoff (up to 3 retries) before surfacing the failure to the
+orchestrator.
 
 ---
 
 ## 7. Prompt Construction
 
-Each session receives a two-part prompt: a **system prompt** (establishes context
-and behavioral guidance) and a **task prompt** (specifies what to do). The system
-prompt is built from three layers; the task prompt is archetype-specific.
+Each session receives a two-part prompt: a **system prompt** (establishes
+context and behavioral guidance) and a **task prompt** (specifies what to do).
+The system prompt is built from three layers; the task prompt is
+archetype-specific.
 
 ### 7.1 Three-Layer System Prompt
 
@@ -534,52 +634,37 @@ without modifying the package.
    is included after spec files.
 
 4. **Knowledge facts.** Relevant facts from the knowledge store are retrieved by
-   the adaptive retrieval pipeline and injected as a bulleted list. See Section
-   7.2 for how retrieval works.
+   the `KnowledgeProvider` and injected as a bulleted list. See Section 7.2 for
+   how retrieval works.
 
 5. **Prior group findings.** For task groups beyond group 1, active findings
    from earlier groups in the same spec (reviews, drift, verifications) are
    appended as accumulated context. This gives later groups visibility into
    issues found during earlier implementation work.
 
+6. **Verification checklist.** For the verifier archetype, a structured
+   checklist is generated from the spec's task completion status and
+   requirement-to-test coverage mapping.
+
 All external content passes through a sanitization layer that labels each source
 and filters patterns that could constitute prompt injection attacks.
 
-### 7.2 Adaptive Knowledge Retrieval
+### 7.2 Knowledge Retrieval
 
-Before each session, the orchestrator queries four signals in parallel and fuses
-their results to select the most relevant knowledge facts:
+Before each session, the `KnowledgeProvider` is queried with the spec name and
+a task description derived from the subtask list. The concrete implementation
+(`FoxKnowledgeProvider`) retrieves three categories of knowledge:
 
-| Signal | Mechanism |
-|---|---|
-| **Keyword** | Matches task keywords against fact keywords and spec names; scored by overlap count plus recency bonus |
-| **Vector** | Embeds the task description; queries `memory_embeddings` via cosine similarity |
-| **Entity** | Traverses the entity graph from touched file paths via BFS; returns facts linked to related code entities |
-| **Causal** | Traverses the `fact_causes` graph from same-spec facts; returns causally linked facts ordered by graph distance |
+| Category | Source | Format |
+|---|---|---|
+| **Review findings** | `review_findings` table | Active critical/major findings prefixed with `[REVIEW]` |
+| **Errata** | `errata` table (indexed from `docs/errata/`) | Spec divergence notes prefixed with `[ERRATA]` |
+| **ADR summaries** | `adr_entries` table (indexed from `docs/adr/`) | Architectural decisions prefixed with `[ADR]` |
 
-The four ranked lists are fused via **weighted Reciprocal Rank Fusion (RRF)**:
-for each fact, a fused score is `sum(weight_i / (k + rank_i))` across all
-signals where it appears. The per-signal weights are drawn from an **intent
-profile** keyed by `(archetype, node_status)`:
-
-| Archetype | Status | Keyword | Vector | Entity | Causal |
-|---|---|---|---|---|---|
-| coder | fresh | 1.0 | 0.8 | 1.5 | 1.0 |
-| coder | retry | 0.8 | 0.6 | 1.0 | 2.0 |
-| reviewer | * | 1.0 | 1.5 | 0.8 | 1.0 |
-| verifier | * | 0.8 | 0.6 | 1.5 | 1.5 |
-
-A coder retry session heavily weights the causal signal to surface facts about
-what went wrong and why. A fresh coder session emphasizes entity relationships
-to surface facts about the files it will touch. A reviewer emphasizes vector
-similarity to find semantically related knowledge. A verifier emphasizes both
-entity and causal signals to surface facts about the code being verified.
-
-After fusion, the top facts are selected and formatted with **salience-based
-token budgeting**: the top 20% by fused score receive full detail, the next 40%
-receive one-line summaries, and the bottom 40% are included at full detail only
-if the token budget allows. Facts are topologically sorted by causal precedence
-(causes before effects) so the agent sees context in a logical order.
+Results are capped at a configurable maximum item count and formatted as
+prompt-ready text blocks. If the knowledge store is unavailable or any query
+fails, retrieval degrades gracefully — the session proceeds without that
+category of knowledge context.
 
 ### 7.3 Task Prompt
 
@@ -600,7 +685,11 @@ The task prompt is short and archetype-specific:
 
 The archetype registry defines four built-in entries. Two support **modes** —
 named variants that override specific fields (injection point, tool allowlist,
-model tier) while inheriting everything else.
+model tier, max turns) while inheriting everything else from the base entry.
+
+Custom archetypes are supported via project-level profile files at
+`.agent-fox/profiles/{name}.md` combined with a permission preset in the
+configuration that references a built-in archetype for tool access rules.
 
 ### 8.1 Coder
 
@@ -611,22 +700,22 @@ gates, commits with conventional messages.
 writes failing tests from `test_spec.md` without implementing production code.
 Subsequent groups implement code to make those tests pass. The Coder runs
 quality checks, verifies its work against the requirements, and produces a
-session summary artifact (`.agent-fox/session-summary.json`).
+session summary artifact.
 
 **Configuration:**
-- Model tier: STANDARD (adaptive routing may escalate)
+- Model tier: STANDARD (escalation ladder may raise)
 - Thinking mode: adaptive, 64K budget
 - Max turns: 300
-- Tool access: unrestricted
-- Injection: none (assigned to task groups)
+- Tool access: unrestricted (inherits from global security config)
+- Injection: none (assigned to task groups directly)
 
 **Modes:** `fix` — used by the `agent-fox fix` pipeline for targeted fixes on
-specific issues.
+specific issues. Same max turns and thinking configuration as the base.
 
 ### 8.2 Reviewer
 
 **Role:** Quality gate agent with four modes covering distinct review roles.
-All modes produce structured JSON output and have read-only tool allowlists
+All modes produce structured findings and have restricted tool allowlists
 (they cannot modify code).
 
 **Pre-review mode** (`auto_pre`, before group 1):
@@ -636,35 +725,30 @@ All modes produce structured JSON output and have read-only tool allowlists
 - Has no shell access — works entirely from spec documents in context.
 - If critical findings exceed a configured threshold, downstream coder tasks
   are blocked.
+- `retry_predecessor`: true — can trigger re-runs of prior work.
 
 **Drift-review mode** (`auto_pre`, before group 1, parallel with pre-review):
 - Validates spec assumptions against the actual codebase: referenced files
   exist, function signatures match, interfaces are consistent.
 - Has read-only filesystem access (`ls`, `cat`, `git`, `grep`, `find`, `head`,
   `tail`, `wc`).
-- Automatically skipped for specs that reference no existing code — there is
-  nothing to detect drift against for brand-new specs.
+- Automatically skipped for specs that reference no existing code.
 
 **Audit-review mode** (`auto_mid`, after test-writing groups):
 - Validates test quality against test spec contracts: coverage, assertion
   strength, precondition fidelity, edge case rigor, test independence.
-- Produces per-entry verdicts: `PASS`, `WEAK`, `MISSING`, `MISALIGNED`.
 - Has read-only access plus `uv` for test collection.
-- Triggers a predecessor retry when tests are MISSING or MISALIGNED.
+- `retry_predecessor`: true — triggers a coder retry when tests are MISSING or
+  MISALIGNED.
 
-**Fix-review mode** (used by `agent-fox fix` and night-shift's fix pipeline):
-- Broader tool access (`make`, `uv`) and ADVANCED model tier.
+**Fix-review mode** (used by `agent-fox fix` and night-shift):
+- ADVANCED model tier with broader tool access (`make`, `uv`).
+- Max turns: 120 (higher than other reviewer modes).
 - Not injected automatically into coding session plans.
 
 When both pre-review and drift-review are enabled, they execute in parallel
-before the first coder group. Either can produce blocking findings independently.
-
-**Multi-instance convergence.** The reviewer can run multiple parallel instances
-on the same task. For pre-review and drift-review, convergence uses
-**majority-gating** for critical findings: a critical finding counts toward
-blocking only if it appears in at least a majority (⌈N/2⌉) of instances. For
-audit-review, convergence uses **worst-verdict-wins**: if any instance reports
-a test MISSING, the entry is MISSING regardless of other reports.
+before the first coder group. Either can produce blocking findings
+independently.
 
 ### 8.3 Verifier
 
@@ -672,9 +756,8 @@ a test MISSING, the entry is MISSING regardless of other reports.
 requirement against acceptance criteria, produces per-requirement verdicts.
 
 **Injection:** `auto_post` — added after the last coder group in every spec.
-
-**Convergence:** Majority voting per requirement — a requirement is `PASS` if a
-majority of instances report `PASS`.
+Uses a sentinel group number (0) with a 3-part node ID format
+(`spec:0:verifier`) to avoid collisions with real coder group nodes.
 
 **Retry trigger:** If verification fails, the orchestrator may re-run the
 preceding coder session with the Verifier's verdicts injected as context.
@@ -688,10 +771,13 @@ preceding coder session with the Verifier's verdicts injected as context.
 ### 8.4 Maintainer
 
 **Role:** Internal archetype used exclusively by the night-shift daemon. Not
-assignable to task groups in coding session plans.
+assignable to task groups in coding session plans (`task_assignable: false`).
 
-**Modes:** `hunt` (read-only scan), `fix-triage` (read-only triage of single
-issues), `extraction` (no shell access, knowledge extraction).
+**Modes:**
+- `hunt` — Read-only scan for issues in the codebase (`ls`, `cat`, `git`, `wc`,
+  `head`, `tail`).
+- `fix-triage` — Read-only triage of single issues (same allowlist as hunt).
+- `extraction` — No shell access; pure LLM analysis for knowledge extraction.
 
 ---
 
@@ -709,11 +795,12 @@ branch.
 
 ### 9.2 Isolation via Worktrees
 
-Each session gets its own `git worktree` at a temporary directory path. Worktrees
-share the same object store and ref namespace as the main repository but have
-independent working trees and HEAD pointers. This makes it safe to run multiple
-sessions concurrently — each session operates on its own branch, in its own
-directory, without any shared mutable state.
+Each session gets its own `git worktree` at
+`.agent-fox/worktrees/{spec_name}/{task_group}`. Worktrees share the same
+object store and ref namespace as the main repository but have independent
+working trees and HEAD pointers. This makes it safe to run multiple sessions
+concurrently — each session operates on its own branch, in its own directory,
+without any shared mutable state.
 
 The feature branch name follows the pattern `feature/{spec_name}/{task_group}`.
 The worktree is created from the current state of `develop`, so each session
@@ -736,10 +823,11 @@ file is older than the timeout, it is considered abandoned and broken.
 ### 9.4 The Merge Agent
 
 When a squash merge produces conflicts, a dedicated Claude session — the
-**merge agent** — is spawned. The merge agent's prompt restricts it to resolving
-the specific conflicts presented, without making any other changes. If the merge
-agent also fails, the merge is aborted (`git reset --merge`) and the session
-record carries a failure status so the orchestrator can retry or escalate.
+**merge agent** — is spawned at the ADVANCED model tier. The merge agent's
+prompt restricts it to resolving the specific conflicts presented, without
+making any other changes. If the merge agent also fails, the merge is aborted
+(`git reset --merge`) and the session record carries a failure status so the
+orchestrator can retry or escalate.
 
 ### 9.5 Reset Operations
 
@@ -748,107 +836,115 @@ without rolling back any code. Session history and attempt counters are
 preserved. Appropriate after transient failures (network issues, API errors).
 
 **Hard reset** resets tasks and rolls back `develop` to the commit before the
-earliest affected task, undoing all code changes since that point. The knowledge
-base is compacted during hard reset to deduplicate facts and resolve supersession
-chains.
-
-Both reset types can target a single spec or the entire plan.
+earliest affected task, undoing all code changes since that point. Both reset
+types can target a single spec or the entire plan.
 
 ---
 
-## 10. Knowledge Harvest Pipeline
+## 10. The Knowledge System
 
-After every coder session completes (whether the session produced code or not),
-the knowledge harvest pipeline processes the session transcript.
+The knowledge system provides institutional memory across coding sessions. It
+operates through a protocol-based interface (`KnowledgeProvider`) with two
+entry points: **retrieve** (pre-session) and **ingest** (post-session).
 
-### 10.1 Transcript Construction
+### 10.1 The KnowledgeProvider Protocol
 
-The primary transcript source is the agent trace JSONL — structured events
-written by the SDK during the session. When debug tracing is active, the
-harvester reconstructs the full conversation by replaying the events for the
-session's node ID.
+The engine interacts with knowledge exclusively through the `KnowledgeProvider`
+protocol — it never imports knowledge internals directly. This clean boundary
+allows the knowledge implementation to evolve without affecting the engine.
 
-If no trace is available, the harvester falls back to a **structured metadata
-block**: spec name, task group, node ID, and the commit diff (`git diff HEAD~1`
-from the worktree). This fallback provides enough context for basic fact
-extraction even without full conversational history.
+The protocol defines two methods:
 
-Transcripts shorter than 2,000 characters are skipped — below this threshold
-the extraction overhead far exceeds the expected value.
+- `retrieve(spec_name, task_description) → list[str]` — Called before each
+  session. Returns formatted text blocks for prompt injection.
+- `ingest(session_id, spec_name, context) → None` — Called after each
+  successful session. Receives session metadata (touched files, commit SHA,
+  session status).
 
-### 10.2 Fact Extraction
+A `NoOpKnowledgeProvider` is used as the default when no knowledge system is
+configured.
 
-The transcript is submitted to an LLM (the configured `memory_extraction_model`,
-typically a SIMPLE-tier model) with a structured extraction prompt. The LLM
-identifies learnings and classifies each as one of six categories:
+### 10.2 Knowledge Retrieval
 
-| Category | Description |
-|---|---|
-| `gotcha` | Surprising non-obvious behavior that tripped the agent |
-| `pattern` | A recurring approach that works well |
-| `decision` | An architectural or design choice and its rationale |
-| `convention` | A coding standard or project norm |
-| `anti-pattern` | Something tried that should be avoided |
-| `fragile_area` | A part of the codebase that is known to be brittle |
+The concrete `FoxKnowledgeProvider` queries three sources when `retrieve` is
+called:
 
-Each extracted fact carries: content (1-2 sentence description), category,
-confidence (0.0–1.0), and 2-5 keywords. Facts shorter than 50 characters are
-filtered out before storage.
+**Review findings.** Active critical and major review findings for the spec are
+queried from the `review_findings` table. Each finding is formatted with its
+severity and category as a `[REVIEW]`-prefixed string. This ensures coders are
+aware of quality issues identified by prior review sessions.
 
-Review archetypes (`reviewer`, `verifier`) skip this LLM extraction step — their
-outputs are structured JSON findings that are already persisted by the review
-persistence layer. Running LLM extraction on review output would add ~18K tokens
-of overhead while reliably returning zero actionable facts.
+**Errata.** Spec divergence records are queried from the `errata` table.
+Errata are indexed from markdown files in `docs/errata/` at context assembly
+time. Each erratum is formatted as an `[ERRATA]`-prefixed string.
 
-### 10.3 Lifecycle Management
+**ADR summaries.** Architecture Decision Records matching the spec name or
+task description are queried from the `adr_entries` table. Each ADR is
+formatted as an `[ADR]`-prefixed string with title, status, chosen option,
+and justification.
 
-After extraction, new facts pass through three lifecycle stages:
+The combined results are capped at a configurable maximum (`max_items`) and
+returned for prompt injection. If any table does not exist (fresh database) or
+any query fails, that category is silently skipped.
 
-**Embedding-based deduplication.** Each new fact's content is embedded and
-compared against all existing active facts via cosine similarity. If an existing
-fact's embedding is within a configurable threshold (default: 0.92 similarity),
-the existing fact is superseded by the new one — treating the new fact as an
-updated version of semantically equivalent knowledge.
+### 10.3 Knowledge Ingestion
 
-**Contradiction detection.** Surviving new facts are checked against the existing
-corpus. Candidate pairs are identified by embedding proximity (facts similar
-enough to potentially contradict each other), then sent to an LLM in batches for
-classification. When a contradiction is confirmed, the older fact is superseded
-by the newer one with the LLM's reasoning recorded.
+After a successful session, the `FoxKnowledgeProvider` ingests knowledge by
+scanning the session's `touched_files` for ADR files matching the
+`docs/adr/*.md` pattern.
 
-**Confidence decay.** Every fact's effective confidence decays exponentially over
-time: `effective_confidence = stored_confidence × 0.5^(age_days / half_life_days)`.
-At a 90-day half-life, a fact with 0.8 confidence becomes effectively 0.4
-confident after 90 days. Facts whose effective confidence falls below a floor
-(default: 0.1) are auto-superseded. This mirrors how real codebases evolve —
-conventions established months ago may no longer apply.
+For each detected ADR file:
+1. The markdown is parsed according to the MADR 4.0.0 format.
+2. Mandatory sections (context, options, decision outcome) are extracted.
+3. Keywords are derived via stop-word filtering.
+4. The entry is stored in the `adr_entries` table with a content hash for
+   deduplication (updates replace entries with matching file paths).
 
-### 10.4 Causal Link Extraction
+This ensures that architectural decisions made during coding sessions are
+automatically indexed and available to future sessions working on related
+functionality.
 
-Once the knowledge store has at least 5 active facts, the harvester performs a
-second LLM pass to extract causal relationships. The prompt includes all new
-facts plus a context-bounded sample of prior facts (ranked by embedding
-similarity to new facts when the full corpus exceeds a configurable limit).
+### 10.4 Quality Assurance Knowledge
 
-The LLM identifies directed "led to" relationships between facts. Confirmed links
-are stored as edges in the `fact_causes` table with referential integrity — both
-endpoints must exist in `memory_facts`.
+Beyond the `KnowledgeProvider`, the quality assurance layer contributes
+knowledge through structured review persistence:
 
-Causal links power the causal retrieval signal and enable temporal queries
-("what led to this decision?").
+- **Review findings** from pre-review and audit-review sessions are parsed
+  from the agent's structured output and stored in `review_findings`.
+- **Drift findings** from drift-review sessions are stored in
+  `drift_findings`.
+- **Verification results** from verifier sessions are stored in
+  `verification_results`.
 
-### 10.5 Post-Harvest Rendering
+These findings flow back into future sessions through two paths:
+1. **Context assembly** — findings are rendered as structured markdown sections
+   in the session's system prompt (Section 7.1, Layer 3).
+2. **Retry context** — active critical/major findings are prepended to coder
+   task prompts on retry attempts.
+3. **Knowledge retrieval** — the `FoxKnowledgeProvider` queries active findings
+   as part of the `retrieve` call.
 
-After all lifecycle management completes:
+Findings use a `superseded_by` chain: when newer findings replace older ones,
+the older findings are retired without deletion, preserving audit history while
+keeping active queries current.
 
-- `docs/memory.md` is regenerated from the current active fact set. This file is
-  git-tracked and provides a human-readable snapshot of accumulated knowledge.
-- The orchestrator emits a `harvest.complete` audit event with fact count,
-  categories, causal link count, dedup count, and contradiction count.
+### 10.5 The Audit Trail
 
-At sync barriers and at end-of-run, **knowledge consolidation** runs for
-completed specs — an LLM-assisted process that finds cross-spec causal
-connections between facts from different specifications.
+Every significant operation emits a structured audit event to the
+`SinkDispatcher`. Events carry a type, severity, run ID, node ID, archetype,
+and a JSON payload. The sink dispatcher forwards events to all registered
+sinks — the DuckDB sink for persistence and an optional JSONL file sink for
+human-readable logs.
+
+Agent conversation traces are a specialized form of audit event. During
+session execution, the backend emits structured trace events: `session.init`
+(with prompts), `tool.use` (with tool input), `assistant.message` (with
+response text), `tool.error` (with error details), and `session.result` (with
+metrics). These traces can be reconstructed into full conversation transcripts
+from the JSONL audit trail after the fact.
+
+Audit retention is managed per-run: the oldest runs beyond a configurable
+limit are pruned at the start of each new run.
 
 ---
 
@@ -860,21 +956,17 @@ dispatch and runs a synchronization sequence:
 1. **Develop sync.** Pull remote changes into `develop`, reconciling divergence
    using the same merge strategy as harvest.
 
-2. **Worktree verification.** Check for orphaned worktrees (left by crashed
-   sessions) and clean them up.
+2. **Hot-load discovery.** Scan `.agent-fox/specs/` for new specs that weren't
+   present when the plan was built. Each candidate passes four gates:
+   git-tracked on develop, all five artifacts non-empty, passes static lint,
+   not fully implemented. Admitted specs are merged into the live graph.
 
-3. **Hot-load discovery.** Scan `.agent-fox/specs/` for new specs that weren't
-   present when the plan was built. Each candidate passes four gates: git-tracked
-   on develop, all five artifacts non-empty, passes static lint, not fully
-   implemented. Admitted specs are merged into the live graph.
+3. **Plan status sync.** Write current node statuses back to DuckDB so state
+   accurately reflects progress.
 
-4. **Knowledge ingestion.** Run consolidation for recently completed specs.
-
-5. **Config reload.** Re-read `config.toml` and apply changes (new cost limits,
-   archetype settings). The `parallel` field is immutable and cannot be changed
-   at runtime. All other fields take effect immediately.
-
-6. **Hook execution.** Run user-configured sync hooks.
+4. **Config reload.** Re-read `config.toml` and apply changes (new cost limits,
+   archetype settings, routing parameters). The `parallel` field is immutable
+   and cannot be changed at runtime. All other fields take effect immediately.
 
 Sync barriers are periodic rather than continuous to limit overhead.
 
@@ -889,22 +981,17 @@ breaker trips, or SIGINT received):
    actual progress.
 
 2. **Clean up transient audit reports** for fully-completed specs. Per-session
-   audit JSONL files are deleted once a spec is complete.
+   audit files are deleted once a spec is complete.
 
-3. **Run end-of-run knowledge consolidation** for any specs that completed since
-   the last sync barrier.
-
-4. **Render `docs/memory.md`** to reflect all facts extracted during the run.
-
-5. **Post issue summaries** (if a platform is configured) for newly completed
+3. **Post issue summaries** (if a platform is configured) for newly completed
    specs — creating or updating GitHub issues with a summary of what was
    implemented.
 
-6. **Mark the run record complete** in DuckDB with the final status and
+4. **Mark the run record complete** in DuckDB with the final status and
    timestamp.
 
-7. **Emit `run.complete`** audit event with total sessions, total cost, duration,
-   and final status.
+5. **Emit `run.complete`** audit event with total sessions, total cost,
+   duration, and final status.
 
 ---
 
@@ -933,7 +1020,7 @@ Orchestrator  [deterministic dispatch loop, zero LLM]
     │   │      ↓                                                     │
     │   │  System prompt [agent.md + archetype profile + context]    │
     │   │      ↓                                                     │
-    │   │  Knowledge retrieval [keyword + vector + entity + causal]  │
+    │   │  Knowledge retrieval [reviews + errata + ADRs]             │
     │   │      ↓                                                     │
     │   │  Claude Agent SDK ──→ LLM inference                        │
     │   │      ↓                                                     │
@@ -941,27 +1028,27 @@ Orchestrator  [deterministic dispatch loop, zero LLM]
     │   │      ↓                                                     │
     │   │  Harvest: squash merge → develop                           │
     │   │      ↓                                                     │
-    │   │  Assess: parse findings / extract facts / embed / dedup    │
+    │   │  Assess: parse findings / ingest ADRs / emit audit         │
     │   │                                                            │
     │   └────────────────────────────────────────────────────────────┘
     │
     │   ┌─── Knowledge Store (DuckDB) ──────────────────────────────┐
     │   │                                                            │
-    │   │  memory_facts ──── memory_embeddings ──── fact_causes      │
-    │   │  review_findings ── verification_results ─ drift_findings  │
-    │   │  session_outcomes ─ audit_events ────────── run_records    │
+    │   │  review_findings ── drift_findings ── verification_results │
+    │   │  adr_entries ────── errata ──────────── audit_events       │
+    │   │  session_outcomes ─ tool_calls ──────── runs               │
     │   │                                                            │
     │   └────────────────────────────────────────────────────────────┘
     │
-    └─ Sync barriers: pull develop, hot-load specs, consolidate knowledge
+    └─ Sync barriers: hot-load specs, reload config, persist state
 ```
 
-Each session's outputs feed back into the knowledge store, which feeds forward
-into the context of the next session for the same spec (or for any future
-session where the facts are relevant). Over many sessions, the system
-accumulates institutional memory that lets later sessions benefit from the
-discoveries of earlier ones — without any of the context window exhaustion that
-would result from keeping all prior sessions in one continuous conversation.
+Each session's review findings and ADR outputs feed back into the knowledge
+store, which feeds forward into the context of the next session for the same
+spec (or for any future session where the knowledge is relevant). Quality
+findings from reviewer and verifier sessions are carried forward as structured
+context — ensuring that later coder sessions address issues found by earlier
+quality gates.
 
 ---
 
@@ -980,17 +1067,15 @@ Reviewer judges quality; the Verifier checks correctness; the Maintainer handles
 maintenance. Their tool allowlists enforce the separation — Reviewers cannot
 write code; Verifiers can run tests; Coders have full access.
 
-**Knowledge compounds over time.** Facts extracted from session transcripts are
-stored, embedded, deduplicated, and linked causally. Each subsequent session
-receives a curated, ranked selection of the most relevant accumulated knowledge.
-The knowledge store grows richer with every session while lifecycle management
-(dedup, contradiction detection, decay) prevents it from becoming stale or noisy.
+**Knowledge compounds over time.** Review findings, errata, and architectural
+decisions accumulate in the knowledge store. Each subsequent session receives
+relevant accumulated knowledge as context. Findings use supersession chains to
+stay current without losing history.
 
-**Graceful degradation everywhere.** If embedding generation fails, facts are
-stored without embeddings (keyword retrieval still works). If contradiction
-detection fails, facts are ingested unchecked. If DuckDB is locked, the system
-falls back to JSONL. If the merge agent fails, the session is marked failed and
-retried. The knowledge system never blocks the coding lifecycle.
+**Graceful degradation everywhere.** If knowledge retrieval fails, the session
+proceeds without knowledge context. If review parsing fails, the session outcome
+is unaffected. If the merge agent fails, the session is retried. The knowledge
+system never blocks the coding session lifecycle.
 
 **Specs are contracts.** Every generated artifact traces back to a spec
 artifact. Agents that deviate from specs are caught by review agents before

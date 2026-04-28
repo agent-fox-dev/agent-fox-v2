@@ -22,13 +22,18 @@ from tests.unit.knowledge.conftest import create_schema
 
 @st.composite
 def review_finding_list(draw: st.DrawFn) -> list[ReviewFinding]:
-    """Generate a list of ReviewFinding objects."""
+    """Generate a list of ReviewFinding objects with actionable severities.
+
+    Only critical/major findings are generated because insert_findings()
+    drops non-actionable severities (issue #553), and the supersession
+    property test targets the insertion/supersession mechanism.
+    """
     n = draw(st.integers(min_value=1, max_value=5))
     session_id = f"session-{draw(st.uuids())}"
     return [
         ReviewFinding(
             id=str(uuid.uuid4()),
-            severity=draw(st.sampled_from(["critical", "major", "minor", "observation"])),
+            severity=draw(st.sampled_from(["critical", "major"])),
             description=draw(st.text(min_size=1, max_size=100)),
             requirement_ref=draw(st.one_of(st.none(), st.text(min_size=1, max_size=20))),
             spec_name="prop_test_spec",
@@ -115,7 +120,7 @@ class TestMigrationIdempotency:
         # Version should be the latest migration version
         version = conn.execute("SELECT MAX(version) FROM schema_version").fetchone()
         assert version is not None
-        assert version[0] == 22
+        assert version[0] == 23
 
         # Tables should exist (v2 + v4 migrations; v3 tables dropped by v14)
         tables = conn.execute(
