@@ -119,6 +119,12 @@ def _print_summary(state: ExecutionState) -> None:
     default=None,
     help="Seconds between watch polls (default: 60, minimum: 10)",
 )
+@click.option(
+    "--force-clean",
+    is_flag=True,
+    default=False,
+    help="Automatically remove untracked files and reset dirty index before dispatch",
+)
 @click.pass_context
 def code_cmd(
     ctx: click.Context,
@@ -127,12 +133,19 @@ def code_cmd(
     specs_dir: str | None,
     watch: bool,
     watch_interval: int | None,
+    force_clean: bool,
 ) -> None:
     """Execute the task plan."""
     # 16-REQ-1.2: load config from Click context
     config = ctx.obj["config"]
     quiet: bool = ctx.obj.get("quiet", False)
     json_mode: bool = ctx.obj.get("json", False)
+
+    # 118-REQ-2.2: CLI --force-clean flag overrides config value
+    if force_clean:
+        config = config.model_copy(
+            update={"workspace": config.workspace.model_copy(update={"force_clean": True})}
+        )
 
     # 85-REQ-3.1: Refuse to run when daemon is active.
     from agent_fox.nightshift.pid import PidStatus, check_pid_file

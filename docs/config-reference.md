@@ -8,6 +8,7 @@ the most commonly changed settings. Add any section below manually to
 ## Table of Contents
 
 - [paths](#paths)
+- [workspace](#workspace)
 - [orchestrator](#orchestrator)
 - [routing](#routing)
 - [models](#models)
@@ -37,6 +38,21 @@ Controls project directory locations.
 ```toml
 [paths]
 spec_root = ".agent-fox/specs"
+```
+
+---
+
+## workspace
+
+Controls workspace health checks and automatic cleanup before session dispatch.
+
+| Field | Type | Default | Bounds | Description |
+|-------|------|---------|--------|-------------|
+| `force_clean` | bool | `false` | — | Automatically remove untracked files and reset dirty index before session dispatch instead of aborting. Can also be set via `--force-clean` CLI flag on the `code` command (CLI flag takes precedence). |
+
+```toml
+[workspace]
+force_clean = false
 ```
 
 ---

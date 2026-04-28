@@ -72,8 +72,8 @@ group 3 modifies `errors.py`, `harvest.py`, `result_handler.py`, and
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/`
 
-- [ ] 2. Workspace health module and force-clean
-  - [ ] 2.1 Create `agent_fox/workspace/health.py`
+- [x] 2. Workspace health module and force-clean
+  - [x] 2.1 Create `agent_fox/workspace/health.py`
     - Implement `HealthReport` dataclass
     - Implement `check_workspace_health(repo_root)` using `run_git`
       (`git ls-files --others --exclude-standard` for untracked files,
@@ -81,26 +81,26 @@ group 3 modifies `errors.py`, `harvest.py`, `result_handler.py`, and
     - Fail-open on git command errors (return empty report, log WARNING)
     - _Requirements: 118-REQ-1.1, 118-REQ-1.3, 118-REQ-1.E1, 118-REQ-1.E2_
 
-  - [ ] 2.2 Implement `force_clean_workspace`
+  - [x] 2.2 Implement `force_clean_workspace`
     - Remove untracked files listed in the report
     - Reset dirty index via `git checkout -- .`
     - Handle permission errors per file (log WARNING, keep in report)
     - Return updated `HealthReport`
     - _Requirements: 118-REQ-2.1, 118-REQ-2.E1, 118-REQ-2.E2_
 
-  - [ ] 2.3 Implement `format_health_diagnostic`
+  - [x] 2.3 Implement `format_health_diagnostic`
     - Format file list (truncate at 20 with "... and N more")
     - Include `git clean -fd` remediation command
     - Include `--force-clean` suggestion
     - _Requirements: 118-REQ-8.1, 118-REQ-8.2, 118-REQ-8.E1_
 
-  - [ ] 2.4 Add `--force-clean` CLI flag and config option
+  - [x] 2.4 Add `--force-clean` CLI flag and config option
     - Add flag to the `code` command CLI entry point
     - Add `workspace.force_clean` config key
     - CLI flag takes precedence over config
     - _Requirements: 118-REQ-2.2_
 
-  - [ ] 2.5 Integrate health gate into engine startup
+  - [x] 2.5 Integrate health gate into engine startup
     - Call `check_workspace_health` at the start of `Orchestrator.run()`
     - If dirty and not force-clean: abort run with formatted diagnostics
     - If dirty and force-clean: call `force_clean_workspace`, proceed
@@ -108,13 +108,13 @@ group 3 modifies `errors.py`, `harvest.py`, `result_handler.py`, and
     - Emit `workspace.health_check` audit event
     - _Requirements: 118-REQ-1.2, 118-REQ-1.3, 118-REQ-2.1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests pass: TS-118-1, TS-118-2, TS-118-3, TS-118-4, TS-118-5,
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests pass: TS-118-1, TS-118-2, TS-118-3, TS-118-4, TS-118-5,
           TS-118-18, TS-118-E1, TS-118-E2, TS-118-E3, TS-118-E4, TS-118-E10
-    - [ ] Property tests pass: TS-118-P1, TS-118-P2, TS-118-P6, TS-118-P7
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/ tests/`
-    - [ ] 118-REQ-1.1, 1.2, 1.3, 1.E1, 1.E2, 2.1, 2.2, 2.E1, 2.E2, 8.1,
+    - [x] Property tests pass: TS-118-P1, TS-118-P2, TS-118-P6, TS-118-P7
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/ tests/`
+    - [x] 118-REQ-1.1, 1.2, 1.3, 1.E1, 1.E2, 2.1, 2.2, 2.E1, 2.E2, 8.1,
           8.2, 8.E1 acceptance criteria met
 
 - [ ] 3. Non-retryable error classification and pre-session guard
@@ -162,8 +162,8 @@ group 3 modifies `errors.py`, `harvest.py`, `result_handler.py`, and
     - [ ] Spec tests pass: TS-118-6, TS-118-7, TS-118-8, TS-118-9,
           TS-118-10, TS-118-17, TS-118-E5
     - [ ] Property tests pass: TS-118-P3
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/ tests/`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/ tests/`
     - [ ] 118-REQ-3.1, 3.2, 3.3, 3.E1, 4.1, 4.2, 4.3, 4.E1, 2.3 acceptance
           criteria met
 
@@ -190,11 +190,11 @@ group 3 modifies `errors.py`, `harvest.py`, `result_handler.py`, and
     - _Requirements: 118-REQ-7.1, 118-REQ-7.2, 118-REQ-7.E1_
 
   - [ ] 4.V Verify task group 4
-    - [ ] Spec tests pass: TS-118-13, TS-118-14, TS-118-15, TS-118-16,
+    - [x] Spec tests pass: TS-118-13, TS-118-14, TS-118-15, TS-118-16,
           TS-118-E7, TS-118-E8, TS-118-E9
     - [ ] Property tests pass: TS-118-P4, TS-118-P5
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/ tests/`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/ tests/`
     - [ ] 118-REQ-6.1, 6.2, 6.3, 6.E1, 6.E2, 7.1, 7.2, 7.E1 acceptance
           criteria met
 
@@ -217,9 +217,9 @@ group 3 modifies `errors.py`, `harvest.py`, `result_handler.py`, and
     - _Requirements: 118-REQ-8.3_
 
   - [ ] 5.V Verify task group 5
-    - [ ] Spec tests pass: TS-118-11, TS-118-12, TS-118-E6
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/ tests/`
+    - [x] Spec tests pass: TS-118-11, TS-118-12, TS-118-E6
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/ tests/`
     - [ ] 118-REQ-5.1, 5.2, 5.3, 5.E1, 8.3 acceptance criteria met
 
 - [ ] 6. Wiring verification
@@ -268,7 +268,7 @@ group 3 modifies `errors.py`, `harvest.py`, `result_handler.py`, and
     - [ ] No unjustified stubs remain in touched files
     - [ ] All execution paths from design.md are live (traceable in code)
     - [ ] All cross-spec entry points are called from production code
-    - [ ] All existing tests still pass: `uv run pytest -q`
+    - [x] All existing tests still pass: `uv run pytest -q`
 
 ### Checkbox States
 
