@@ -198,29 +198,29 @@ group 3 modifies `errors.py`, `harvest.py`, `result_handler.py`, and
     - [x] 118-REQ-6.1, 6.2, 6.3, 6.E1, 6.E2, 7.1, 7.2, 7.E1 acceptance
           criteria met
 
-- [ ] 5. Develop sync audit trail and run summary diagnostics
-  - [ ] 5.1 Add audit events to develop sync
+- [x] 5. Develop sync audit trail and run summary diagnostics
+  - [x] 5.1 Add audit events to develop sync
     - Modify `_sync_develop_under_lock` in `develop.py`
     - Emit `develop.sync` event on success with method and commit counts
     - Emit `develop.sync_failed` event on failure with reason
     - Log commit counts at INFO before reconciliation
     - _Requirements: 118-REQ-5.1, 118-REQ-5.2, 118-REQ-5.3_
 
-  - [ ] 5.2 Add fetch failure audit event
+  - [x] 5.2 Add fetch failure audit event
     - Modify `ensure_develop` in `develop.py`
     - Emit `develop.fetch_failed` event when remote is unreachable
     - _Requirements: 118-REQ-5.E1_
 
-  - [ ] 5.3 Add workspace-state classification to run summary
+  - [x] 5.3 Add workspace-state classification to run summary
     - When run stalls/fails due to workspace-state errors, include
       classification and original error in final summary output
     - _Requirements: 118-REQ-8.3_
 
-  - [ ] 5.V Verify task group 5
+  - [x] 5.V Verify task group 5
     - [x] Spec tests pass: TS-118-11, TS-118-12, TS-118-E6
     - [x] All existing tests still pass: `uv run pytest -q`
     - [x] No linter warnings: `uv run ruff check agent_fox/ tests/`
-    - [ ] 118-REQ-5.1, 5.2, 5.3, 5.E1, 8.3 acceptance criteria met
+    - [x] 118-REQ-5.1, 5.2, 5.3, 5.E1, 8.3 acceptance criteria met
 
 - [ ] 6. Wiring verification
 

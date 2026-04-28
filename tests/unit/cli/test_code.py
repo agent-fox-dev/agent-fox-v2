@@ -546,6 +546,71 @@ class TestNodeSessionRunnerHarvestError:
         assert result["summary"] == "Implemented task group 1."
 
 
+class TestWorkspaceStateRunSummary:
+    """118-REQ-8.3: workspace-state errors in run summary output.
+
+    WHEN a run stalls or fails due to workspace-state errors, THE system
+    SHALL include the root cause classification ("workspace-state") and the
+    original error message in the final run summary output.
+    """
+
+    def test_stalled_run_shows_workspace_state_errors(
+        self, cli_runner: CliRunner
+    ) -> None:
+        """Stalled run summary includes workspace-state error details."""
+        state = _make_execution_state(
+            run_status="stalled",
+            node_states={"spec_a:1": "blocked", "spec_a:2": "completed"},
+        )
+        state.blocked_reasons["spec_a:1"] = (
+            "workspace-state: Divergent untracked files: src/foo.py"
+        )
+
+        with (
+            patch("agent_fox.cli.code.run_code", _mock_run_code(state)),
+            patch("agent_fox.core.paths.DEFAULT_DB_PATH") as mock_db_path,
+        ):
+            mock_db_path.exists.return_value = True
+            result = cli_runner.invoke(main, ["code"])
+
+        assert "workspace-state" in result.output.lower()
+        assert "spec_a:1" in result.output
+
+    def test_completed_run_omits_workspace_state_section(
+        self, cli_runner: CliRunner
+    ) -> None:
+        """Completed runs do not show workspace-state error section."""
+        state = _make_execution_state(run_status="completed")
+
+        with (
+            patch("agent_fox.cli.code.run_code", _mock_run_code(state)),
+            patch("agent_fox.core.paths.DEFAULT_DB_PATH") as mock_db_path,
+        ):
+            mock_db_path.exists.return_value = True
+            result = cli_runner.invoke(main, ["code"])
+
+        assert "Workspace-state errors" not in result.output
+
+    def test_stalled_run_without_workspace_errors_omits_section(
+        self, cli_runner: CliRunner
+    ) -> None:
+        """Stalled run without workspace-state reasons omits the section."""
+        state = _make_execution_state(
+            run_status="stalled",
+            node_states={"spec_a:1": "blocked"},
+        )
+        state.blocked_reasons["spec_a:1"] = "cascade from spec_a:0"
+
+        with (
+            patch("agent_fox.cli.code.run_code", _mock_run_code(state)),
+            patch("agent_fox.core.paths.DEFAULT_DB_PATH") as mock_db_path,
+        ):
+            mock_db_path.exists.return_value = True
+            result = cli_runner.invoke(main, ["code"])
+
+        assert "Workspace-state errors" not in result.output
+
+
 class TestFinallyBlockCleanup:
     """Regression test for issue #194: cleanup steps must run independently.
 
