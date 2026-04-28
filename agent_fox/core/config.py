@@ -240,6 +240,7 @@ class KnowledgeProviderConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     max_items: int = Field(default=10, description="Max total retrieval items")
+    max_cross_group_items: int = Field(default=3, description="Max cross-group retrieval items")
 
 
 class KnowledgeConfig(BaseModel):

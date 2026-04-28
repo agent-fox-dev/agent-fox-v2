@@ -927,3 +927,226 @@ class TestRelevanceScoringVerdicts:
         assert "v1-REQ-LOG" in verify_items[1], (
             f"Expected logging verdict second, got: {verify_items[1]!r}"
         )
+
+
+# ===========================================================================
+# Issue #559: Cross-group knowledge retrieval
+# ===========================================================================
+
+
+def _insert_finding_for_group(
+    conn: duckdb.DuckDBPyConnection,
+    spec_name: str,
+    task_group: str,
+    description: str,
+    severity: str = "critical",
+    category: str | None = None,
+) -> str:
+    """Insert a finding tagged to a specific task_group. Returns the finding ID."""
+    finding_id = str(uuid.uuid4())
+    finding = ReviewFinding(
+        id=finding_id,
+        severity=severity,
+        description=description,
+        requirement_ref=None,
+        spec_name=spec_name,
+        task_group=task_group,
+        session_id="sess-setup",
+        category=category,
+    )
+    insert_findings(conn, [finding])
+    return finding_id
+
+
+class TestCrossGroupReviewRetrieval:
+    """Issue #559: cross-group findings are surfaced with [CROSS-GROUP] prefix.
+
+    When a session requests knowledge for task_group='2', it should also see
+    active critical/major findings from other groups (e.g. '1') in the same
+    spec, formatted with a distinct prefix to distinguish them from same-group
+    directives.
+    """
+
+    def test_cross_group_findings_appear_with_prefix(
+        self, provider_db, provider_conn
+    ) -> None:
+        """Findings from other groups appear with [CROSS-GROUP] prefix."""
+        _insert_finding_for_group(provider_conn, "spec_cg", "1", "tests use non-existent IDs")
+        _insert_finding_for_group(provider_conn, "spec_cg", "2", "same-group finding")
+
+        provider = _make_provider(provider_db)
+        result = provider.retrieve("spec_cg", "desc", task_group="2")
+
+        same_group = [r for r in result if r.startswith("[REVIEW]")]
+        cross_group = [r for r in result if r.startswith("[CROSS-GROUP]")]
+
+        assert len(same_group) == 1, f"Expected 1 same-group review, got: {same_group}"
+        assert "same-group finding" in same_group[0]
+        assert len(cross_group) == 1, f"Expected 1 cross-group item, got: {cross_group}"
+        assert "tests use non-existent IDs" in cross_group[0]
+
+    def test_cross_group_excludes_same_group(
+        self, provider_db, provider_conn
+    ) -> None:
+        """Cross-group items must not include findings from the requested group."""
+        _insert_finding_for_group(provider_conn, "spec_excl", "1", "group-1-finding")
+        _insert_finding_for_group(provider_conn, "spec_excl", "2", "group-2-finding")
+        _insert_finding_for_group(provider_conn, "spec_excl", "3", "group-3-finding")
+
+        provider = _make_provider(provider_db)
+        result = provider.retrieve("spec_excl", "desc", task_group="2")
+
+        cross_group = [r for r in result if r.startswith("[CROSS-GROUP]")]
+        cross_text = "\n".join(cross_group)
+
+        assert "group-1-finding" in cross_text
+        assert "group-3-finding" in cross_text
+        assert "group-2-finding" not in cross_text
+
+    def test_cross_group_respects_max_cross_group_items(
+        self, provider_db, provider_conn
+    ) -> None:
+        """Cross-group items are capped at max_cross_group_items."""
+        from agent_fox.core.config import KnowledgeProviderConfig
+
+        for i in range(10):
+            _insert_finding_for_group(
+                provider_conn, "spec_cap", f"other-{i}", f"finding-{i}"
+            )
+
+        config = KnowledgeProviderConfig(max_cross_group_items=3)
+        provider = _make_provider(provider_db, config=config)
+        result = provider.retrieve("spec_cap", "desc", task_group="5")
+
+        cross_group = [r for r in result if r.startswith("[CROSS-GROUP]")]
+        assert len(cross_group) == 3, (
+            f"Expected 3 cross-group items (cap), got {len(cross_group)}"
+        )
+
+    def test_cross_group_uses_relevance_scoring(
+        self, provider_db, provider_conn
+    ) -> None:
+        """Cross-group items are ranked by keyword overlap with task_description."""
+        from agent_fox.core.config import KnowledgeProviderConfig
+
+        _insert_finding_for_group(
+            provider_conn, "spec_rel", "1", "fix typo in docstring", severity="major"
+        )
+        _insert_finding_for_group(
+            provider_conn, "spec_rel", "1", "implement caching layer", severity="major"
+        )
+
+        config = KnowledgeProviderConfig(max_cross_group_items=1)
+        provider = _make_provider(provider_db, config=config)
+        result = provider.retrieve(
+            "spec_rel", "implement caching layer", task_group="2"
+        )
+
+        cross_group = [r for r in result if r.startswith("[CROSS-GROUP]")]
+        assert len(cross_group) == 1
+        assert "implement caching layer" in cross_group[0], (
+            f"Expected most relevant cross-group finding, got: {cross_group[0]!r}"
+        )
+
+    def test_cross_group_not_tracked_in_injections(
+        self, provider_db, provider_conn
+    ) -> None:
+        """Cross-group items must NOT be recorded in finding_injections."""
+        _insert_finding_for_group(provider_conn, "spec_inj", "1", "cross-group finding")
+
+        provider = _make_provider(provider_db)
+        provider.retrieve(
+            "spec_inj", "desc", task_group="2", session_id="test-session"
+        )
+
+        injections = provider_conn.execute(
+            "SELECT finding_id FROM finding_injections WHERE session_id = 'test-session'"
+        ).fetchall()
+        assert len(injections) == 0, (
+            f"Cross-group items should not be tracked in injections, found: {injections}"
+        )
+
+    def test_same_group_behavior_unchanged(
+        self, provider_db, provider_conn
+    ) -> None:
+        """Same-group retrieval is unchanged — [REVIEW] items still work as before."""
+        _insert_finding_for_group(provider_conn, "spec_same", "2", "same-group item")
+
+        provider = _make_provider(provider_db)
+        result = provider.retrieve("spec_same", "desc", task_group="2")
+
+        reviews = [r for r in result if r.startswith("[REVIEW]")]
+        cross = [r for r in result if r.startswith("[CROSS-GROUP]")]
+
+        assert len(reviews) == 1
+        assert "same-group item" in reviews[0]
+        assert len(cross) == 0
+
+    def test_no_cross_group_when_task_group_none(
+        self, provider_db, provider_conn
+    ) -> None:
+        """When task_group is None, all findings appear as [REVIEW] — no cross-group split."""
+        _insert_finding_for_group(provider_conn, "spec_none", "1", "group-1")
+        _insert_finding_for_group(provider_conn, "spec_none", "2", "group-2")
+
+        provider = _make_provider(provider_db)
+        result = provider.retrieve("spec_none", "desc", task_group=None)
+
+        reviews = [r for r in result if r.startswith("[REVIEW]")]
+        cross = [r for r in result if r.startswith("[CROSS-GROUP]")]
+
+        assert len(reviews) == 2
+        assert len(cross) == 0
+
+    def test_cross_group_includes_source_group(
+        self, provider_db, provider_conn
+    ) -> None:
+        """Cross-group items include the source task_group for context."""
+        _insert_finding_for_group(provider_conn, "spec_src", "1", "from-group-1")
+
+        provider = _make_provider(provider_db)
+        result = provider.retrieve("spec_src", "desc", task_group="3")
+
+        cross_group = [r for r in result if r.startswith("[CROSS-GROUP]")]
+        assert len(cross_group) == 1
+        assert "group 1" in cross_group[0], (
+            f"Expected source group reference, got: {cross_group[0]!r}"
+        )
+
+
+class TestCrossGroupVerdictRetrieval:
+    """Issue #559: cross-group FAIL verdicts are surfaced alongside cross-group findings."""
+
+    def test_cross_group_fail_verdict_appears(
+        self, provider_db, provider_conn
+    ) -> None:
+        """FAIL verdicts from other groups appear with [CROSS-GROUP] prefix."""
+        _insert_verdict(provider_conn, "spec_xv", "REQ-1", "FAIL", task_group="0", evidence="Not tested")
+        _insert_verdict(provider_conn, "spec_xv", "REQ-2", "PASS", task_group="0-pass")
+
+        provider = _make_provider(provider_db)
+        result = provider.retrieve("spec_xv", "desc", task_group="2")
+
+        cross_group = [r for r in result if r.startswith("[CROSS-GROUP]")]
+        assert len(cross_group) == 1, f"Expected 1 cross-group verdict, got: {cross_group}"
+        assert "REQ-1" in cross_group[0]
+        assert "REQ-2" not in "\n".join(cross_group)
+
+    def test_cross_group_verdicts_excluded_from_injections(
+        self, provider_db, provider_conn
+    ) -> None:
+        """Cross-group verdicts must NOT be tracked in finding_injections."""
+        _insert_verdict(
+            provider_conn, "spec_xvi", "REQ-X", "FAIL",
+            task_group="0", evidence="Missing"
+        )
+
+        provider = _make_provider(provider_db)
+        provider.retrieve(
+            "spec_xvi", "desc", task_group="2", session_id="test-session-v"
+        )
+
+        injections = provider_conn.execute(
+            "SELECT finding_id FROM finding_injections WHERE session_id = 'test-session-v'"
+        ).fetchall()
+        assert len(injections) == 0
