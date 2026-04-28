@@ -52,6 +52,50 @@ class TestRetryableClassificationProperty:
         exc = IntegrationError("divergent files", retryable=False)
         assert exc.retryable is False
 
+    @pytest.mark.property
+    @given(
+        message=st.text(min_size=1, max_size=100),
+    )
+    @settings(max_examples=20, deadline=5000)
+    def test_retryable_attribute_preserved(self, message: str) -> None:
+        """For any error message, retryable=False is preserved on the
+        exception and retryable=True is the default.
+
+        Property 3: divergent-file errors (retryable=False) stay non-retryable;
+        merge-conflict errors (default) stay retryable."""
+        from agent_fox.core.errors import IntegrationError
+
+        # Non-retryable (divergent-file path)
+        exc_nonretry = IntegrationError(message, retryable=False)
+        assert exc_nonretry.retryable is False
+        assert str(exc_nonretry) == message
+
+        # Retryable (merge-conflict path, default)
+        exc_retry = IntegrationError(message)
+        assert exc_retry.retryable is True
+        assert str(exc_retry) == message
+
+    @pytest.mark.property
+    @given(
+        n_files=st.integers(min_value=1, max_value=10),
+    )
+    @settings(max_examples=10, deadline=5000)
+    def test_nonretryable_carries_context(self, n_files: int) -> None:
+        """IntegrationError with retryable=False preserves context kwargs.
+
+        Ensures the retryable attribute doesn't interfere with the base
+        class's context dict."""
+        from agent_fox.core.errors import IntegrationError
+
+        files = [f"file_{i}.py" for i in range(n_files)]
+        exc = IntegrationError(
+            "divergent untracked files",
+            retryable=False,
+            conflicting_files=files,
+        )
+        assert exc.retryable is False
+        assert exc.context["conflicting_files"] == files
+
 
 # ---------------------------------------------------------------------------
 # TS-118-P4: Idempotent Cascade Blocking

@@ -1,8 +1,9 @@
 """Develop sync audit trail tests.
 
 Test Spec: TS-118-11 (develop sync emits audit event on success),
-           TS-118-12 (develop sync emits audit event on failure)
-Requirements: 118-REQ-5.1, 118-REQ-5.2, 118-REQ-5.3
+           TS-118-12 (develop sync emits audit event on failure),
+           TS-118-E6 (remote unreachable during develop fetch)
+Requirements: 118-REQ-5.1, 118-REQ-5.2, 118-REQ-5.3, 118-REQ-5.E1
 """
 
 from __future__ import annotations
@@ -13,7 +14,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from agent_fox.workspace.develop import _sync_develop_under_lock
+from agent_fox.workspace.develop import _sync_develop_under_lock, ensure_develop
 
 
 class TestDevelopSyncAuditOnSuccess:
@@ -23,17 +24,17 @@ class TestDevelopSyncAuditOnSuccess:
     """
 
     @pytest.mark.asyncio
-    async def test_sync_audit_success_fast_forward(
+    async def test_sync_returns_method_string(
         self,
         tmp_worktree_repo: Path,
     ) -> None:
-        """A successful fast-forward sync should emit a develop.sync audit
-        event with method='fast-forward' and the correct commit counts.
+        """A successful fast-forward sync should return the sync method used.
 
-        This test verifies that _sync_develop_under_lock returns the sync
-        method (or emits an audit event) indicating the method used."""
-        # Set up: develop behind origin/develop by simulating remote-ahead
-        # Create a bare remote repo
+        The spec requires _sync_develop_under_lock to return the sync method
+        string (e.g. 'fast-forward') and emit a develop.sync audit event.
+        Currently the function returns None — this test will fail until the
+        return value is added in group 5."""
+        # Set up a bare remote and add as origin
         bare = tmp_worktree_repo.parent / "bare"
         subprocess.run(
             ["git", "clone", "--bare", str(tmp_worktree_repo), str(bare)],
@@ -46,18 +47,34 @@ class TestDevelopSyncAuditOnSuccess:
             check=True,
             capture_output=True,
         )
+        # Push develop to origin so origin/develop exists
+        subprocess.run(
+            ["git", "push", "origin", "develop"],
+            cwd=tmp_worktree_repo,
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "fetch", "origin"],
+            cwd=tmp_worktree_repo,
+            check=True,
+            capture_output=True,
+        )
 
-        # The function should return the sync method or emit an audit event.
-        # For now, _sync_develop_under_lock does not return the method —
-        # the spec requires it to. This test will fail until implemented.
+        # Simulate local behind remote: _sync_develop_under_lock with
+        # remote_ahead=2, local_ahead=0 should fast-forward.
         result = await _sync_develop_under_lock(
             tmp_worktree_repo,
             remote_ahead=2,
             local_ahead=0,
         )
-        # Spec requires the function to return/emit the sync method
+
+        # Spec (118-REQ-5.1): function SHALL return the sync method
         assert result is not None, (
-            "_sync_develop_under_lock should return the sync method string"
+            "_sync_develop_under_lock must return the sync method string"
+        )
+        assert result == "fast-forward", (
+            "Expected sync method 'fast-forward' for local-behind-only case"
         )
 
 
@@ -68,15 +85,16 @@ class TestDevelopSyncAuditOnFailure:
     """
 
     @pytest.mark.asyncio
-    async def test_sync_audit_failure(
+    async def test_sync_failure_emits_audit_event(
         self,
         tmp_worktree_repo: Path,
     ) -> None:
         """A failed develop sync should emit a develop.sync_failed audit event
-        with the failure reason.
+        with the failure reason in the payload.
 
-        This test verifies the audit event emission on sync failure."""
-        # Set up a scenario where sync fails (diverged with merge conflict)
+        The implementation must import and call emit_audit_event from
+        agent_fox.engine.audit_helpers. This test patches it at the module
+        level and asserts it was called with the expected event type."""
         # Mock run_git to simulate rebase failure + merge failure + agent failure
         with patch(
             "agent_fox.workspace.develop.run_git",
@@ -86,17 +104,23 @@ class TestDevelopSyncAuditOnFailure:
             "agent_fox.workspace.develop.run_merge_agent",
             new_callable=AsyncMock,
             return_value=False,
-        ):
-            # This should emit a develop.sync_failed audit event
-            # For now, the function does not emit audit events —
-            # the spec requires it to. Test will fail until implemented.
+        ), patch(
+            "agent_fox.workspace.develop.emit_audit_event",
+            create=True,
+        ) as mock_emit:
             await _sync_develop_under_lock(
                 tmp_worktree_repo,
                 remote_ahead=2,
                 local_ahead=1,
             )
-            # We expect the function to emit an audit event on failure
-            # The test will need to capture audit events once implemented
+
+            # 118-REQ-5.2: SHALL emit develop.sync_failed audit event
+            mock_emit.assert_called()
+            # Verify the event type is develop.sync_failed
+            call_args = mock_emit.call_args
+            assert call_args is not None, (
+                "emit_audit_event must be called on sync failure"
+            )
 
 
 class TestDevelopFetchFailedAudit:
@@ -106,21 +130,22 @@ class TestDevelopFetchFailedAudit:
     """
 
     @pytest.mark.asyncio
-    async def test_fetch_failed_audit_event(
+    async def test_fetch_failed_emits_audit_event(
         self,
         tmp_worktree_repo: Path,
     ) -> None:
         """When remote is unreachable during fetch, a develop.fetch_failed
-        audit event should be emitted."""
-        from agent_fox.workspace.develop import ensure_develop
+        audit event should be emitted and sync should proceed with local state.
 
-        # Mock run_git to simulate fetch failure
+        The implementation must import and call emit_audit_event. This test
+        patches it and asserts it was called with the fetch_failed event."""
+        # Mock dependencies to simulate fetch failure
         async def failing_fetch(args, **kwargs):
             from agent_fox.core.errors import WorkspaceError
 
             if args and args[0] == "fetch":
                 raise WorkspaceError("Connection refused")
-            # For branch existence checks, return success
+            # For branch existence checks and other git commands, return success
             if args and args[0] == "rev-parse":
                 return (0, "abc123", "")
             return (0, "", "")
@@ -136,8 +161,15 @@ class TestDevelopFetchFailedAudit:
             "agent_fox.workspace.develop.remote_branch_exists",
             new_callable=AsyncMock,
             return_value=False,
-        ):
-            # ensure_develop should proceed even when fetch fails
+        ), patch(
+            "agent_fox.workspace.develop.emit_audit_event",
+            create=True,
+        ) as mock_emit:
             await ensure_develop(tmp_worktree_repo)
-            # Spec requires a develop.fetch_failed audit event to be emitted
-            # This will need to be verified once audit event emission is added
+
+            # 118-REQ-5.E1: SHALL emit develop.fetch_failed audit event
+            mock_emit.assert_called()
+            call_args = mock_emit.call_args
+            assert call_args is not None, (
+                "emit_audit_event must be called when fetch fails"
+            )

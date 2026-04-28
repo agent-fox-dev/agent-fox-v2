@@ -1,11 +1,17 @@
 """Run lifecycle and stale run detection tests.
 
 Test Spec: TS-118-13 (stale run detection on startup),
-           TS-118-14 (cleanup handler transitions run on exit)
-Requirements: 118-REQ-6.1, 118-REQ-6.2, 118-REQ-6.3
+           TS-118-14 (cleanup handler transitions run on exit),
+           TS-118-E7 (cleanup handler DB write failure),
+           TS-118-E8 (multiple stale runs cleaned)
+Requirements: 118-REQ-6.1, 118-REQ-6.2, 118-REQ-6.3,
+              118-REQ-6.E1, 118-REQ-6.E2
 """
 
 from __future__ import annotations
+
+import logging
+from unittest.mock import MagicMock
 
 import duckdb
 import pytest
@@ -82,6 +88,11 @@ class TestCleanupHandler:
     """TS-118-14: cleanup handler transitions current run to 'stalled'.
 
     Requirements: 118-REQ-6.2, 118-REQ-6.3
+
+    The spec requires registering an atexit/signal handler that wraps the
+    DB transition and catches exceptions. This test verifies that a
+    ``run_cleanup_handler`` function exists, transitions the run to 'stalled',
+    and handles errors gracefully.
     """
 
     @pytest.fixture
@@ -112,11 +123,15 @@ class TestCleanupHandler:
         runs_db: duckdb.DuckDBPyConnection,
     ) -> None:
         """When the cleanup handler is invoked, the current run transitions
-        to 'stalled'."""
-        # The cleanup handler should be importable and callable
-        from agent_fox.engine.state import complete_run
+        to 'stalled'.
 
-        complete_run(runs_db, "test_run", "stalled")
+        The spec requires a run_cleanup_handler() function that wraps
+        complete_run() with exception handling. This test will fail until
+        that wrapper is implemented."""
+        # The cleanup handler wrapper should be importable
+        from agent_fox.engine.state import run_cleanup_handler  # noqa: F811
+
+        run_cleanup_handler("test_run", runs_db)
 
         row = runs_db.execute(
             "SELECT status FROM runs WHERE id = ?", ["test_run"]
@@ -135,23 +150,28 @@ class TestCleanupHandlerDBFailure:
         self,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
-        """Cleanup handler should not raise when DB write fails."""
-        from unittest.mock import MagicMock
+        """Cleanup handler should not raise when DB write fails; it should
+        log a WARNING and return gracefully.
+
+        The spec requires run_cleanup_handler to catch DB exceptions.
+        This test will fail until run_cleanup_handler is implemented."""
+        from agent_fox.engine.state import run_cleanup_handler
 
         # Create a mock connection that raises on execute
         broken_conn = MagicMock()
         broken_conn.execute.side_effect = Exception("database locked")
 
-        # The cleanup handler (complete_run) should handle the error gracefully.
-        # For now, complete_run raises — the spec requires a wrapper that catches.
-        # This test verifies the cleanup_handler wrapper exists and is safe.
-        from agent_fox.engine.state import complete_run
+        with caplog.at_level(logging.WARNING, logger="agent_fox.engine.state"):
+            # Must NOT raise — the handler must catch the exception
+            run_cleanup_handler("test_run", broken_conn)
 
-        with pytest.raises(Exception, match="database locked"):
-            complete_run(broken_conn, "test_run", "stalled")
-        # Spec requires: cleanup_handler should NOT raise.
-        # This test will need to be updated to call the actual cleanup handler
-        # wrapper that catches exceptions gracefully.
+        # WARNING should have been logged
+        warning_messages = [
+            r.message for r in caplog.records if r.levelno == logging.WARNING
+        ]
+        assert len(warning_messages) > 0, (
+            "run_cleanup_handler must log a WARNING when DB write fails"
+        )
 
 
 class TestMultipleStaleRunsCleaned:
