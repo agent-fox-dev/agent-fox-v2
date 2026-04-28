@@ -66,25 +66,25 @@ This plan implements session summary storage and retrieval in five task groups:
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/`
 
-- [ ] 2. Schema and data model
-  - [ ] 2.1 Add migration v24 for session_summaries table
+- [x] 2. Schema and data model
+  - [x] 2.1 Add migration v24 for session_summaries table
     - Add `Migration(version=24, ...)` to the `MIGRATIONS` list in `agent_fox/knowledge/migrations.py`
     - SQL: `CREATE TABLE IF NOT EXISTS session_summaries (id UUID PRIMARY KEY, node_id VARCHAR NOT NULL, run_id VARCHAR NOT NULL, spec_name VARCHAR NOT NULL, task_group VARCHAR NOT NULL, archetype VARCHAR NOT NULL, attempt INTEGER NOT NULL DEFAULT 1, summary TEXT NOT NULL, created_at TIMESTAMP NOT NULL)`
     - Update `base_schema_ddl()` to include the table for fresh databases
     - _Requirements: 119-REQ-1.2, 119-REQ-1.4_
 
-  - [ ] 2.2 Create SummaryRecord dataclass
+  - [x] 2.2 Create SummaryRecord dataclass
     - Create `agent_fox/knowledge/summary_store.py`
     - Define `SummaryRecord` dataclass with fields: id, node_id, run_id, spec_name, task_group, archetype, attempt, summary, created_at
     - _Requirements: 119-REQ-1.1_
 
-  - [ ] 2.3 Implement insert_summary()
+  - [x] 2.3 Implement insert_summary()
     - Add `insert_summary(conn, record)` function to `summary_store.py`
     - Simple INSERT with all fields from SummaryRecord
     - No supersession logic — append-only
     - _Requirements: 119-REQ-1.1, 119-REQ-1.3_
 
-  - [ ] 2.4 Implement query_same_spec_summaries()
+  - [x] 2.4 Implement query_same_spec_summaries()
     - Add `query_same_spec_summaries(conn, spec_name, task_group, run_id, max_items=5)` to `summary_store.py`
     - SQL: filter by spec_name, run_id, archetype='coder', task_group < current
     - Use window function or subquery to get latest attempt per group
@@ -92,22 +92,22 @@ This plan implements session summary storage and retrieval in five task groups:
     - Handle missing table gracefully (catch CatalogException, return [])
     - _Requirements: 119-REQ-2.1, 119-REQ-2.3, 119-REQ-2.4, 119-REQ-2.5, 119-REQ-2.6, 119-REQ-2.E1, 119-REQ-2.E2, 119-REQ-2.E3_
 
-  - [ ] 2.5 Implement query_cross_spec_summaries()
+  - [x] 2.5 Implement query_cross_spec_summaries()
     - Add `query_cross_spec_summaries(conn, spec_name, run_id, max_items=3)` to `summary_store.py`
     - SQL: filter by run_id, archetype='coder', spec_name != current
     - Latest attempt per (spec_name, task_group), sort by created_at DESC, cap at max_items
     - Handle missing table gracefully
     - _Requirements: 119-REQ-3.1, 119-REQ-3.3, 119-REQ-3.4, 119-REQ-3.5, 119-REQ-3.E1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_summary_store.py`
-    - [ ] Property tests pass: `uv run pytest -q tests/unit/knowledge/test_summary_properties.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/knowledge/summary_store.py agent_fox/knowledge/migrations.py`
-    - [ ] Requirements 119-REQ-1.1 through 1.4, 1.E1-E3, 2.1-2.6, 2.E1-E3, 3.1-3.5, 3.E1 acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_summary_store.py`
+    - [x] Property tests pass: `uv run pytest -q tests/unit/knowledge/test_summary_properties.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/knowledge/summary_store.py agent_fox/knowledge/migrations.py`
+    - [x] Requirements 119-REQ-1.1 through 1.4, 1.E1-E3, 2.1-2.6, 2.E1-E3, 3.1-3.5, 3.E1 acceptance criteria met
 
-- [ ] 3. Knowledge provider extension
-  - [ ] 3.1 Extend FoxKnowledgeProvider.retrieve() with summary queries
+- [x] 3. Knowledge provider extension
+  - [x] 3.1 Extend FoxKnowledgeProvider.retrieve() with summary queries
     - Add `_query_same_spec_summaries()` private method to `fox_provider.py`
     - Add `_query_cross_spec_summaries()` private method to `fox_provider.py`
     - Call both from `retrieve()`, format results as `[CONTEXT]` and `[CROSS-SPEC]` strings
@@ -116,7 +116,7 @@ This plan implements session summary storage and retrieval in five task groups:
     - Handle missing run_id: skip cross-spec when run_id is None
     - _Requirements: 119-REQ-2.1, 119-REQ-2.2, 119-REQ-3.1, 119-REQ-3.2, 119-REQ-3.E2_
 
-  - [ ] 3.2 Extend FoxKnowledgeProvider.ingest() with summary storage
+  - [x] 3.2 Extend FoxKnowledgeProvider.ingest() with summary storage
     - In `ingest()`, check for `context.get("summary")` when session_status is "completed"
     - Extract node_id components (spec_name, task_group) from the session_id parameter
     - Extract archetype and attempt from context (add to context dict in lifecycle)
@@ -124,16 +124,16 @@ This plan implements session summary storage and retrieval in five task groups:
     - Wrap in try/except to handle DB failures gracefully (log warning)
     - _Requirements: 119-REQ-5.2, 119-REQ-1.E1, 119-REQ-1.E2, 119-REQ-5.E1_
 
-  - [ ] 3.3 Wire run_id into FoxKnowledgeProvider
+  - [x] 3.3 Wire run_id into FoxKnowledgeProvider
     - Ensure the provider has access to the current `run_id` for cross-spec queries
     - The run_id is already available via the engine — pass it through constructor or retrieve() parameter
     - _Requirements: 119-REQ-3.E2_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_fox_provider_summaries.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/knowledge/fox_provider.py`
-    - [ ] Requirements 119-REQ-2.2, 3.2, 5.2 acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_fox_provider_summaries.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/knowledge/fox_provider.py`
+    - [x] Requirements 119-REQ-2.2, 3.2, 5.2 acceptance criteria met
 
 - [ ] 4. Session lifecycle integration
   - [ ] 4.1 Restructure _run_and_harvest() to read summary before audit event

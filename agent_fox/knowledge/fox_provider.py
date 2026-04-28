@@ -50,10 +50,11 @@ def _score_relevance(text: str, keywords: frozenset[str]) -> int:
 class FoxKnowledgeProvider:
     """Concrete KnowledgeProvider: review carry-forward + ADR retrieval.
 
-    Retrieves active critical/major review findings, errata, and ADR
-    summaries for a spec.  Ingests ADR files detected in session
-    ``touched_files``.  Satisfies the ``KnowledgeProvider`` protocol
-    defined in spec 114 (``@runtime_checkable``).
+    Retrieves active critical/major review findings, errata, ADR
+    summaries, and session summaries for a spec.  Ingests ADR files
+    detected in session ``touched_files`` and stores session summaries.
+    Satisfies the ``KnowledgeProvider`` protocol defined in spec 114
+    (``@runtime_checkable``).
     """
 
     def __init__(
@@ -63,6 +64,7 @@ class FoxKnowledgeProvider:
     ) -> None:
         self._knowledge_db = knowledge_db
         self._config = config
+        self._run_id: str | None = None
 
     # ------------------------------------------------------------------
     # KnowledgeProvider protocol methods
@@ -146,13 +148,22 @@ class FoxKnowledgeProvider:
         capped = items_with_ids[: self._config.max_items]
         result = [text for text, _ in capped] + cross_group_items
 
+        # Session summary injection (119-REQ-2.1, 119-REQ-3.1)
+        same_spec_summaries = self._query_same_spec_summaries(conn, spec_name, task_group)
+        cross_spec_summaries = self._query_cross_spec_summaries(conn, spec_name)
+        result.extend(same_spec_summaries)
+        result.extend(cross_spec_summaries)
+
         logger.debug(
-            "Retrieved %d review + %d errata + %d ADR + %d verdict + %d cross-group items for %s",
+            "Retrieved %d review + %d errata + %d ADR + %d verdict + %d cross-group "
+            "+ %d context + %d cross-spec items for %s",
             len(reviews),
             len(errata),
             len(adrs),
             len(verdicts),
             len(cross_group_items),
+            len(same_spec_summaries),
+            len(cross_spec_summaries),
             spec_name,
         )
 
@@ -227,6 +238,12 @@ class FoxKnowledgeProvider:
                     session_id,
                     exc_info=True,
                 )
+
+        # Session summary storage (119-REQ-5.2).
+        # Only store for completed sessions with a non-empty summary.
+        summary_text = context.get("summary")
+        if session_status == "completed" and summary_text:
+            self._store_summary(conn, session_id, spec_name, context)
 
         # ADR ingestion (unchanged from spec 117).
         from agent_fox.knowledge.adr import detect_adr_changes, ingest_adr
@@ -527,3 +544,120 @@ class FoxKnowledgeProvider:
             result.append(f"[VERIFY] {' '.join(parts)}")
             ids.append(v.id)
         return result, ids
+
+    # ------------------------------------------------------------------
+    # Session summary helpers (spec 119)
+    # ------------------------------------------------------------------
+
+    def _query_same_spec_summaries(
+        self,
+        conn: Any,
+        spec_name: str,
+        task_group: str | None,
+    ) -> list[str]:
+        """Query and format same-spec summaries as [CONTEXT] items.
+
+        Requirements: 119-REQ-2.1, 119-REQ-2.2
+        """
+        if task_group is None:
+            return []
+
+        run_id = self._run_id
+        if not run_id:
+            return []
+
+        try:
+            from agent_fox.knowledge.summary_store import query_same_spec_summaries
+
+            records = query_same_spec_summaries(conn, spec_name, task_group, run_id)
+        except Exception:
+            logger.debug(
+                "Could not query same-spec summaries for %s", spec_name,
+            )
+            return []
+
+        return [
+            f"[CONTEXT] (group {r.task_group}, attempt {r.attempt}) {r.summary}"
+            for r in records
+        ]
+
+    def _query_cross_spec_summaries(
+        self,
+        conn: Any,
+        spec_name: str,
+    ) -> list[str]:
+        """Query and format cross-spec summaries as [CROSS-SPEC] items.
+
+        Requirements: 119-REQ-3.1, 119-REQ-3.2, 119-REQ-3.E2
+        """
+        run_id = self._run_id
+        if not run_id:
+            return []
+
+        try:
+            from agent_fox.knowledge.summary_store import query_cross_spec_summaries
+
+            records = query_cross_spec_summaries(conn, spec_name, run_id)
+        except Exception:
+            logger.debug(
+                "Could not query cross-spec summaries for %s", spec_name,
+            )
+            return []
+
+        return [
+            f"[CROSS-SPEC] ({r.spec_name}, group {r.task_group}) {r.summary}"
+            for r in records
+        ]
+
+    def _store_summary(
+        self,
+        conn: Any,
+        session_id: str,
+        spec_name: str,
+        context: dict[str, Any],
+    ) -> None:
+        """Store a session summary in the database.
+
+        Extracts archetype, task_group, and attempt from the context dict
+        and inserts a SummaryRecord.  Handles DB failures gracefully.
+
+        Requirements: 119-REQ-5.2, 119-REQ-5.E1
+        """
+        import uuid
+
+        try:
+            from agent_fox.knowledge.summary_store import SummaryRecord, insert_summary
+
+            summary_text = context.get("summary", "")
+            archetype = context.get("archetype", "coder")
+            task_group = str(context.get("task_group", "0"))
+            attempt = int(context.get("attempt", 1))
+            run_id = context.get("run_id", "") or (self._run_id or "")
+
+            record = SummaryRecord(
+                id=str(uuid.uuid4()),
+                node_id=session_id,
+                run_id=run_id,
+                spec_name=spec_name,
+                task_group=task_group,
+                archetype=archetype,
+                attempt=attempt,
+                summary=summary_text,
+                created_at=context.get("created_at", "")
+                or __import__("datetime").datetime.now(
+                    __import__("datetime").timezone.utc
+                ).isoformat(),
+            )
+            insert_summary(conn, record)
+            logger.info(
+                "Stored session summary for %s (group %s, attempt %d)",
+                session_id,
+                task_group,
+                attempt,
+            )
+        except Exception:
+            logger.warning(
+                "Failed to store session summary for %s",
+                session_id,
+                exc_info=True,
+            )

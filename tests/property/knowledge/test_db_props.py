@@ -37,6 +37,8 @@ EXPECTED_TABLES = {
     "adr_entries",
     # Added by migration v23 (issue #558: injection deduplication)
     "finding_injections",
+    # Added by migration v24 (spec 119: session summary storage)
+    "session_summaries",
 }
 
 
@@ -71,7 +73,7 @@ class TestSchemaInitializationIdempotency:
 
             version_count = db.connection.execute("SELECT COUNT(*) FROM schema_version").fetchone()
             assert version_count is not None
-            assert version_count[0] == 23
+            assert version_count[0] == 24
 
             tables = {r[0] for r in db.connection.execute("SHOW TABLES").fetchall()}
             assert tables == EXPECTED_TABLES

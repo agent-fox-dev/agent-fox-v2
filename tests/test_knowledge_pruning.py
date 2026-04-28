@@ -475,7 +475,7 @@ class TestMigrationV18FreshDb:
         run_migrations(conn)
 
         version = conn.execute("SELECT MAX(version) FROM schema_version").fetchone()[0]
-        assert version == 23
+        assert version == 24
 
         conn.close()
 
