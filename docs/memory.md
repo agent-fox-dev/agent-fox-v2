@@ -1,6 +1,15 @@
 # Agent-Fox Memory
 
-_3178 facts | last updated: 2026-04-27_
+_3179 facts | last updated: 2026-04-28_
+
+**2026-04-28 cross-group knowledge retrieval (issue #559):**
+`FoxKnowledgeProvider.retrieve()` now surfaces findings and FAIL verdicts from
+other task groups in the same spec with a `[CROSS-GROUP]` prefix. Cross-group
+items are capped separately (`max_cross_group_items`, default 3), ranked by
+keyword relevance (#557), and NOT tracked in `finding_injections` (they are
+informational context, not directives). Added `query_cross_group_findings()`
+and `query_cross_group_verdicts()` to `review_store.py`. Same-group behavior
+is unchanged. +10 tests (4518 total pass).
 
 **2026-04-27 Tier 1 code simplification:** Deleted dead `graph/critical_path.py`
 module (208 lines, zero production imports) and its 2 test files. Removed
