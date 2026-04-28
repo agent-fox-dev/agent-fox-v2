@@ -358,6 +358,45 @@ _DRIFT_COLS = (
 )
 
 
+def query_cross_group_findings(
+    conn: duckdb.DuckDBPyConnection,
+    spec_name: str,
+    task_group: str,
+) -> list[ReviewFinding]:
+    """Query non-superseded actionable findings from *other* task groups.
+
+    Returns findings where ``task_group != ?`` — i.e. everything except the
+    caller's own group.  Only ``critical`` and ``major`` findings are returned.
+    """
+    rows = conn.execute(
+        f"SELECT {_FINDING_COLS} FROM review_findings "  # noqa: S608
+        "WHERE spec_name = ? AND task_group != ? AND superseded_by IS NULL "
+        "ORDER BY severity, description",
+        [spec_name, task_group],
+    ).fetchall()
+    findings = [_row_to_finding(r) for r in rows if r[1] in ACTIONABLE_SEVERITIES]
+    findings.sort(key=lambda f: (_SEVERITY_ORDER.get(f.severity, 99), f.description))
+    return findings
+
+
+def query_cross_group_verdicts(
+    conn: duckdb.DuckDBPyConnection,
+    spec_name: str,
+    task_group: str,
+) -> list[VerificationResult]:
+    """Query non-superseded verdicts from *other* task groups.
+
+    Returns verdicts where ``task_group != ?``.
+    """
+    rows = conn.execute(
+        f"SELECT {_VERDICT_COLS} FROM verification_results "  # noqa: S608
+        "WHERE spec_name = ? AND task_group != ? AND superseded_by IS NULL "
+        "ORDER BY requirement_id",
+        [spec_name, task_group],
+    ).fetchall()
+    return [_row_to_verdict(r) for r in rows]
+
+
 def query_active_findings(
     conn: duckdb.DuckDBPyConnection,
     spec_name: str,

@@ -134,20 +134,31 @@ class FoxKnowledgeProvider:
         for text, id_ in zip(verdicts, verdict_ids):
             items_with_ids.append((text, id_))
 
+        # Cross-group items: findings and FAIL verdicts from other task groups
+        # in the same spec.  These are informational (not tracked for injection)
+        # and have their own cap (issue #559).
+        cross_group_items: list[str] = []
+        if task_group is not None:
+            cross_reviews = self._query_cross_group_reviews(conn, spec_name, task_group, task_description)
+            cross_verdicts = self._query_cross_group_verdicts(conn, spec_name, task_group, task_description)
+            cross_group_items = (cross_reviews + cross_verdicts)[: self._config.max_cross_group_items]
+
         capped = items_with_ids[: self._config.max_items]
-        result = [text for text, _ in capped]
+        result = [text for text, _ in capped] + cross_group_items
 
         logger.debug(
-            "Retrieved %d review + %d errata + %d ADR + %d verdict items for %s",
+            "Retrieved %d review + %d errata + %d ADR + %d verdict + %d cross-group items for %s",
             len(reviews),
             len(errata),
             len(adrs),
             len(verdicts),
+            len(cross_group_items),
             spec_name,
         )
 
         # Record which finding/verdict IDs were injected into this session so
         # that a successful ingest() can supersede them later (558-AC-1).
+        # Cross-group items are NOT tracked — they are informational context.
         if session_id:
             injected_ids = [id_ for _, id_ in capped if id_ is not None]
             if injected_ids:
@@ -321,6 +332,94 @@ class FoxKnowledgeProvider:
             result.append(f"[REVIEW] {' '.join(parts)}")
             ids.append(f.id)
         return result, ids
+
+    def _query_cross_group_reviews(
+        self,
+        conn: Any,
+        spec_name: str,
+        task_group: str,
+        task_description: str,
+    ) -> list[str]:
+        """Query active findings from *other* task groups in the same spec.
+
+        Returns formatted strings with a ``[CROSS-GROUP]`` prefix that includes
+        the source task group for context.  Uses the same relevance scoring as
+        same-group retrieval so the most relevant cross-group findings surface
+        first.
+
+        These items are informational — they are NOT tracked in
+        ``finding_injections`` and are not expected to be "fixed" by the
+        current session.
+        """
+        try:
+            from agent_fox.knowledge.review_store import query_cross_group_findings
+
+            findings = query_cross_group_findings(conn, spec_name, task_group)
+        except Exception:
+            logger.debug(
+                "Could not query cross-group findings for %s",
+                spec_name,
+            )
+            return []
+
+        keywords = _extract_keywords(task_description)
+        actionable = [f for f in findings if f.severity in ("critical", "major")]
+        actionable.sort(
+            key=lambda f: (
+                _SEVERITY_RANK.get(f.severity, 99),
+                -_score_relevance(f"{f.category or ''} {f.description}", keywords),
+                f.description,
+            )
+        )
+
+        result: list[str] = []
+        for f in actionable:
+            parts = [f"[{f.severity}]"]
+            if f.category:
+                parts.append(f"{f.category}:")
+            parts.append(f.description)
+            result.append(f"[CROSS-GROUP] (group {f.task_group}) {' '.join(parts)}")
+        return result
+
+    def _query_cross_group_verdicts(
+        self,
+        conn: Any,
+        spec_name: str,
+        task_group: str,
+        task_description: str,
+    ) -> list[str]:
+        """Query active FAIL verdicts from *other* task groups in the same spec.
+
+        Returns formatted strings with a ``[CROSS-GROUP]`` prefix.  Only FAIL
+        verdicts are returned — PASS verdicts are not actionable.
+        """
+        try:
+            from agent_fox.knowledge.review_store import query_cross_group_verdicts
+
+            verdicts = query_cross_group_verdicts(conn, spec_name, task_group)
+        except Exception:
+            logger.debug(
+                "Could not query cross-group verdicts for %s",
+                spec_name,
+            )
+            return []
+
+        keywords = _extract_keywords(task_description)
+        fail_verdicts = [v for v in verdicts if v.verdict == "FAIL"]
+        fail_verdicts.sort(
+            key=lambda v: (
+                -_score_relevance(f"{v.requirement_id} {v.evidence or ''}", keywords),
+                v.requirement_id,
+            )
+        )
+
+        result: list[str] = []
+        for v in fail_verdicts:
+            parts = [f"[FAIL] {v.requirement_id}"]
+            if v.evidence:
+                parts.append(v.evidence)
+            result.append(f"[CROSS-GROUP] (group {v.task_group}) {' '.join(parts)}")
+        return result
 
     def _query_errata(
         self,
