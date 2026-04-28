@@ -79,14 +79,16 @@ class FoxKnowledgeProvider:
         reviews = self._query_reviews(conn, spec_name, task_group=task_group)
         errata = self._query_errata(conn, spec_name)
         adrs = self._query_adrs(conn, spec_name, task_description)
+        verdicts = self._query_verdicts(conn, spec_name, task_group=task_group)
 
-        combined = reviews + errata + adrs
+        combined = reviews + errata + adrs + verdicts
 
         logger.debug(
-            "Retrieved %d review + %d errata + %d ADR items for %s",
+            "Retrieved %d review + %d errata + %d ADR + %d verdict items for %s",
             len(reviews),
             len(errata),
             len(adrs),
+            len(verdicts),
             spec_name,
         )
 
@@ -247,3 +249,41 @@ class FoxKnowledgeProvider:
                 spec_name,
             )
             return []
+
+    def _query_verdicts(
+        self,
+        conn: Any,
+        spec_name: str,
+        task_group: str | None = None,
+    ) -> list[str]:
+        """Query active FAIL verdicts and format as prompt-ready strings.
+
+        Only FAIL verdicts are returned — PASS verdicts indicate the
+        requirement was satisfied and need not be re-injected.  Handles
+        a missing ``verification_results`` table gracefully by returning
+        an empty list (AC-3).
+
+        When ``task_group`` is provided, only verdicts tagged for that
+        group are returned (AC-4).
+
+        Requirements: 555-AC-1, 555-AC-2, 555-AC-3, 555-AC-4
+        """
+        try:
+            from agent_fox.knowledge.review_store import query_active_verdicts
+
+            verdicts = query_active_verdicts(conn, spec_name, task_group=task_group)
+        except Exception:
+            logger.debug(
+                "Could not query verification verdicts for %s",
+                spec_name,
+            )
+            return []
+
+        result: list[str] = []
+        for v in verdicts:
+            if v.verdict == "FAIL":
+                parts = [f"[FAIL] {v.requirement_id}"]
+                if v.evidence:
+                    parts.append(v.evidence)
+                result.append(f"[VERIFY] {' '.join(parts)}")
+        return result
