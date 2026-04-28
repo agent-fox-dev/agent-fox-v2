@@ -541,7 +541,7 @@ class TestRetryContextIncludesFindings:
                     description=f"Finding severity={sev} idx={i}",
                     requirement_ref=None,
                     spec_name="prop_spec",
-                    task_group="1",
+                    task_group="2",  # matches runner node_id "prop_spec:2"
                     session_id="prop_sess",
                 )
                 for i, sev in enumerate(finding_severities)

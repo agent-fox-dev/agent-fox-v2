@@ -47,6 +47,7 @@ class FoxKnowledgeProvider:
         self,
         spec_name: str,
         task_description: str,
+        task_group: str | None = None,
     ) -> list[str]:
         """Retrieve knowledge context for an upcoming session.
 
@@ -57,6 +58,9 @@ class FoxKnowledgeProvider:
         Args:
             spec_name: Name of the spec being worked on.
             task_description: Human-readable description of the task.
+            task_group: Optional task group identifier to restrict review
+                findings to those tagged for this group.  When ``None``,
+                findings from all task groups are returned.
 
         Returns:
             List of formatted text blocks ready for prompt injection.
@@ -72,7 +76,7 @@ class FoxKnowledgeProvider:
         except KnowledgeStoreError:
             raise
 
-        reviews = self._query_reviews(conn, spec_name)
+        reviews = self._query_reviews(conn, spec_name, task_group=task_group)
         errata = self._query_errata(conn, spec_name)
         adrs = self._query_adrs(conn, spec_name, task_description)
 
@@ -158,12 +162,18 @@ class FoxKnowledgeProvider:
         self,
         conn: Any,
         spec_name: str,
+        task_group: str | None = None,
     ) -> list[str]:
         """Query unresolved critical/major review findings for the spec.
 
         Handles missing ``review_findings`` table gracefully by returning
         an empty list (116-REQ-6.E1).  Filters to ``critical`` and
         ``major`` severity only (116-REQ-6.1).
+
+        When ``task_group`` is provided, only findings tagged for that group
+        are returned, reducing noise for sessions focused on a specific
+        task group.  When ``None``, all active findings for the spec are
+        returned (backward-compatible behaviour).
 
         ``query_active_findings`` already excludes non-actionable severities;
         the ``if f.severity in (...)`` guard below is defense-in-depth and
@@ -172,7 +182,7 @@ class FoxKnowledgeProvider:
         try:
             from agent_fox.knowledge.review_store import query_active_findings
 
-            findings = query_active_findings(conn, spec_name)
+            findings = query_active_findings(conn, spec_name, task_group=task_group)
         except Exception:
             # Table may not exist in a fresh database (116-REQ-6.E1).
             logger.debug(

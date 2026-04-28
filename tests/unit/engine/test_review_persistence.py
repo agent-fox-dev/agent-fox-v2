@@ -397,7 +397,7 @@ class TestRetryContextIncludesActiveFindings:
             description="Missing null check",
             requirement_ref="03-REQ-1.1",
             spec_name="03_api",
-            task_group="2",
+            task_group="3",  # matches runner node_id "03_api:3"
             session_id="test_session",
         )
         insert_findings(knowledge_db._conn, [critical_finding])  # type: ignore[arg-type]
@@ -422,7 +422,7 @@ class TestRetryContextIncludesActiveFindings:
             description="Missing error handling",
             requirement_ref="03-REQ-2.1",
             spec_name="03_api",
-            task_group="2",
+            task_group="3",  # matches runner node_id "03_api:3"
             session_id="test_session",
         )
         insert_findings(knowledge_db._conn, [major_finding])  # type: ignore[arg-type]
@@ -447,7 +447,7 @@ class TestRetryContextIncludesActiveFindings:
             description="Broken interface",
             requirement_ref="03-REQ-1.1",
             spec_name="03_api",
-            task_group="2",
+            task_group="3",  # matches runner node_id "03_api:3"
             session_id="sess",
         )
         insert_findings(knowledge_db._conn, [finding])  # type: ignore[arg-type]
@@ -544,6 +544,94 @@ class TestRetryContextEmptyWhenNoFindings:
         # Should not raise, should return empty or handle gracefully
         context = runner._build_retry_context("03_api")
         assert context == ""
+
+
+# ---------------------------------------------------------------------------
+# AC-4 (issue #556): build_retry_context filters by task_group
+# ---------------------------------------------------------------------------
+
+
+class TestBuildRetryContextTaskGroupFilter:
+    """AC-4: build_retry_context() passes task_group to query_active_findings()
+    so retry prompts for coder sessions only include findings from their own
+    task group.
+
+    Issue #556: findings were previously broadcast to all sessions for a spec
+    regardless of which task group they belong to.
+    """
+
+    def test_retry_context_filters_by_task_group(self, knowledge_db: KnowledgeDB) -> None:
+        """build_retry_context(task_group='tg1') excludes tg2 findings."""
+        from agent_fox.engine.session_lifecycle import build_retry_context
+
+        conn = knowledge_db._conn
+        tg1_finding = ReviewFinding(
+            id=str(uuid.uuid4()),
+            severity="critical",
+            description="tg1-specific-issue",
+            requirement_ref=None,
+            spec_name="spec_01",
+            task_group="tg1",
+            session_id="sess-tg1",
+        )
+        tg2_finding = ReviewFinding(
+            id=str(uuid.uuid4()),
+            severity="critical",
+            description="tg2-specific-issue",
+            requirement_ref=None,
+            spec_name="spec_01",
+            task_group="tg2",
+            session_id="sess-tg2",
+        )
+        insert_findings(conn, [tg1_finding])
+        insert_findings(conn, [tg2_finding])
+
+        context = build_retry_context(knowledge_db, "spec_01", task_group="tg1")
+
+        assert "tg1-specific-issue" in context
+        assert "tg2-specific-issue" not in context, (
+            "tg2 finding should not appear in retry context for tg1 session"
+        )
+
+    def test_runner_build_retry_context_passes_task_group(self, knowledge_db: KnowledgeDB) -> None:
+        """NodeSessionRunner._build_retry_context passes own task_group."""
+        conn = knowledge_db._conn
+
+        # Insert findings for two task groups; runner is for task group 2
+        tg2_finding = ReviewFinding(
+            id=str(uuid.uuid4()),
+            severity="critical",
+            description="runner-tg2-issue",
+            requirement_ref=None,
+            spec_name="03_api",
+            task_group="2",
+            session_id="sess-2",
+        )
+        tg3_finding = ReviewFinding(
+            id=str(uuid.uuid4()),
+            severity="critical",
+            description="runner-tg3-issue",
+            requirement_ref=None,
+            spec_name="03_api",
+            task_group="3",
+            session_id="sess-3",
+        )
+        insert_findings(conn, [tg2_finding])
+        insert_findings(conn, [tg3_finding])
+
+        # Runner is for task group 2
+        runner = NodeSessionRunner(
+            "03_api:2",
+            AgentFoxConfig(),
+            archetype="coder",
+            knowledge_db=knowledge_db,
+        )
+        context = runner._build_retry_context("03_api")
+
+        assert "runner-tg2-issue" in context
+        assert "runner-tg3-issue" not in context, (
+            "tg3 finding should not appear in retry context for tg2 runner"
+        )
 
 
 # ---------------------------------------------------------------------------

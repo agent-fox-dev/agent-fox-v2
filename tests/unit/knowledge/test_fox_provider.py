@@ -513,3 +513,76 @@ class TestReviewCarryForwardExcludesObservation:
         assert reviews == [], (
             f"Expected no [REVIEW] items for minor-only spec, got: {reviews}"
         )
+
+
+# ===========================================================================
+# AC-1 (issue #556): retrieve() filters findings by task_group when provided
+# ===========================================================================
+
+
+class TestTaskGroupFiltering:
+    """AC-1 & AC-5: retrieve() filters by task_group when provided; returns
+    all groups when task_group is None.
+
+    Issue #556: the knowledge pipeline injected all findings for a spec into
+    every coder session regardless of relevance.  Wiring task_group through
+    retrieve() → _query_reviews() → query_active_findings() fixes this.
+    """
+
+    def _insert_finding_for_group(
+        self,
+        conn: duckdb.DuckDBPyConnection,
+        spec_name: str,
+        task_group: str,
+        description: str,
+    ) -> None:
+        """Insert a critical finding tagged to a specific task_group."""
+        finding = ReviewFinding(
+            id=str(uuid.uuid4()),
+            severity="critical",
+            description=description,
+            requirement_ref=None,
+            spec_name=spec_name,
+            task_group=task_group,
+            session_id="sess-setup",
+        )
+        insert_findings(conn, [finding])
+
+    def test_ac1_filter_by_task_group_excludes_other_groups(
+        self, provider_db, provider_conn
+    ) -> None:
+        """AC-1: retrieve(task_group='tg1') returns only tg1 findings.
+
+        tg2 finding must be absent from the result.
+        """
+        self._insert_finding_for_group(provider_conn, "spec_01", "tg1", "tg1-description")
+        self._insert_finding_for_group(provider_conn, "spec_01", "tg2", "tg2-description")
+
+        provider = _make_provider(provider_db)
+        result = provider.retrieve("spec_01", "desc", task_group="tg1")
+        reviews = [r for r in result if r.startswith("[REVIEW]")]
+
+        assert len(reviews) == 1, f"Expected 1 review, got {len(reviews)}: {reviews}"
+        assert "tg2-description" not in "\n".join(reviews), (
+            "tg2 finding should not appear when task_group='tg1'"
+        )
+        assert "tg1-description" in reviews[0]
+
+    def test_ac5_no_task_group_returns_all_groups(
+        self, provider_db, provider_conn
+    ) -> None:
+        """AC-5: retrieve() without task_group returns findings from all groups.
+
+        Backward-compatible: omitting task_group means no filtering.
+        """
+        self._insert_finding_for_group(provider_conn, "spec_01", "tg1", "tg1-description")
+        self._insert_finding_for_group(provider_conn, "spec_01", "tg2", "tg2-description")
+
+        provider = _make_provider(provider_db)
+        result = provider.retrieve("spec_01", "desc")
+        reviews = [r for r in result if r.startswith("[REVIEW]")]
+
+        assert len(reviews) == 2, f"Expected 2 reviews without task_group, got {len(reviews)}: {reviews}"
+        descriptions = "\n".join(reviews)
+        assert "tg1-description" in descriptions
+        assert "tg2-description" in descriptions

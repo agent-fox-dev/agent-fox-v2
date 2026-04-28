@@ -54,7 +54,7 @@ class MockKnowledgeProvider:
         self.ingest_last_spec_name = spec_name
         self.ingest_last_context = context
 
-    def retrieve(self, spec_name: str, task_description: str) -> list[str]:
+    def retrieve(self, spec_name: str, task_description: str, task_group: str | None = None) -> list[str]:
         self.retrieve_called = True
         self.retrieve_args = (spec_name, task_description)
         return self.retrieve_returns
