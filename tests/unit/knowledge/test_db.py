@@ -38,6 +38,8 @@ EXPECTED_TABLES = {
     "errata",
     # Added by migration v22 (spec 117: ADR ingestion)
     "adr_entries",
+    # Added by migration v23 (issue #558: injection deduplication)
+    "finding_injections",
 }
 
 
@@ -77,11 +79,11 @@ class TestSchemaVersionRecordedOnCreation:
         rows = db.connection.execute(
             "SELECT version, applied_at, description FROM schema_version ORDER BY version"
         ).fetchall()
-        assert len(rows) == 22
+        assert len(rows) == 23
         assert rows[0][0] == 1
         assert rows[0][1] is not None  # applied_at is a valid timestamp
         assert len(rows[0][2]) > 0  # description is non-empty
-        for i, expected_version in enumerate(range(1, 22)):
+        for i, expected_version in enumerate(range(1, 23)):
             assert rows[i][0] == expected_version
         db.close()
 
@@ -138,7 +140,7 @@ class TestSchemaInitializationIdempotent:
         db2.open()
         count = db2.connection.execute("SELECT COUNT(*) FROM schema_version").fetchone()
         assert count is not None
-        assert count[0] == 22
+        assert count[0] == 23
         db2.close()
 
 

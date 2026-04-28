@@ -10,6 +10,7 @@ Requirements: 27-REQ-1.1, 27-REQ-2.1, 27-REQ-4.1, 27-REQ-4.2, 27-REQ-4.3,
 from __future__ import annotations
 
 import logging
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
@@ -508,4 +509,87 @@ def _row_to_verdict(row: tuple) -> VerificationResult:
         session_id=row[6],
         superseded_by=row[7],
         created_at=row[8],
+    )
+
+
+# ---------------------------------------------------------------------------
+# Injection tracking (issue #558)
+# ---------------------------------------------------------------------------
+
+
+def record_finding_injections(
+    conn: duckdb.DuckDBPyConnection,
+    finding_ids: list[str],
+    session_id: str,
+) -> None:
+    """Record which finding/verdict IDs were injected into a session.
+
+    Each (finding_id, session_id) pair is recorded at most once — duplicate
+    calls (e.g. when retrieve() is invoked twice for the same session) are
+    silently ignored.  A missing ``finding_injections`` table (pre-v23 DB)
+    is handled gracefully by logging a warning and returning.
+
+    Requirements: 558-AC-1
+    """
+    if not finding_ids:
+        return
+    for finding_id in finding_ids:
+        existing = conn.execute(
+            "SELECT 1 FROM finding_injections WHERE finding_id = ? AND session_id = ?",
+            [finding_id, session_id],
+        ).fetchone()
+        if not existing:
+            conn.execute(
+                "INSERT INTO finding_injections (id, finding_id, session_id, injected_at) "
+                "VALUES (?, ?, ?, CURRENT_TIMESTAMP)",
+                [str(uuid.uuid4()), finding_id, session_id],
+            )
+    logger.debug(
+        "Recorded %d injection(s) for session %s",
+        len(finding_ids),
+        session_id,
+    )
+
+
+def supersede_injected_findings(
+    conn: duckdb.DuckDBPyConnection,
+    session_id: str,
+) -> None:
+    """Supersede all review findings and verdicts injected into a completed session.
+
+    Looks up the finding_injections table for the given session_id, then marks
+    each referenced row in ``review_findings`` and ``verification_results`` as
+    superseded (sets ``superseded_by`` to the session_id string).  Only rows
+    that are still active (``superseded_by IS NULL``) are updated.
+
+    A missing ``finding_injections`` table (pre-v23 DB) raises no exception —
+    the caller is responsible for catching and logging the error.
+
+    Requirements: 558-AC-2
+    """
+    rows = conn.execute(
+        "SELECT finding_id FROM finding_injections WHERE session_id = ?",
+        [session_id],
+    ).fetchall()
+    finding_ids = [row[0] for row in rows]
+
+    if not finding_ids:
+        logger.debug("No injected findings to supersede for session %s", session_id)
+        return
+
+    marker = session_id
+    for finding_id in finding_ids:
+        conn.execute(
+            "UPDATE review_findings SET superseded_by = ? WHERE id::VARCHAR = ? AND superseded_by IS NULL",
+            [marker, finding_id],
+        )
+        conn.execute(
+            "UPDATE verification_results SET superseded_by = ? WHERE id::VARCHAR = ? AND superseded_by IS NULL",
+            [marker, finding_id],
+        )
+
+    logger.info(
+        "Superseded %d injected finding(s) for completed session %s",
+        len(finding_ids),
+        session_id,
     )

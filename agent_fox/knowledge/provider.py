@@ -38,6 +38,7 @@ class KnowledgeProvider(Protocol):
         spec_name: str,
         task_description: str,
         task_group: str | None = None,
+        session_id: str | None = None,
     ) -> list[str]:
         """Retrieve knowledge context for an upcoming session.
 
@@ -47,6 +48,10 @@ class KnowledgeProvider(Protocol):
             task_group: Optional task group identifier to restrict findings
                 to those tagged for this group.  When ``None``, findings
                 from all task groups are returned (backward-compatible).
+            session_id: Optional node ID of the current session.  When
+                provided, injected finding/verdict IDs may be persisted for
+                later deduplication.  Omitting the parameter preserves
+                backward-compatible behaviour.
 
         Returns:
             List of formatted text blocks ready for prompt injection.
@@ -76,6 +81,7 @@ class NoOpKnowledgeProvider:
         spec_name: str,
         task_description: str,
         task_group: str | None = None,
+        session_id: str | None = None,
     ) -> list[str]:
         """Return an empty list --- no knowledge is available."""
         return []

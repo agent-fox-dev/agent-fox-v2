@@ -266,6 +266,7 @@ class NodeSessionRunner:
                 self._spec_name,
                 task_description,
                 task_group=str(self._task_group),
+                session_id=self._node_id,
             )
             if retrieved:
                 memory_facts = retrieved

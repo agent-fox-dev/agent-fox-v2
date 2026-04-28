@@ -296,7 +296,7 @@ class TestQueryReviewsReturnsOnlyActive:
         config = KnowledgeProviderConfig()
         provider = FoxKnowledgeProvider(knowledge_db=db, config=config)
 
-        result = provider._query_reviews(schema_conn, "bar")
+        result, _ids = provider._query_reviews(schema_conn, "bar")
 
         # Only the 1 active major finding should be returned
         assert len(result) == 1, (
