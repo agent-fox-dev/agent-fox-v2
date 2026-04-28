@@ -135,35 +135,35 @@ This plan implements session summary storage and retrieval in five task groups:
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/knowledge/fox_provider.py`
     - [x] Requirements 119-REQ-2.2, 3.2, 5.2 acceptance criteria met
 
-- [ ] 4. Session lifecycle integration
-  - [ ] 4.1 Restructure _run_and_harvest() to read summary before audit event
+- [x] 4. Session lifecycle integration
+  - [x] 4.1 Restructure _run_and_harvest() to read summary before audit event
     - Move `_read_session_artifacts()` call from `_run_session_lifecycle()` into `_run_and_harvest()`, after `_harvest_and_integrate()` but before `emit_audit_event()`
     - Extract summary text: `summary_text = artifacts.get("summary", "") if artifacts else None`
     - Store on returned SessionRecord if a summary field is added, or return as separate value
     - _Requirements: 119-REQ-5.3_
 
-  - [ ] 4.2 Add summary to session.complete audit event payload
+  - [x] 4.2 Add summary to session.complete audit event payload
     - When `summary_text` is not None and not empty, add `"summary": summary_text` to the payload dict
     - When summary exceeds 2000 chars, truncate to 2000 + "..." for the audit payload only
     - When no summary, omit the key from the payload
     - _Requirements: 119-REQ-4.1, 119-REQ-4.2, 119-REQ-4.E1_
 
-  - [ ] 4.3 Pass summary to _ingest_knowledge() context
+  - [x] 4.3 Pass summary to _ingest_knowledge() context
     - Add `summary_text` to the context dict in `_ingest_knowledge()` under key `"summary"`
     - Also add `"archetype"`, `"task_group"`, and `"attempt"` to context if not already present
     - _Requirements: 119-REQ-5.1_
 
-  - [ ] 4.4 Clean up _run_session_lifecycle() after restructure
+  - [x] 4.4 Clean up _run_session_lifecycle() after restructure
     - Remove the now-redundant `_read_session_artifacts()` call from `_run_session_lifecycle()`
     - Keep the log message using the summary from the returned record or local variable
     - Keep `_cleanup_session_artifacts()` call
     - _Requirements: 119-REQ-5.3_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Integration tests pass: `uv run pytest -q tests/integration/test_summary_lifecycle.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/engine/session_lifecycle.py`
-    - [ ] Requirements 119-REQ-4.1, 4.2, 4.E1, 5.1, 5.3 acceptance criteria met
+  - [x] 4.V Verify task group 4
+    - [x] Integration tests pass: `uv run pytest -q tests/integration/test_summary_lifecycle.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/engine/session_lifecycle.py`
+    - [x] Requirements 119-REQ-4.1, 4.2, 4.E1, 5.1, 5.3 acceptance criteria met
 
 - [ ] 5. Wiring verification
 
@@ -205,7 +205,7 @@ This plan implements session summary storage and retrieval in five task groups:
     - [ ] No unjustified stubs remain in touched files
     - [ ] All execution paths from design.md are live (traceable in code)
     - [ ] All cross-spec entry points are called from production code
-    - [ ] All existing tests still pass: `uv run pytest -q`
+    - [x] All existing tests still pass: `uv run pytest -q`
 
 ## Traceability
 

@@ -562,13 +562,22 @@ class NodeSessionRunner:
         session_status: str,
         *,
         repo_root: Path | None = None,
+        summary: str | None = None,
+        archetype: str | None = None,
+        task_group: str | None = None,
+        attempt: int | None = None,
     ) -> None:
         """Ingest knowledge from a completed session via the KnowledgeProvider.
 
         Builds a context dict with session metadata and delegates to the
         provider's ingest() method.
 
-        Requirements: 114-REQ-4.1, 114-REQ-4.E1, 117-REQ-1.1
+        When *summary* is provided, it is included in the context dict
+        under the ``"summary"`` key so the provider can store it
+        (119-REQ-5.1).  *archetype*, *task_group*, and *attempt* are also
+        passed for SummaryRecord construction (119-REQ-5.2).
+
+        Requirements: 114-REQ-4.1, 114-REQ-4.E1, 117-REQ-1.1, 119-REQ-5.1
         """
         context: dict[str, object] = {
             "touched_files": touched_files,
@@ -579,6 +588,15 @@ class NodeSessionRunner:
             context["project_root"] = str(repo_root)
             context["sink"] = self._sink
             context["run_id"] = self._run_id
+        # 119-REQ-5.1: Include summary and session metadata for summary storage.
+        if summary is not None:
+            context["summary"] = summary
+        if archetype is not None:
+            context["archetype"] = archetype
+        if task_group is not None:
+            context["task_group"] = task_group
+        if attempt is not None:
+            context["attempt"] = attempt
         try:
             self._knowledge_provider.ingest(node_id, self._spec_name, context)
         except Exception:
@@ -642,7 +660,11 @@ class NodeSessionRunner:
     ) -> SessionRecord:
         """Execute the session, harvest on success, return a record.
 
-        Requirements: 05-REQ-1.1, 11-REQ-4.2
+        The summary artifact is read *before* the audit event emission and
+        knowledge ingestion so both consumers receive the same text from a
+        single read (119-REQ-5.3).
+
+        Requirements: 05-REQ-1.1, 11-REQ-4.2, 119-REQ-4.1, 119-REQ-5.3
         """
         outcome = await self._execute_session(
             node_id,
@@ -693,26 +715,49 @@ class NodeSessionRunner:
         if touched_files and status == "completed":
             commit_sha = await _capture_develop_head(repo_root)
 
+        # 119-REQ-5.3: Read session artifacts once, before both the audit
+        # event emission and knowledge ingestion.
+        summary_text: str | None = None
+        artifacts = self._read_session_artifacts(workspace)
+        if artifacts:
+            summary_text = artifacts.get("summary") or None
+            if not summary_text:
+                logger.debug(
+                    "Session artifacts present but no summary for %s",
+                    node_id,
+                )
+
         # 40-REQ-7.2, 40-REQ-7.3: Emit session.complete or session.fail
+        # 119-REQ-4.1, 119-REQ-4.2: Include summary in audit payload when available
         if status == "completed":
+            payload: dict = {
+                "archetype": self._archetype,
+                "model_id": self._resolved_model_id,
+                "prompt_template": self._archetype,
+                "input_tokens": outcome.input_tokens,
+                "output_tokens": outcome.output_tokens,
+                "cache_read_input_tokens": outcome.cache_read_input_tokens,
+                "cache_creation_input_tokens": outcome.cache_creation_input_tokens,
+                "cost": cost,
+                "duration_ms": outcome.duration_ms,
+                "files_touched": touched_files,
+            }
+            # 119-REQ-4.1: Add summary to audit payload when available.
+            # 119-REQ-4.2: Omit the key (not null) when no summary.
+            # 119-REQ-4.E1: Truncate to 2000 chars for audit payload.
+            if summary_text:
+                _MAX_AUDIT_SUMMARY = 2000
+                if len(summary_text) > _MAX_AUDIT_SUMMARY:
+                    payload["summary"] = summary_text[:_MAX_AUDIT_SUMMARY] + "..."
+                else:
+                    payload["summary"] = summary_text
             emit_audit_event(
                 self._sink,
                 self._run_id,
                 AuditEventType.SESSION_COMPLETE,
                 node_id=node_id,
                 archetype=self._archetype,
-                payload={
-                    "archetype": self._archetype,
-                    "model_id": self._resolved_model_id,
-                    "prompt_template": self._archetype,
-                    "input_tokens": outcome.input_tokens,
-                    "output_tokens": outcome.output_tokens,
-                    "cache_read_input_tokens": outcome.cache_read_input_tokens,
-                    "cache_creation_input_tokens": outcome.cache_creation_input_tokens,
-                    "cost": cost,
-                    "duration_ms": outcome.duration_ms,
-                    "files_touched": touched_files,
-                },
+                payload=payload,
             )
         else:
             emit_audit_event(
@@ -745,13 +790,19 @@ class NodeSessionRunner:
                 workspace,
                 outcome_response=outcome.response,
             )
-            # 114-REQ-4.1: Ingest knowledge via KnowledgeProvider
+            # 114-REQ-4.1, 119-REQ-5.1: Ingest knowledge via KnowledgeProvider.
+            # Pass summary, archetype, task_group, and attempt through the
+            # context dict so the provider can store the summary.
             self._ingest_knowledge(
                 node_id,
                 touched_files,
                 commit_sha,
                 status,
                 repo_root=repo_root,
+                summary=summary_text,
+                archetype=self._archetype,
+                task_group=str(self._task_group),
+                attempt=attempt,
             )
 
         return SessionRecord(
@@ -852,7 +903,15 @@ class NodeSessionRunner:
         repo_root: Path,
         workspace: WorkspaceInfo,
     ) -> SessionRecord:
-        """Build prompts, execute session, and read artifacts."""
+        """Build prompts, execute session, and read artifacts.
+
+        Session artifacts are now read inside ``_run_and_harvest()``
+        (before the audit event and knowledge ingestion), so this method
+        only handles cleanup.  The summary log message uses the record
+        returned from ``_run_and_harvest()`` -- no second artifact read.
+
+        Requirements: 119-REQ-5.3
+        """
         system_prompt, task_prompt = self._build_prompts(
             repo_root,
             attempt,
@@ -883,14 +942,8 @@ class NodeSessionRunner:
             repo_root,
         )
 
-        summary = self._read_session_artifacts(workspace)
-        if summary:
-            logger.info(
-                "Session summary for %s: %s",
-                node_id,
-                summary.get("summary", ""),
-            )
-
+        # Artifact reading moved into _run_and_harvest() (119-REQ-5.3).
+        # Cleanup is still done here after all consumers have read.
         self._cleanup_session_artifacts(workspace)
 
         return record
