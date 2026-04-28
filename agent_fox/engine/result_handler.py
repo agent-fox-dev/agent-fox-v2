@@ -513,7 +513,7 @@ class SessionResultHandler:
                 )
             )
 
-        # Reviewer blocking (pre-review / drift-review)
+        # Reviewer blocking (pre-review / drift-review / audit-review)
         if self.check_skeptic_blocking(record, state):
             self._check_block_budget(state)
 
