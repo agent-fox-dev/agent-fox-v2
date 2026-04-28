@@ -850,8 +850,6 @@ class PathsConfig(BaseModel):
     )
 
 
-
-
 class WorkspaceConfig(BaseModel):
     """Workspace health and cleanup configuration.
 
@@ -863,10 +861,10 @@ class WorkspaceConfig(BaseModel):
     force_clean: bool = Field(
         default=False,
         description=(
-            "Automatically remove untracked files and reset dirty index "
-            "before session dispatch instead of aborting."
+            "Automatically remove untracked files and reset dirty index before session dispatch instead of aborting."
         ),
     )
+
 
 # Default spec root for backward compatibility fallback
 _LEGACY_SPEC_ROOT = ".specs"

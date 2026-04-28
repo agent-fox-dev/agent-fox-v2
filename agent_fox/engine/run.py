@@ -246,9 +246,7 @@ async def run_code(
 
         if health_report.has_issues:
             if config.workspace.force_clean:
-                logger.warning(
-                    "Pre-run health check found issues; force-clean enabled, cleaning workspace"
-                )
+                logger.warning("Pre-run health check found issues; force-clean enabled, cleaning workspace")
                 cleaned = await force_clean_workspace(repo_root, health_report)
                 if cleaned.has_issues:
                     diag = format_health_diagnostic(cleaned)

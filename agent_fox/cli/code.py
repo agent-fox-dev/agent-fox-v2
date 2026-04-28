@@ -168,9 +168,7 @@ def code_cmd(
 
     # 118-REQ-2.2: CLI --force-clean flag overrides config value
     if force_clean:
-        config = config.model_copy(
-            update={"workspace": config.workspace.model_copy(update={"force_clean": True})}
-        )
+        config = config.model_copy(update={"workspace": config.workspace.model_copy(update={"force_clean": True})})
 
     # 85-REQ-3.1: Refuse to run when daemon is active.
     from agent_fox.nightshift.pid import PidStatus, check_pid_file

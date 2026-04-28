@@ -77,7 +77,10 @@ async def harvest(
     lock = MergeLock(repo_root)
     async with lock:
         return await _harvest_under_lock(
-            repo_root, workspace, dev_branch, force_clean=force_clean,
+            repo_root,
+            workspace,
+            dev_branch,
+            force_clean=force_clean,
         )
 
 

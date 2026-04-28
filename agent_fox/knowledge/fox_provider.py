@@ -572,14 +572,12 @@ class FoxKnowledgeProvider:
             records = query_same_spec_summaries(conn, spec_name, task_group, run_id)
         except Exception:
             logger.debug(
-                "Could not query same-spec summaries for %s", spec_name,
+                "Could not query same-spec summaries for %s",
+                spec_name,
             )
             return []
 
-        return [
-            f"[CONTEXT] (group {r.task_group}, attempt {r.attempt}) {r.summary}"
-            for r in records
-        ]
+        return [f"[CONTEXT] (group {r.task_group}, attempt {r.attempt}) {r.summary}" for r in records]
 
     def _query_cross_spec_summaries(
         self,
@@ -600,14 +598,12 @@ class FoxKnowledgeProvider:
             records = query_cross_spec_summaries(conn, spec_name, run_id)
         except Exception:
             logger.debug(
-                "Could not query cross-spec summaries for %s", spec_name,
+                "Could not query cross-spec summaries for %s",
+                spec_name,
             )
             return []
 
-        return [
-            f"[CROSS-SPEC] ({r.spec_name}, group {r.task_group}) {r.summary}"
-            for r in records
-        ]
+        return [f"[CROSS-SPEC] ({r.spec_name}, group {r.task_group}) {r.summary}" for r in records]
 
     def _store_summary(
         self,
@@ -644,9 +640,7 @@ class FoxKnowledgeProvider:
                 attempt=attempt,
                 summary=summary_text,
                 created_at=context.get("created_at", "")
-                or __import__("datetime").datetime.now(
-                    __import__("datetime").timezone.utc
-                ).isoformat(),
+                or __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
             )
             insert_summary(conn, record)
             logger.info(

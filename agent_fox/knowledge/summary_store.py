@@ -20,10 +20,7 @@ import duckdb
 logger = logging.getLogger(__name__)
 
 # Column order used for SELECT queries and row conversion.
-_SUMMARY_COLS = (
-    "id, node_id, run_id, spec_name, task_group, "
-    "archetype, attempt, summary, created_at"
-)
+_SUMMARY_COLS = "id, node_id, run_id, spec_name, task_group, archetype, attempt, summary, created_at"
 
 
 @dataclass(frozen=True)
@@ -65,8 +62,7 @@ def insert_summary(
     Requirements: 119-REQ-1.1, 119-REQ-1.3
     """
     conn.execute(
-        f"INSERT INTO session_summaries ({_SUMMARY_COLS}) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        f"INSERT INTO session_summaries ({_SUMMARY_COLS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
         [
             record.id,
             record.node_id,
@@ -124,13 +120,12 @@ def query_same_spec_summaries(
             [spec_name, run_id, task_group, max_items],
         ).fetchall()
     except duckdb.CatalogException:
-        logger.debug(
-            "session_summaries table not found; returning empty same-spec list"
-        )
+        logger.debug("session_summaries table not found; returning empty same-spec list")
         return []
     except Exception:
         logger.debug(
-            "Could not query same-spec summaries for %s", spec_name,
+            "Could not query same-spec summaries for %s",
+            spec_name,
             exc_info=True,
         )
         return []
@@ -175,13 +170,12 @@ def query_cross_spec_summaries(
             [run_id, spec_name, max_items],
         ).fetchall()
     except duckdb.CatalogException:
-        logger.debug(
-            "session_summaries table not found; returning empty cross-spec list"
-        )
+        logger.debug("session_summaries table not found; returning empty cross-spec list")
         return []
     except Exception:
         logger.debug(
-            "Could not query cross-spec summaries for %s", spec_name,
+            "Could not query cross-spec summaries for %s",
+            spec_name,
             exc_info=True,
         )
         return []

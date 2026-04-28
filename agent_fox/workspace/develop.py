@@ -133,9 +133,7 @@ async def _sync_develop_with_remote(repo_root: Path) -> str | None:
         return await _sync_develop_under_lock(repo_root, remote_ahead, local_ahead)
 
 
-async def _sync_develop_under_lock(
-    repo_root: Path, remote_ahead: int, local_ahead: int
-) -> str | None:
+async def _sync_develop_under_lock(repo_root: Path, remote_ahead: int, local_ahead: int) -> str | None:
     """Execute the develop sync strategies under the merge lock.
 
     Called from _sync_develop_with_remote() after the lock is acquired.
