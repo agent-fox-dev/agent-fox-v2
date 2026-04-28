@@ -3,6 +3,8 @@
 Test Spec: TS-27-1, TS-27-2, TS-27-6, TS-27-7, TS-27-8, TS-27-E1, TS-27-E2, TS-27-E5
 Requirements: 27-REQ-1.1, 27-REQ-1.E1, 27-REQ-2.1, 27-REQ-2.E1,
               27-REQ-4.1, 27-REQ-4.2, 27-REQ-4.3, 27-REQ-4.E1
+
+Issue #553: observation/minor findings are stored but never retrieved.
 """
 
 from __future__ import annotations
@@ -384,3 +386,108 @@ class TestInsertWithSupersessionPerTaskGroup:
             assert row[1] == "new", (
                 f"Old finding '{row[0]}' should have superseded_by='new', got '{row[1]}'"
             )
+
+
+# ---------------------------------------------------------------------------
+# Issue #553: observation/minor findings must not reach review_findings table
+# ---------------------------------------------------------------------------
+
+
+class TestInsertFindingsDropsNonActionable:
+    """AC-1: insert_findings() silently drops observation/minor findings.
+
+    Only critical and major findings are written to the database.
+    The return value equals the count of actionable findings only.
+    """
+
+    def test_returns_only_actionable_count(self, schema_conn: duckdb.DuckDBPyConnection) -> None:
+        """insert_findings() with mixed severities returns count of actionable only."""
+        findings = [
+            _make_finding(severity="critical", description="critical finding", task_group="c1"),
+            _make_finding(severity="major", description="major finding", task_group="m1"),
+            _make_finding(severity="minor", description="minor finding", task_group="mi1"),
+            _make_finding(severity="observation", description="observation finding", task_group="o1"),
+        ]
+        count = insert_findings(schema_conn, findings)
+        assert count == 2, f"Expected 2 actionable findings inserted, got {count}"
+
+    def test_observation_and_minor_not_in_db(self, schema_conn: duckdb.DuckDBPyConnection) -> None:
+        """No observation or minor rows appear in review_findings after insert."""
+        findings = [
+            _make_finding(severity="critical", description="critical finding", task_group="c1"),
+            _make_finding(severity="major", description="major finding", task_group="m1"),
+            _make_finding(severity="minor", description="minor finding", task_group="mi1"),
+            _make_finding(severity="observation", description="observation finding", task_group="o1"),
+        ]
+        insert_findings(schema_conn, findings)
+
+        dead_rows = schema_conn.execute(
+            "SELECT COUNT(*) FROM review_findings WHERE severity IN ('minor', 'observation')"
+        ).fetchone()
+        assert dead_rows[0] == 0, (
+            f"Expected 0 minor/observation rows in DB, found {dead_rows[0]}"
+        )
+
+    def test_all_non_actionable_returns_zero(self, schema_conn: duckdb.DuckDBPyConnection) -> None:
+        """insert_findings() with only observation/minor findings returns 0."""
+        findings = [
+            _make_finding(severity="minor", description="minor finding", task_group="mi1"),
+            _make_finding(severity="observation", description="obs finding", task_group="o1"),
+        ]
+        count = insert_findings(schema_conn, findings)
+        assert count == 0
+
+        total = schema_conn.execute("SELECT COUNT(*) FROM review_findings").fetchone()
+        assert total[0] == 0
+
+
+class TestQueryActiveFindingsExcludesNonActionable:
+    """AC-2: query_active_findings() never returns observation/minor findings.
+
+    This holds even when such rows are present in the DB (legacy data).
+    """
+
+    def test_legacy_observation_minor_excluded_from_query(
+        self, schema_conn: duckdb.DuckDBPyConnection
+    ) -> None:
+        """Legacy observation/minor rows in DB are excluded from query results."""
+        # Insert legacy rows directly via SQL (bypassing insert_findings filter)
+        for sev in ("observation", "minor"):
+            schema_conn.execute(
+                "INSERT INTO review_findings "
+                "(id, severity, description, spec_name, task_group, session_id, created_at) "
+                "VALUES (gen_random_uuid(), ?, ?, 'spec_01', 'tg_legacy', 'legacy', CURRENT_TIMESTAMP)",
+                [sev, f"Legacy {sev} finding"],
+            )
+
+        # Also insert an active critical finding via normal path
+        crit = _make_finding(
+            severity="critical",
+            description="Real critical finding",
+            spec_name="spec_01",
+            task_group="tg_crit",
+        )
+        insert_findings(schema_conn, [crit])
+
+        results = query_active_findings(schema_conn, "spec_01")
+        severities = {f.severity for f in results}
+        assert "observation" not in severities, "observation finding leaked into query results"
+        assert "minor" not in severities, "minor finding leaked into query results"
+        assert any(f.description == "Real critical finding" for f in results), (
+            "Expected critical finding to be present"
+        )
+
+    def test_only_observation_minor_returns_empty(
+        self, schema_conn: duckdb.DuckDBPyConnection
+    ) -> None:
+        """When only legacy observation/minor rows exist, query returns empty list."""
+        for sev in ("observation", "minor"):
+            schema_conn.execute(
+                "INSERT INTO review_findings "
+                "(id, severity, description, spec_name, task_group, session_id, created_at) "
+                "VALUES (gen_random_uuid(), ?, ?, 'spec_01', 'tg_legacy', 'legacy', CURRENT_TIMESTAMP)",
+                [sev, f"Legacy {sev} finding"],
+            )
+
+        results = query_active_findings(schema_conn, "spec_01")
+        assert results == [], f"Expected empty list, got {results}"

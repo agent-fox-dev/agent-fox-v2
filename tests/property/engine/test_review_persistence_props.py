@@ -80,6 +80,8 @@ def _make_finding(
 # ---------------------------------------------------------------------------
 
 VALID_SEVERITIES = ["critical", "major", "minor", "observation"]
+# Only these severities are persisted by insert_findings() (issue #553).
+ACTIONABLE_SEVERITIES = ["critical", "major"]
 # Reviewer needs mode to route correctly; use (archetype, mode) tuples
 VALID_ARCHETYPES = ["reviewer", "verifier"]
 _ARCHETYPE_MODES: dict[str, str | None] = {
@@ -91,9 +93,16 @@ WRITE_COMMANDS = {"cp", "mv", "rm", "mkdir", "touch", "tee", "sed", "awk"}
 
 @st.composite
 def valid_review_finding_dict(draw: st.DrawFn) -> dict:
-    """Generate a valid ReviewFinding dict."""
+    """Generate a valid ReviewFinding dict with actionable severity.
+
+    Restricted to critical/major because insert_findings() silently drops
+    minor and observation findings (issue #553). The "parse or warn" invariant
+    tested in TestParseOrWarnInvariant only applies when input is actionable:
+    valid JSON with only non-actionable findings is parsed-and-discarded by
+    design, which is a third outcome not covered by that invariant.
+    """
     return {
-        "severity": draw(st.sampled_from(VALID_SEVERITIES)),
+        "severity": draw(st.sampled_from(ACTIONABLE_SEVERITIES)),
         "description": draw(
             st.text(
                 min_size=1,

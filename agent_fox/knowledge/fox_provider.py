@@ -164,6 +164,10 @@ class FoxKnowledgeProvider:
         Handles missing ``review_findings`` table gracefully by returning
         an empty list (116-REQ-6.E1).  Filters to ``critical`` and
         ``major`` severity only (116-REQ-6.1).
+
+        ``query_active_findings`` already excludes non-actionable severities;
+        the ``if f.severity in (...)`` guard below is defense-in-depth and
+        kept consistent with that filter (issue #553).
         """
         try:
             from agent_fox.knowledge.review_store import query_active_findings

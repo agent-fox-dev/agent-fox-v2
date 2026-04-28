@@ -22,6 +22,11 @@ logger = logging.getLogger(__name__)
 VALID_SEVERITIES = {"critical", "major", "minor", "observation"}
 VALID_VERDICTS = {"PASS", "FAIL"}
 
+# Only these severities are actionable and persisted to review_findings.
+# ``minor`` and ``observation`` have no downstream consumers so they are
+# dropped at write time to avoid storing dead rows (issue #553).
+ACTIONABLE_SEVERITIES: frozenset[str] = frozenset({"critical", "major"})
+
 # Defense-in-depth: only these table names may be interpolated into SQL.
 _ALLOWED_TABLES: frozenset[str] = frozenset({"review_findings", "drift_findings", "verification_results"})
 
@@ -217,13 +222,23 @@ def insert_findings(
     """Insert findings, superseding existing active records for the same
     (spec_name, task_group). Returns count of inserted records.
 
+    Only ``critical`` and ``major`` findings are persisted.  ``minor`` and
+    ``observation`` findings are silently dropped before the write — they
+    have no downstream consumers and storing them wastes I/O (issue #553).
+
     Requirements: 27-REQ-4.1, 27-REQ-4.3, 27-REQ-4.E1
     """
+    actionable = [f for f in findings if f.severity in ACTIONABLE_SEVERITIES]
+    if len(actionable) < len(findings):
+        logger.debug(
+            "Dropping %d non-actionable finding(s) (minor/observation) before insert",
+            len(findings) - len(actionable),
+        )
     return _insert_with_supersession(
         conn,
         table="review_findings",
         columns=("id, severity, description, requirement_ref, spec_name, task_group, session_id, category"),
-        records=findings,
+        records=actionable,
         value_extractor=lambda f: [
             f.id,
             f.severity,
@@ -347,7 +362,11 @@ def query_active_findings(
     spec_name: str,
     task_group: str | None = None,
 ) -> list[ReviewFinding]:
-    """Query non-superseded findings for a spec.
+    """Query non-superseded actionable findings for a spec.
+
+    Returns only ``critical`` and ``major`` findings.  ``minor`` and
+    ``observation`` rows are excluded as a defense-in-depth guard against
+    any legacy rows that may have been written before issue #553 was fixed.
 
     Requirements: 27-REQ-5.1
     """
@@ -359,7 +378,7 @@ def query_active_findings(
         task_group,
         "severity, description",
     )
-    findings = [_row_to_finding(r) for r in rows]
+    findings = [_row_to_finding(r) for r in rows if r[1] in ACTIONABLE_SEVERITIES]
     findings.sort(key=lambda f: (_SEVERITY_ORDER.get(f.severity, 99), f.description))
     return findings
 

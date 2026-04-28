@@ -464,3 +464,52 @@ class TestImportBoundary:
                 assert match in allowed, (
                     f"{py_file.name} imports agent_fox.knowledge.{match} which is not in the allowed set: {allowed}"
                 )
+
+
+# ===========================================================================
+# Issue #553: observation/minor findings must not appear in retrieve() output
+# ===========================================================================
+
+
+class TestReviewCarryForwardExcludesObservation:
+    """AC-4: retrieve() returns no [REVIEW] items when only observation/minor
+    findings exist for a spec.
+
+    Issue #553: observation findings were previously stored but never retrieved,
+    wasting storage. Now they are not stored at all; this test ensures the
+    retrieval layer also rejects any legacy observation rows.
+    """
+
+    def test_observation_finding_excluded(self, provider_db, provider_conn) -> None:
+        """retrieve() returns no [REVIEW] items for a spec with only observation findings."""
+        # Insert observation finding directly via SQL to simulate legacy data
+        # (insert_findings now drops these, so we bypass it).
+        provider_conn.execute(
+            "INSERT INTO review_findings "
+            "(id, severity, description, spec_name, task_group, session_id, created_at) "
+            "VALUES (gen_random_uuid(), 'observation', 'Observation note', "
+            "'spec_01', 'tg1', 's1', CURRENT_TIMESTAMP)"
+        )
+
+        provider = _make_provider(provider_db)
+        result = provider.retrieve("spec_01", "task")
+        reviews = [r for r in result if r.startswith("[REVIEW]")]
+        assert reviews == [], (
+            f"Expected no [REVIEW] items for observation-only spec, got: {reviews}"
+        )
+
+    def test_minor_finding_excluded(self, provider_db, provider_conn) -> None:
+        """retrieve() returns no [REVIEW] items for a spec with only minor findings."""
+        provider_conn.execute(
+            "INSERT INTO review_findings "
+            "(id, severity, description, spec_name, task_group, session_id, created_at) "
+            "VALUES (gen_random_uuid(), 'minor', 'Minor style nit', "
+            "'spec_02', 'tg1', 's1', CURRENT_TIMESTAMP)"
+        )
+
+        provider = _make_provider(provider_db)
+        result = provider.retrieve("spec_02", "task")
+        reviews = [r for r in result if r.startswith("[REVIEW]")]
+        assert reviews == [], (
+            f"Expected no [REVIEW] items for minor-only spec, got: {reviews}"
+        )
