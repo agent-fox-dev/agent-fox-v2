@@ -1,6 +1,7 @@
 """Merge lock unit tests.
 
 Test Spec: TS-45-1 through TS-45-3, TS-45-E1 through TS-45-E4
+Tests for Issue #561: stale_timeout default, heartbeat, concurrent safety.
 Requirements: 45-REQ-1.1 through 45-REQ-1.E3, 45-REQ-2.1, 45-REQ-2.2, 45-REQ-2.E1
 """
 
@@ -16,7 +17,7 @@ from pathlib import Path
 import pytest
 
 from agent_fox.core.errors import IntegrationError
-from agent_fox.workspace.merge_lock import MergeLock
+from agent_fox.workspace.merge_lock import _DEFAULT_STALE_TIMEOUT, MergeLock
 
 
 @pytest.fixture
@@ -296,3 +297,225 @@ class TestLockAsContextManager:
                 raise ValueError("boom")
 
         assert not lock_file.exists()
+
+
+# ---------------------------------------------------------------------------
+# Issue #561: stale_timeout default must be large enough for merge-agent sessions
+# ---------------------------------------------------------------------------
+
+
+class TestDefaultStaletimeoutLargeEnough:
+    """AC-1: Default stale_timeout >= 3600 so a 300s-old lock is not broken."""
+
+    def test_default_stale_timeout_at_least_3600(self, lock_repo: Path) -> None:
+        """MergeLock built with no explicit stale_timeout has stale_timeout >= 3600."""
+        lock_repo.mkdir(parents=True)
+        lock = MergeLock(lock_repo)
+        assert lock.stale_timeout >= 3600
+
+    def test_module_constant_at_least_3600(self) -> None:
+        """_DEFAULT_STALE_TIMEOUT module constant is >= 3600."""
+        assert _DEFAULT_STALE_TIMEOUT >= 3600
+
+    @pytest.mark.asyncio
+    async def test_lock_300s_old_not_broken_by_default(self, lock_repo: Path) -> None:
+        """A lock file with mtime 300 s ago is NOT broken with the default stale_timeout."""
+        lock_repo.mkdir(parents=True)
+        agent_fox_dir = lock_repo / ".agent-fox"
+        agent_fox_dir.mkdir(parents=True, exist_ok=True)
+        lock_file = agent_fox_dir / "merge.lock"
+        lock_file.write_text(
+            json.dumps({"pid": 999999, "hostname": "other", "acquired_at": "2026-01-01T00:00:00Z"})
+        )
+        # Set mtime to 300 s ago — should NOT be considered stale with 3600 s default
+        mtime_300s_ago = time.time() - 300
+        os.utime(lock_file, (mtime_300s_ago, mtime_300s_ago))
+
+        # Attempt to acquire with a very short timeout so it fails fast.
+        # The important thing: the lock must NOT have been broken (file still exists
+        # and still belongs to pid 999999 after the attempt).
+        waiter = MergeLock(lock_repo, timeout=0.2, poll_interval=0.05)
+        with pytest.raises(IntegrationError, match="(?i)timeout"):
+            await waiter.acquire()
+
+        # The 300 s-old lock file should still be intact (not broken)
+        assert lock_file.exists(), "Lock file was wrongly broken despite being only 300 s old"
+        content = json.loads(lock_file.read_text())
+        assert content["pid"] == 999999, "Lock file was replaced — stale break fired incorrectly"
+
+
+# ---------------------------------------------------------------------------
+# Issue #561: heartbeat keeps mtime fresh while the lock is held
+# ---------------------------------------------------------------------------
+
+
+class TestHeartbeat:
+    """AC-3: Heartbeat updates mtime at least once per (stale_timeout / 2) seconds."""
+
+    @pytest.mark.asyncio
+    async def test_heartbeat_refreshes_mtime(self, lock_repo: Path) -> None:
+        """Lock file mtime is updated by the heartbeat while the lock is held."""
+        lock_repo.mkdir(parents=True)
+        # Use a very short stale_timeout so the heartbeat fires quickly in the test
+        lock = MergeLock(lock_repo, stale_timeout=0.2, poll_interval=0.05)
+
+        acquire_time = time.time()
+        await lock.acquire()
+        lock_file = lock_repo / ".agent-fox" / "merge.lock"
+
+        # Manually backdate the mtime to simulate passage of time
+        old_mtime = acquire_time - 1
+        os.utime(lock_file, (old_mtime, old_mtime))
+        assert lock_file.stat().st_mtime < acquire_time  # sanity
+
+        # Wait long enough for heartbeat to fire (interval = stale_timeout / 2 = 0.1 s)
+        await asyncio.sleep(0.25)
+
+        # Mtime should now be >= acquire_time (heartbeat refreshed it)
+        new_mtime = lock_file.stat().st_mtime
+        assert new_mtime >= acquire_time - 0.05, (
+            f"Heartbeat did not refresh mtime: mtime={new_mtime:.3f}, "
+            f"acquire_time={acquire_time:.3f}"
+        )
+
+        await lock.release()
+
+    @pytest.mark.asyncio
+    async def test_heartbeat_prevents_stale_break_by_waiter(self, lock_repo: Path) -> None:
+        """A heartbeating holder is not broken by a concurrent waiter checking stale."""
+        lock_repo.mkdir(parents=True)
+
+        # stale_timeout=0.4 s, heartbeat fires at 0.2 s
+        holder = MergeLock(
+            lock_repo,
+            stale_timeout=0.4,
+            timeout=10.0,
+            poll_interval=0.05,
+        )
+        await holder.acquire()
+        lock_file = lock_repo / ".agent-fox" / "merge.lock"
+
+        # Let the heartbeat fire once
+        await asyncio.sleep(0.25)
+
+        # A concurrent waiter with the same short stale_timeout should not break
+        # the holder's lock, because the mtime was just refreshed by the heartbeat.
+        # It should time out instead.
+        waiter = MergeLock(
+            lock_repo,
+            stale_timeout=0.4,
+            timeout=0.15,
+            poll_interval=0.05,
+        )
+        with pytest.raises(IntegrationError, match="(?i)timeout"):
+            await waiter.acquire()
+
+        # Holder's lock file should still exist and belong to our pid
+        assert lock_file.exists(), "Holder's lock was wrongly broken by the waiter"
+        content = json.loads(lock_file.read_text())
+        assert content["pid"] == os.getpid()
+
+        await holder.release()
+
+    @pytest.mark.asyncio
+    async def test_heartbeat_task_cancelled_on_release(self, lock_repo: Path) -> None:
+        """The heartbeat task is cleaned up after release()."""
+        lock_repo.mkdir(parents=True)
+        lock = MergeLock(lock_repo, stale_timeout=60.0)
+
+        await lock.acquire()
+        assert lock._heartbeat_task is not None
+
+        await lock.release()
+        assert lock._heartbeat_task is None
+
+
+# ---------------------------------------------------------------------------
+# Issue #561: AC-4 — normal release does not log 'already removed' warning
+# ---------------------------------------------------------------------------
+
+
+class TestNormalReleaseNoWarning:
+    """AC-4: Normal acquire/release cycle emits no WARNING-level log about 'already removed'."""
+
+    @pytest.mark.asyncio
+    async def test_normal_release_no_already_removed_warning(
+        self,
+        lock_repo: Path,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Acquiring and releasing normally produces no 'already removed' warning."""
+        lock_repo.mkdir(parents=True)
+        lock = MergeLock(lock_repo)
+
+        with caplog.at_level(logging.WARNING, logger="agent_fox.workspace.merge_lock"):
+            await lock.acquire()
+            await lock.release()
+
+        already_removed_warnings = [
+            r for r in caplog.records
+            if r.levelno >= logging.WARNING and "already removed" in r.message.lower()
+        ]
+        assert not already_removed_warnings, (
+            f"Unexpected 'already removed' warning: {already_removed_warnings}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Issue #561: AC-5 — two concurrent holders cannot overlap with heartbeat
+# ---------------------------------------------------------------------------
+
+
+class TestConcurrentHoldersMutualExclusion:
+    """AC-5: Heartbeating holder cannot be displaced by a concurrent waiter."""
+
+    @pytest.mark.asyncio
+    async def test_only_one_holder_at_a_time_with_heartbeat(self, lock_repo: Path) -> None:
+        """With heartbeat active, only one lock holder exists at any moment."""
+        lock_repo.mkdir(parents=True)
+
+        # stale_timeout=0.3, heartbeat=0.15 s; acquisition hold=0.5 s
+        hold_seconds = 0.5
+        stale_timeout = 0.3
+        holder = MergeLock(
+            lock_repo,
+            stale_timeout=stale_timeout,
+            timeout=5.0,
+            poll_interval=0.02,
+        )
+        waiter = MergeLock(
+            lock_repo,
+            stale_timeout=stale_timeout,
+            timeout=5.0,
+            poll_interval=0.02,
+        )
+
+        holder_released_at: list[float] = []
+        waiter_acquired_at: list[float] = []
+
+        async def run_holder() -> None:
+            async with holder:
+                await asyncio.sleep(hold_seconds)
+                holder_released_at.append(time.monotonic())
+
+        async def run_waiter() -> None:
+            # Small delay so holder gets there first
+            await asyncio.sleep(0.05)
+            async with waiter:
+                waiter_acquired_at.append(time.monotonic())
+
+        results = await asyncio.gather(
+            run_holder(),
+            run_waiter(),
+            return_exceptions=True,
+        )
+        for r in results:
+            assert not isinstance(r, Exception), f"Unexpected error: {r}"
+
+        assert holder_released_at and waiter_acquired_at
+        # Waiter must have acquired AFTER the holder released
+        overlap = waiter_acquired_at[0] < holder_released_at[0]
+        assert not overlap, (
+            f"Lock overlap detected: waiter acquired at {waiter_acquired_at[0]:.3f}, "
+            f"holder released at {holder_released_at[0]:.3f}"
+        )
