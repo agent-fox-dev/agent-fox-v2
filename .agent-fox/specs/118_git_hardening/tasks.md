@@ -30,8 +30,8 @@ group 3 modifies `errors.py`, `harvest.py`, `result_handler.py`, and
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create test file for workspace health module
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create test file for workspace health module
     - Create `tests/unit/workspace/test_health.py`
     - Write test functions for TS-118-1, TS-118-2, TS-118-3, TS-118-4,
       TS-118-5, TS-118-18
@@ -39,7 +39,7 @@ group 3 modifies `errors.py`, `harvest.py`, `result_handler.py`, and
     - All tests MUST fail (assert against not-yet-implemented behavior)
     - _Test Spec: TS-118-1, TS-118-2, TS-118-3, TS-118-4, TS-118-5, TS-118-18_
 
-  - [ ] 1.2 Write harvest and error classification tests
+  - [x] 1.2 Write harvest and error classification tests
     - Add test functions to `tests/unit/workspace/test_harvester.py` for
       TS-118-6, TS-118-7, TS-118-9, TS-118-17
     - Tests for `force_clean` parameter on `_clean_conflicting_untracked` and
@@ -47,30 +47,30 @@ group 3 modifies `errors.py`, `harvest.py`, `result_handler.py`, and
     - Tests for `retryable` attribute on `IntegrationError`
     - _Test Spec: TS-118-6, TS-118-7, TS-118-9, TS-118-17_
 
-  - [ ] 1.3 Write result handler and dispatch tests
+  - [x] 1.3 Write result handler and dispatch tests
     - Add test functions to `tests/unit/engine/test_result_handler.py` for
       TS-118-8
     - Add test functions for TS-118-10 (pre-session check in dispatch)
     - _Test Spec: TS-118-8, TS-118-10_
 
-  - [ ] 1.4 Write cascade blocking tests
+  - [x] 1.4 Write cascade blocking tests
     - Add test functions to `tests/unit/engine/test_graph_sync.py` for
       TS-118-15, TS-118-16
     - _Test Spec: TS-118-15, TS-118-16_
 
-  - [ ] 1.5 Write run lifecycle and develop sync tests
+  - [x] 1.5 Write run lifecycle and develop sync tests
     - Write tests for TS-118-11, TS-118-12, TS-118-13, TS-118-14
     - _Test Spec: TS-118-11, TS-118-12, TS-118-13, TS-118-14_
 
-  - [ ] 1.6 Write edge case and property tests
+  - [x] 1.6 Write edge case and property tests
     - Write edge case tests: TS-118-E1 through TS-118-E10
     - Write property tests: TS-118-P1 through TS-118-P7
     - _Test Spec: TS-118-E1 through TS-118-E10, TS-118-P1 through TS-118-P7_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/`
 
 - [ ] 2. Workspace health module and force-clean
   - [ ] 2.1 Create `agent_fox/workspace/health.py`
