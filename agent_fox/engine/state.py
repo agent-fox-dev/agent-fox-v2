@@ -60,6 +60,7 @@ class SessionRecord:
     commit_sha: str = ""  # develop HEAD after harvest (empty if no code merged)
     is_transport_error: bool = False  # True when failure was a transient connection error
     is_budget_exhausted: bool = False  # True when failure was caused by SDK budget limit
+    is_non_retryable: bool = False  # True when failure is non-retryable (workspace-state error)
 
 
 @dataclass

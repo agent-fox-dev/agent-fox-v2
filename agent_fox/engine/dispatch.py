@@ -454,10 +454,44 @@ class DispatchManager:
     ) -> tuple[str, int, str | None, str, int, Any | None, str | None] | None:
         """Assess a node and check whether it may launch.
 
+        Performs a pre-session workspace health check before creating the
+        worktree. If untracked files are detected, the node is blocked
+        with a diagnostic message. Git command errors are treated as
+        fail-open (dispatch proceeds).
+
         Returns a tuple of (verdict, attempt, previous_error, archetype,
         instances, assessed_tier, mode) if the node is allowed to launch,
         or None if it was blocked/limited.
+
+        Requirements: 118-REQ-4.1, 118-REQ-4.2, 118-REQ-4.3, 118-REQ-4.E1
         """
+        # 118-REQ-4.1: Pre-session workspace health check
+        try:
+            from agent_fox.workspace.health import (
+                check_workspace_health,
+                format_health_diagnostic,
+            )
+
+            report = await check_workspace_health(Path.cwd())
+            if report.has_issues:
+                # 118-REQ-4.2: Block node with diagnostic message
+                diagnostic = format_health_diagnostic(report)
+                logger.warning(
+                    "Pre-session health check failed for %s: %s",
+                    node_id,
+                    diagnostic,
+                )
+                if hasattr(self, "_block_task_fn"):
+                    self._block_task_fn(node_id, state, f"workspace-state: {diagnostic}")
+                return None
+        except Exception:
+            # 118-REQ-4.E1: Fail-open on git command errors
+            logger.warning(
+                "Pre-session health check failed with exception for %s, proceeding",
+                node_id,
+                exc_info=True,
+            )
+
         archetype = self.get_node_archetype(node_id)
         mode = self.get_node_mode(node_id)
         await self._routing.assess_node(

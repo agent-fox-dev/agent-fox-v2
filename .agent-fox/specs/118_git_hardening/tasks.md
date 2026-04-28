@@ -117,21 +117,21 @@ group 3 modifies `errors.py`, `harvest.py`, `result_handler.py`, and
     - [x] 118-REQ-1.1, 1.2, 1.3, 1.E1, 1.E2, 2.1, 2.2, 2.E1, 2.E2, 8.1,
           8.2, 8.E1 acceptance criteria met
 
-- [ ] 3. Non-retryable error classification and pre-session guard
-  - [ ] 3.1 Add `retryable` attribute to `IntegrationError`
+- [x] 3. Non-retryable error classification and pre-session guard
+  - [x] 3.1 Add `retryable` attribute to `IntegrationError`
     - Modify `agent_fox/core/errors.py`
     - Add `retryable: bool = True` parameter to `__init__`
     - Store as instance attribute
     - Backward-compatible: default is `True`
     - _Requirements: 118-REQ-3.1_
 
-  - [ ] 3.2 Mark harvest untracked-file errors as non-retryable
+  - [x] 3.2 Mark harvest untracked-file errors as non-retryable
     - Modify `_clean_conflicting_untracked` in `harvest.py`
     - Set `retryable=False` on the IntegrationError for divergent files
     - Add remediation hints to the error message
     - _Requirements: 118-REQ-3.1, 118-REQ-8.1_
 
-  - [ ] 3.3 Thread `force_clean` through harvest
+  - [x] 3.3 Thread `force_clean` through harvest
     - Add `force_clean` parameter to `harvest()` and
       `_clean_conflicting_untracked()`
     - When `force_clean=True`: remove divergent files instead of raising
@@ -139,32 +139,32 @@ group 3 modifies `errors.py`, `harvest.py`, `result_handler.py`, and
     - Emit `workspace.force_clean` audit event
     - _Requirements: 118-REQ-2.3_
 
-  - [ ] 3.4 Add `is_non_retryable` to SessionRecord and propagate
+  - [x] 3.4 Add `is_non_retryable` to SessionRecord and propagate
     - Add `is_non_retryable: bool = False` field to `SessionRecord`
     - In `_harvest_and_integrate`: check `exc.retryable` on caught
       `IntegrationError`, set `is_non_retryable` accordingly
     - _Requirements: 118-REQ-3.1, 118-REQ-3.2_
 
-  - [ ] 3.5 Update result handler to check non-retryable flag
+  - [x] 3.5 Update result handler to check non-retryable flag
     - In `_handle_failure`: check `record.is_non_retryable`
     - If True: block immediately with "workspace-state" in reason,
       skip escalation ladder
     - _Requirements: 118-REQ-3.2, 118-REQ-3.3_
 
-  - [ ] 3.6 Add pre-session workspace check in dispatch
+  - [x] 3.6 Add pre-session workspace check in dispatch
     - In `prepare_launch` (or the dispatch entry point): call
       `check_workspace_health` before creating worktree
     - If dirty: return None (skip dispatch), block node with diagnostics
     - Fail-open on git errors
     - _Requirements: 118-REQ-4.1, 118-REQ-4.2, 118-REQ-4.3, 118-REQ-4.E1_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests pass: TS-118-6, TS-118-7, TS-118-8, TS-118-9,
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests pass: TS-118-6, TS-118-7, TS-118-8, TS-118-9,
           TS-118-10, TS-118-17, TS-118-E5
-    - [ ] Property tests pass: TS-118-P3
+    - [x] Property tests pass: TS-118-P3
     - [x] All existing tests still pass: `uv run pytest -q`
     - [x] No linter warnings: `uv run ruff check agent_fox/ tests/`
-    - [ ] 118-REQ-3.1, 3.2, 3.3, 3.E1, 4.1, 4.2, 4.3, 4.E1, 2.3 acceptance
+    - [x] 118-REQ-3.1, 3.2, 3.3, 3.E1, 4.1, 4.2, 4.3, 4.E1, 2.3 acceptance
           criteria met
 
 - [ ] 4. Run lifecycle and cascade blocking improvements

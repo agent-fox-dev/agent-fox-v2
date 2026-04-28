@@ -296,7 +296,7 @@ class TestNoDuplicateSessionOutcomeWrite:
                 runner,
                 "_harvest_and_integrate",
                 new_callable=AsyncMock,
-                return_value=("completed", None, []),
+                return_value=("completed", None, [], False),
             ),
             patch(
                 "agent_fox.engine.session_lifecycle._capture_develop_head",
@@ -382,7 +382,7 @@ class TestNoDuplicateHarvestCompleteEvent:
                 runner,
                 "_harvest_and_integrate",
                 new_callable=AsyncMock,
-                return_value=("completed", None, ["some_file.py"]),
+                return_value=("completed", None, ["some_file.py"], False),
             ),
             patch(
                 "agent_fox.engine.session_lifecycle._capture_develop_head",

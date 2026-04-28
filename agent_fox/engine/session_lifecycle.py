@@ -462,20 +462,21 @@ class NodeSessionRunner:
         outcome: SessionOutcome,
         workspace: WorkspaceInfo,
         repo_root: Path,
-    ) -> tuple[str, str | None, list[str]]:
+    ) -> tuple[str, str | None, list[str], bool]:
         """Harvest changes on success and run post-harvest integration.
 
-        Returns (status, error_message, touched_files).
+        Returns (status, error_message, touched_files, is_non_retryable).
 
         Requirements: 03-REQ-7.1, 19-REQ-3.4, 35-REQ-1.1,
-                      40-REQ-11.1, 40-REQ-11.2
+                      40-REQ-11.1, 40-REQ-11.2, 118-REQ-3.1
         """
         error_message = outcome.error_message
         status = outcome.status
         touched_files: list[str] = []
+        is_non_retryable = False
 
         if outcome.status != "completed":
-            return status, error_message, touched_files
+            return status, error_message, touched_files, is_non_retryable
 
         # 03-REQ-7.1: Harvest changes into develop on success
         try:
@@ -508,6 +509,8 @@ class NodeSessionRunner:
                 f"The coding work was done — the merge into develop "
                 f"encountered a conflict."
             )
+            # 118-REQ-3.1: Propagate non-retryable classification
+            is_non_retryable = not exc.retryable
             # 40-REQ-11.2: Emit git.conflict on merge failure
             emit_audit_event(
                 self._sink,
@@ -527,7 +530,7 @@ class NodeSessionRunner:
                 node_id,
                 exc,
             )
-            return status, error_message, touched_files
+            return status, error_message, touched_files, is_non_retryable
 
         # 35-REQ-1.1: Capture develop HEAD SHA after successful harvest
         # 19-REQ-3.4: Post-harvest remote integration
@@ -545,7 +548,7 @@ class NodeSessionRunner:
                     exc_info=True,
                 )
 
-        return status, error_message, touched_files
+        return status, error_message, touched_files, is_non_retryable
 
     def _ingest_knowledge(
         self,
@@ -671,7 +674,7 @@ class NodeSessionRunner:
                 resolved_budget,
             )
 
-        status, error_message, touched_files = await self._harvest_and_integrate(
+        status, error_message, touched_files, is_non_retryable = await self._harvest_and_integrate(
             node_id,
             outcome,
             workspace,
@@ -763,6 +766,7 @@ class NodeSessionRunner:
             commit_sha=commit_sha,
             is_transport_error=getattr(outcome, "is_transport_error", False),
             is_budget_exhausted=is_budget_exhausted,
+            is_non_retryable=is_non_retryable,
         )
 
     def _persist_review_findings(
