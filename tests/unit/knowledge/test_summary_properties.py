@@ -197,11 +197,16 @@ class TestAuditPayloadConsistencyProperty:
     @settings(max_examples=50)
     @given(summary_len=st.integers(min_value=0, max_value=5000))
     def test_audit_payload_consistency(self, summary_len):
+        """Verify truncate_for_audit produces correct output for any length.
+
+        Exercises the production truncation function rather than reimplementing
+        the formula locally.  Fails until truncate_for_audit is implemented.
+        """
+        from agent_fox.knowledge.summary_store import truncate_for_audit
+
         summary_text = "x" * summary_len
-        if summary_text and len(summary_text) > 2000:
-            audit_summary = summary_text[:2000] + "..."
-        else:
-            audit_summary = summary_text
+        audit_summary = truncate_for_audit(summary_text)
+
         if summary_len > 2000:
             assert len(audit_summary) == 2003
             assert audit_summary.endswith("...")

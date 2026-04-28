@@ -60,11 +60,17 @@ def _make_record(*, id=None, node_id="spec_a:2", run_id="run-1",
     )
 
 
-def _make_provider(provider_db, **overrides):
+def _make_provider(provider_db, run_id=None):
     from agent_fox.core.config import KnowledgeProviderConfig
     from agent_fox.knowledge.fox_provider import FoxKnowledgeProvider
-    config = overrides.pop("config", KnowledgeProviderConfig())
-    return FoxKnowledgeProvider(provider_db, config)
+
+    provider = FoxKnowledgeProvider(provider_db, KnowledgeProviderConfig())
+    # Set run_id so summary queries can filter by run.
+    # The production code will receive run_id via constructor or config
+    # (task 3.3); we set the private attribute to anticipate that wiring.
+    if run_id is not None:
+        provider._run_id = run_id
+    return provider
 
 
 # TS-119-6: Summaries formatted with CONTEXT prefix (119-REQ-2.2)
@@ -74,7 +80,7 @@ class TestSummariesFormattedWithContextPrefix:
             spec_name="spec_a", task_group="2", node_id="spec_a:2",
             attempt=1, summary="Built the SQLite store with WAL mode",
         ))
-        provider = _make_provider(provider_db)
+        provider = _make_provider(provider_db, run_id="run-1")
         items = provider.retrieve("spec_a", "task description",
                                   task_group="3", session_id="spec_a:3")
         context_items = [i for i in items if i.startswith("[CONTEXT]")]
@@ -90,7 +96,7 @@ class TestCrossSpecFormattedWithPrefix:
             spec_name="spec_b", task_group="3", node_id="spec_b:3",
             summary="Changed AuthConfig to remove BearerToken",
         ))
-        provider = _make_provider(provider_db)
+        provider = _make_provider(provider_db, run_id="run-1")
         items = provider.retrieve("spec_a", "task description",
                                   task_group="2", session_id="spec_a:2")
         cross_items = [i for i in items if i.startswith("[CROSS-SPEC]")]

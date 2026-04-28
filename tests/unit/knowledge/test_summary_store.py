@@ -28,6 +28,7 @@ from agent_fox.knowledge.summary_store import (
     insert_summary,
     query_cross_spec_summaries,
     query_same_spec_summaries,
+    truncate_for_audit,
 )
 
 _SESSION_SUMMARIES_DDL = """
@@ -289,16 +290,34 @@ class TestFailedSessionSkipsSummary:
         from agent_fox.core.config import KnowledgeProviderConfig
         from agent_fox.knowledge.db import KnowledgeDB
         from agent_fox.knowledge.fox_provider import FoxKnowledgeProvider
+
         db = KnowledgeDB.__new__(KnowledgeDB)
         db._conn = summary_conn
         provider = FoxKnowledgeProvider(db, KnowledgeProviderConfig())
+
+        # Precondition: verify that a completed session DOES store a summary.
+        # This fails until ingest() handles summaries, preventing the
+        # negative test below from passing trivially.
+        provider.ingest("spec_a:2", "spec_a", {
+            "summary": "Completed work", "session_status": "completed",
+            "touched_files": [], "commit_sha": "abc",
+            "archetype": "coder", "task_group": "2", "attempt": 1,
+        })
+        completed_count = summary_conn.execute(
+            "SELECT COUNT(*) FROM session_summaries"
+        ).fetchone()[0]
+        assert completed_count == 1  # Fails until implementation exists
+
+        # Actual test: a failed session must NOT store a summary row.
         provider.ingest("spec_a:3", "spec_a", {
             "summary": "Some text", "session_status": "failed",
             "touched_files": [], "commit_sha": "",
             "archetype": "coder", "task_group": "3", "attempt": 1,
         })
-        rows = summary_conn.execute("SELECT COUNT(*) FROM session_summaries").fetchone()
-        assert rows[0] == 0
+        total_count = summary_conn.execute(
+            "SELECT COUNT(*) FROM session_summaries"
+        ).fetchone()[0]
+        assert total_count == 1  # Still 1 — failed session didn't add a row
 
 
 # TS-119-E3: Missing table handled gracefully (119-REQ-1.E3, 119-REQ-2.E3)
@@ -375,26 +394,47 @@ class TestNoRunIdSkipsCrossSpec:
 class TestAuditSummaryTruncated:
     def test_truncation_at_2000(self):
         long_summary = "x" * 3000
-        truncated = long_summary[:2000] + "..." if len(long_summary) > 2000 else long_summary
+        truncated = truncate_for_audit(long_summary)
         assert len(truncated) == 2003
         assert truncated.endswith("...")
+        # Original text is unchanged
         assert len(long_summary) == 3000
+
+    def test_no_truncation_under_limit(self):
+        short_summary = "x" * 500
+        result = truncate_for_audit(short_summary)
+        assert result == short_summary
+        assert len(result) == 500
 
 
 # TS-119-E9: DB failure during insert does not crash (119-REQ-5.E1)
 class TestDbFailureDoesNotCrash:
-    def test_broken_conn_no_crash(self, summary_conn):
+    def test_broken_conn_no_crash(self, caplog):
+        import logging
+
         from agent_fox.core.config import KnowledgeProviderConfig
         from agent_fox.knowledge.db import KnowledgeDB
         from agent_fox.knowledge.fox_provider import FoxKnowledgeProvider
-        summary_conn.close()
-        broken_db = KnowledgeDB.__new__(KnowledgeDB)
+
         broken_conn = MagicMock()
         broken_conn.execute.side_effect = RuntimeError("DB is closed")
+        broken_db = KnowledgeDB.__new__(KnowledgeDB)
         broken_db._conn = broken_conn
         provider_broken = FoxKnowledgeProvider(broken_db, KnowledgeProviderConfig())
-        provider_broken.ingest("spec_a:3", "spec_a", {
-            "summary": "text", "session_status": "completed",
-            "touched_files": [], "commit_sha": "",
-            "archetype": "coder", "task_group": "3", "attempt": 1,
-        })
+
+        # Should not raise
+        with caplog.at_level(logging.WARNING):
+            provider_broken.ingest("spec_a:3", "spec_a", {
+                "summary": "text", "session_status": "completed",
+                "touched_files": [], "commit_sha": "",
+                "archetype": "coder", "task_group": "3", "attempt": 1,
+            })
+
+        # After implementation, a warning about summary insertion failure
+        # should be logged. This assertion fails until ingest() handles
+        # summaries and logs graceful DB errors.
+        assert any(
+            "summary" in r.message.lower()
+            for r in caplog.records
+            if r.levelno >= logging.WARNING
+        )

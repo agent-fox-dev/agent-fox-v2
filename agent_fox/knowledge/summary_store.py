@@ -78,3 +78,14 @@ def query_cross_spec_summaries(
     Requirements: 119-REQ-3.1, 119-REQ-3.3, 119-REQ-3.4, 119-REQ-3.5
     """
     raise NotImplementedError("query_cross_spec_summaries not yet implemented")
+
+
+def truncate_for_audit(summary_text: str, max_len: int = 2000) -> str:
+    """Truncate summary text for audit event payload.
+
+    If *summary_text* exceeds *max_len* characters, truncate and append
+    a ``...`` marker.  Returns the original text unchanged when it fits.
+
+    Requirements: 119-REQ-4.E1
+    """
+    raise NotImplementedError("truncate_for_audit not yet implemented")
