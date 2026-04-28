@@ -21,6 +21,31 @@ from agent_fox.knowledge.db import KnowledgeDB
 
 logger = logging.getLogger(__name__)
 
+# Severity ordering for sorting — lower value = higher priority.
+_SEVERITY_RANK: dict[str, int] = {"critical": 0, "major": 1, "minor": 2, "observation": 3}
+
+
+def _extract_keywords(task_description: str) -> frozenset[str]:
+    """Extract lowercase words from *task_description* for relevance scoring.
+
+    Returns an empty frozenset when *task_description* is blank, which
+    causes ``_score_relevance`` to return 0 for every item and preserves
+    the existing severity/description sort order (AC-3).
+    """
+    return frozenset(word.lower() for word in task_description.split() if word)
+
+
+def _score_relevance(text: str, keywords: frozenset[str]) -> int:
+    """Count how many *keywords* appear as substrings in *text* (case-insensitive).
+
+    Returns 0 when *keywords* is empty so that an absent or blank
+    ``task_description`` has no effect on ordering (AC-3).
+    """
+    if not keywords:
+        return 0
+    text_lower = text.lower()
+    return sum(1 for kw in keywords if kw in text_lower)
+
 
 class FoxKnowledgeProvider:
     """Concrete KnowledgeProvider: review carry-forward + ADR retrieval.
@@ -76,10 +101,10 @@ class FoxKnowledgeProvider:
         except KnowledgeStoreError:
             raise
 
-        reviews = self._query_reviews(conn, spec_name, task_group=task_group)
+        reviews = self._query_reviews(conn, spec_name, task_group=task_group, task_description=task_description)
         errata = self._query_errata(conn, spec_name)
         adrs = self._query_adrs(conn, spec_name, task_description)
-        verdicts = self._query_verdicts(conn, spec_name, task_group=task_group)
+        verdicts = self._query_verdicts(conn, spec_name, task_group=task_group, task_description=task_description)
 
         combined = reviews + errata + adrs + verdicts
 
@@ -165,6 +190,7 @@ class FoxKnowledgeProvider:
         conn: Any,
         spec_name: str,
         task_group: str | None = None,
+        task_description: str = "",
     ) -> list[str]:
         """Query unresolved critical/major review findings for the spec.
 
@@ -176,6 +202,15 @@ class FoxKnowledgeProvider:
         are returned, reducing noise for sessions focused on a specific
         task group.  When ``None``, all active findings for the spec are
         returned (backward-compatible behaviour).
+
+        Findings are sorted by:
+          1. Severity (critical before major — primary key, always preserved).
+          2. Relevance score — keyword overlap with ``task_description``
+             (higher overlap ranks first within a severity tier).
+          3. Description (alphabetical — stable tiebreaker).
+
+        When ``task_description`` is blank, relevance scores are all zero and
+        the sort reduces to the existing severity/description order (AC-3).
 
         ``query_active_findings`` already excludes non-actionable severities;
         the ``if f.severity in (...)`` guard below is defense-in-depth and
@@ -193,14 +228,23 @@ class FoxKnowledgeProvider:
             )
             return []
 
+        keywords = _extract_keywords(task_description)
+        actionable = [f for f in findings if f.severity in ("critical", "major")]
+        actionable.sort(
+            key=lambda f: (
+                _SEVERITY_RANK.get(f.severity, 99),
+                -_score_relevance(f"{f.category or ''} {f.description}", keywords),
+                f.description,
+            )
+        )
+
         result: list[str] = []
-        for f in findings:
-            if f.severity in ("critical", "major"):
-                parts = [f"[{f.severity}]"]
-                if f.category:
-                    parts.append(f"{f.category}:")
-                parts.append(f.description)
-                result.append(f"[REVIEW] {' '.join(parts)}")
+        for f in actionable:
+            parts = [f"[{f.severity}]"]
+            if f.category:
+                parts.append(f"{f.category}:")
+            parts.append(f.description)
+            result.append(f"[REVIEW] {' '.join(parts)}")
         return result
 
     def _query_errata(
@@ -255,6 +299,7 @@ class FoxKnowledgeProvider:
         conn: Any,
         spec_name: str,
         task_group: str | None = None,
+        task_description: str = "",
     ) -> list[str]:
         """Query active FAIL verdicts and format as prompt-ready strings.
 
@@ -265,6 +310,14 @@ class FoxKnowledgeProvider:
 
         When ``task_group`` is provided, only verdicts tagged for that
         group are returned (AC-4).
+
+        Verdicts are sorted by:
+          1. Relevance score — keyword overlap with ``task_description``
+             (higher overlap ranks first).
+          2. Requirement ID (stable alphabetical tiebreaker).
+
+        When ``task_description`` is blank, relevance scores are all zero
+        and the sort reduces to requirement_id order.
 
         Requirements: 555-AC-1, 555-AC-2, 555-AC-3, 555-AC-4
         """
@@ -279,11 +332,19 @@ class FoxKnowledgeProvider:
             )
             return []
 
+        keywords = _extract_keywords(task_description)
+        fail_verdicts = [v for v in verdicts if v.verdict == "FAIL"]
+        fail_verdicts.sort(
+            key=lambda v: (
+                -_score_relevance(f"{v.requirement_id} {v.evidence or ''}", keywords),
+                v.requirement_id,
+            )
+        )
+
         result: list[str] = []
-        for v in verdicts:
-            if v.verdict == "FAIL":
-                parts = [f"[FAIL] {v.requirement_id}"]
-                if v.evidence:
-                    parts.append(v.evidence)
-                result.append(f"[VERIFY] {' '.join(parts)}")
+        for v in fail_verdicts:
+            parts = [f"[FAIL] {v.requirement_id}"]
+            if v.evidence:
+                parts.append(v.evidence)
+            result.append(f"[VERIFY] {' '.join(parts)}")
         return result

@@ -742,3 +742,188 @@ class TestVerifyFeedback:
         prefixes = {item.split("]")[0] + "]" for item in result}
         assert "[REVIEW]" in prefixes, "Expected [REVIEW] item within cap"
         assert "[VERIFY]" in prefixes, "Expected [VERIFY] item within cap"
+
+
+# ===========================================================================
+# Issue #557: relevance scoring ranks findings by task_description keyword
+# overlap before the max_items cap is applied
+# ===========================================================================
+
+
+class TestRelevanceScoringReviews:
+    """AC-1, AC-2, AC-3, AC-5 (reviews): findings are ranked by keyword overlap
+    with task_description within each severity tier.
+
+    Issue #557: task_description was already passed to retrieve() but was only
+    used for ADR matching.  It is now used to sort review findings so that the
+    most relevant ones survive the max_items cap.
+    """
+
+    def _insert_major(
+        self,
+        conn: duckdb.DuckDBPyConnection,
+        spec: str,
+        description: str,
+        category: str | None = None,
+    ) -> None:
+        """Insert an independent major finding (unique task_group avoids supersession)."""
+        _insert_review_finding(conn, spec, "major", description, category=category)
+
+    # ------------------------------------------------------------------
+    # AC-1: higher keyword overlap ranks first within same severity tier
+    # ------------------------------------------------------------------
+
+    def test_ac1_relevant_finding_ranks_before_irrelevant(
+        self, provider_db, provider_conn
+    ) -> None:
+        """AC-1: the finding that shares keywords with task_description appears first."""
+        self._insert_major(provider_conn, "s1", "fix typo in docstring")
+        self._insert_major(provider_conn, "s1", "implement caching layer")
+
+        provider = _make_provider(provider_db)
+        result = provider.retrieve("s1", "implement caching layer")
+        reviews = [r for r in result if r.startswith("[REVIEW]")]
+
+        assert len(reviews) == 2
+        first, second = reviews[0], reviews[1]
+        assert "implement caching layer" in first, (
+            f"Expected caching finding first, got: {first!r}"
+        )
+        assert "fix typo in docstring" in second, (
+            f"Expected docstring finding second, got: {second!r}"
+        )
+
+    # ------------------------------------------------------------------
+    # AC-2: severity is the primary sort key; relevance is secondary
+    # ------------------------------------------------------------------
+
+    def test_ac2_critical_before_major_regardless_of_relevance(
+        self, provider_db, provider_conn
+    ) -> None:
+        """AC-2: a critical finding with zero keyword overlap still leads a major
+        finding with high keyword overlap."""
+        _insert_review_finding(provider_conn, "s2", "critical", "unrelated issue")
+        self._insert_major(provider_conn, "s2", "implement caching layer")
+
+        provider = _make_provider(provider_db)
+        result = provider.retrieve("s2", "implement caching layer")
+        reviews = [r for r in result if r.startswith("[REVIEW]")]
+
+        assert len(reviews) == 2
+        assert "[critical]" in reviews[0].lower(), (
+            f"Expected critical finding first, got: {reviews[0]!r}"
+        )
+        assert "[major]" in reviews[1].lower(), (
+            f"Expected major finding second, got: {reviews[1]!r}"
+        )
+
+    # ------------------------------------------------------------------
+    # AC-3: empty task_description preserves severity/description order
+    # ------------------------------------------------------------------
+
+    def test_ac3_empty_task_description_preserves_existing_order(
+        self, provider_db, provider_conn
+    ) -> None:
+        """AC-3: blank task_description keeps the severity-then-alphabetical order."""
+        _insert_review_finding(provider_conn, "s3", "critical", "z-last alpha")
+        _insert_review_finding(provider_conn, "s3", "critical", "a-first alpha")
+        self._insert_major(provider_conn, "s3", "b-major finding")
+
+        provider = _make_provider(provider_db)
+        result = provider.retrieve("s3", "")
+        reviews = [r for r in result if r.startswith("[REVIEW]")]
+
+        assert len(reviews) == 3
+        # All criticals must precede majors
+        severities = []
+        for r in reviews:
+            if "[critical]" in r.lower():
+                severities.append("critical")
+            elif "[major]" in r.lower():
+                severities.append("major")
+        assert severities == ["critical", "critical", "major"], (
+            f"Unexpected severity order: {severities}"
+        )
+        # Within critical tier: alphabetical by description
+        critical_reviews = [r for r in reviews if "[critical]" in r.lower()]
+        assert "a-first alpha" in critical_reviews[0], (
+            f"Expected 'a-first alpha' first among criticals, got: {critical_reviews[0]!r}"
+        )
+        assert "z-last alpha" in critical_reviews[1], (
+            f"Expected 'z-last alpha' second among criticals, got: {critical_reviews[1]!r}"
+        )
+
+    # ------------------------------------------------------------------
+    # AC-5: high-relevance finding survives when max_items is small
+    # ------------------------------------------------------------------
+
+    def test_ac5_relevant_finding_survives_max_items_cap(
+        self, provider_db, provider_conn
+    ) -> None:
+        """AC-5: the matching finding is included when max_items=2 and 3 major
+        findings exist (2 non-matching, 1 matching)."""
+        from agent_fox.core.config import KnowledgeProviderConfig
+
+        self._insert_major(provider_conn, "s5", "alpha unrelated work")
+        self._insert_major(provider_conn, "s5", "beta unrelated work")
+        self._insert_major(provider_conn, "s5", "implement caching layer")
+
+        config = KnowledgeProviderConfig(max_items=2)
+        provider = _make_provider(provider_db, config=config)
+        result = provider.retrieve("s5", "implement caching layer")
+        reviews = [r for r in result if r.startswith("[REVIEW]")]
+
+        assert len(reviews) == 2, f"Expected exactly 2 items (cap), got: {reviews}"
+        descriptions = "\n".join(reviews)
+        assert "implement caching layer" in descriptions, (
+            "High-relevance finding must be present within the cap"
+        )
+        # At least one non-matching finding is absent
+        non_matching_present = sum(
+            1 for phrase in ("alpha unrelated work", "beta unrelated work")
+            if phrase in descriptions
+        )
+        assert non_matching_present < 2, (
+            "At least one non-matching finding must be excluded by the cap"
+        )
+
+
+class TestRelevanceScoringVerdicts:
+    """AC-4: FAIL verdicts are also ranked by keyword overlap with task_description.
+
+    Issue #557: the same relevance scoring that applies to review findings
+    now also applies to verification verdicts.
+    """
+
+    def _insert_fail_verdict(
+        self,
+        conn: duckdb.DuckDBPyConnection,
+        spec: str,
+        requirement_id: str,
+        evidence: str,
+    ) -> None:
+        """Insert an independent FAIL verdict (unique task_group avoids supersession)."""
+        _insert_verdict(conn, spec, requirement_id, "FAIL", task_group=str(uuid.uuid4()), evidence=evidence)
+
+    def test_ac4_relevant_verdict_ranks_before_irrelevant(
+        self, provider_db, provider_conn
+    ) -> None:
+        """AC-4: verdict with keyword-matching evidence appears before one without."""
+        self._insert_fail_verdict(
+            provider_conn, "v1", "v1-REQ-LOG", "logging format is wrong"
+        )
+        self._insert_fail_verdict(
+            provider_conn, "v1", "v1-REQ-CACHE", "caching layer not implemented"
+        )
+
+        provider = _make_provider(provider_db)
+        result = provider.retrieve("v1", "implement caching layer")
+        verify_items = [r for r in result if r.startswith("[VERIFY]")]
+
+        assert len(verify_items) == 2
+        assert "v1-REQ-CACHE" in verify_items[0], (
+            f"Expected caching verdict first, got: {verify_items[0]!r}"
+        )
+        assert "v1-REQ-LOG" in verify_items[1], (
+            f"Expected logging verdict second, got: {verify_items[1]!r}"
+        )
