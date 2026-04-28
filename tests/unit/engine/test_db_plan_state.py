@@ -584,10 +584,10 @@ def test_standup_with_no_connection(tmp_path) -> None:
 def test_cleanup_stale_runs_marks_stale_as_interrupted(
     db_conn: duckdb.DuckDBPyConnection,
 ) -> None:
-    """AC-1: cleanup_stale_runs marks stale running rows as interrupted.
+    """AC-1: cleanup_stale_runs marks stale running rows as stalled (118-REQ-6.1).
 
     Two stale 'running' rows and one current row: after cleanup the two stale
-    rows must have status='interrupted' and a non-null completed_at; the
+    rows must have status='stalled' and a non-null completed_at; the
     current row must be untouched.
     """
     create_run(db_conn, "stale_1", "hash_s1")
@@ -601,7 +601,7 @@ def test_cleanup_stale_runs_marks_stale_as_interrupted(
             "SELECT status, completed_at FROM runs WHERE id = ?", [stale_id]
         ).fetchone()
         assert row is not None, f"Row for {stale_id} not found"
-        assert row[0] == "interrupted", f"{stale_id}: expected interrupted, got {row[0]}"
+        assert row[0] == "stalled", f"{stale_id}: expected stalled, got {row[0]}"
         assert row[1] is not None, f"{stale_id}: completed_at should be non-null"
 
     cur_row = db_conn.execute(

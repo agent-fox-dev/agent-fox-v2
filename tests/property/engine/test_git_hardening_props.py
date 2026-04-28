@@ -11,6 +11,8 @@ Requirements: 118-REQ-3.1, 118-REQ-3.E1, 118-REQ-7.1,
 from __future__ import annotations
 
 import copy
+import logging
+import logging.handlers
 
 import duckdb
 import pytest
@@ -117,7 +119,8 @@ class TestIdempotentCascadeProperty:
     )
     @settings(max_examples=20, deadline=5000)
     def test_idempotent_blocking(self, reason: str, new_reason: str) -> None:
-        """Re-blocking an already-blocked node produces identical state."""
+        """Re-blocking an already-blocked node produces identical state
+        and no warning log emission."""
         node_states = {"A": "pending"}
         edges: dict[str, list[str]] = {"A": []}
         graph_sync = GraphSync(node_states, edges)
@@ -126,12 +129,27 @@ class TestIdempotentCascadeProperty:
         graph_sync.mark_blocked("A", reason)
         state_after_first = copy.deepcopy(dict(node_states))
 
-        # Re-block with different reason
-        graph_sync.mark_blocked("A", new_reason)
+        # Capture logs during re-block
+        gs_logger = logging.getLogger("agent_fox.engine.graph_sync")
+        handler = logging.handlers.MemoryHandler(capacity=100)
+        gs_logger.addHandler(handler)
+        original_level = gs_logger.level
+        gs_logger.setLevel(logging.DEBUG)
+        try:
+            # Re-block with different reason
+            graph_sync.mark_blocked("A", new_reason)
+        finally:
+            gs_logger.removeHandler(handler)
+            gs_logger.setLevel(original_level)
+
         state_after_second = dict(node_states)
 
         # State should be identical (blocked remains blocked)
         assert state_after_second == state_after_first
+
+        # No WARNING should have been emitted during re-block
+        warnings = [r for r in handler.buffer if r.levelno >= logging.WARNING]
+        assert not warnings, f"Expected no WARNING on re-block; got: {[r.message for r in warnings]}"
 
 
 # ---------------------------------------------------------------------------

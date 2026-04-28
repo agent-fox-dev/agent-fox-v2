@@ -167,8 +167,8 @@ group 3 modifies `errors.py`, `harvest.py`, `result_handler.py`, and
     - [x] 118-REQ-3.1, 3.2, 3.3, 3.E1, 4.1, 4.2, 4.3, 4.E1, 2.3 acceptance
           criteria met
 
-- [ ] 4. Run lifecycle and cascade blocking improvements
-  - [ ] 4.1 Implement stale run detection
+- [x] 4. Run lifecycle and cascade blocking improvements
+  - [x] 4.1 Implement stale run detection
     - Add `detect_and_clean_stale_runs(conn)` function
     - Query runs with status "running", transition to "stalled"
     - Emit `run.stale_detected` audit event per stale run
@@ -176,26 +176,26 @@ group 3 modifies `errors.py`, `harvest.py`, `result_handler.py`, and
     - Call from `Orchestrator.run()` at startup
     - _Requirements: 118-REQ-6.1, 118-REQ-6.E2_
 
-  - [ ] 4.2 Register cleanup handler for run lifecycle
+  - [x] 4.2 Register cleanup handler for run lifecycle
     - Register `atexit` handler that transitions current run to "stalled"
     - Handle DB write failures gracefully (log WARNING)
     - Verify terminal status on normal exit
     - _Requirements: 118-REQ-6.2, 118-REQ-6.3, 118-REQ-6.E1_
 
-  - [ ] 4.3 Make cascade blocking idempotent
+  - [x] 4.3 Make cascade blocking idempotent
     - Modify `mark_blocked` in `graph_sync.py`
     - Skip transition for already-blocked nodes (no warning, no audit event)
     - Skip transition for completed nodes
     - Log DEBUG for in-progress nodes (skip transition)
     - _Requirements: 118-REQ-7.1, 118-REQ-7.2, 118-REQ-7.E1_
 
-  - [ ] 4.V Verify task group 4
+  - [x] 4.V Verify task group 4
     - [x] Spec tests pass: TS-118-13, TS-118-14, TS-118-15, TS-118-16,
           TS-118-E7, TS-118-E8, TS-118-E9
-    - [ ] Property tests pass: TS-118-P4, TS-118-P5
+    - [x] Property tests pass: TS-118-P4, TS-118-P5
     - [x] All existing tests still pass: `uv run pytest -q`
     - [x] No linter warnings: `uv run ruff check agent_fox/ tests/`
-    - [ ] 118-REQ-6.1, 6.2, 6.3, 6.E1, 6.E2, 7.1, 7.2, 7.E1 acceptance
+    - [x] 118-REQ-6.1, 6.2, 6.3, 6.E1, 6.E2, 7.1, 7.2, 7.E1 acceptance
           criteria met
 
 - [ ] 5. Develop sync audit trail and run summary diagnostics

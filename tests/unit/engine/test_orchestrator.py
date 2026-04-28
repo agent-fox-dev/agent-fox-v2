@@ -1220,7 +1220,7 @@ class TestStaleRunCleanup:
         self,
         mock_runner: MockSessionRunner,
     ) -> None:
-        """AC-3: Stale running rows are marked interrupted before the new run is created."""
+        """AC-3: Stale running rows are marked stalled before the new run is created."""
         db_conn = _linear_chain_db()
 
         # Insert two stale 'running' rows directly (simulating prior aborted starts)
@@ -1242,13 +1242,13 @@ class TestStaleRunCleanup:
 
         await orchestrator.run()
 
-        # Both stale rows must be interrupted
+        # Both stale rows must be stalled (118-REQ-6.1)
         for stale_id in ("stale_run_1", "stale_run_2"):
             row = db_conn.execute(
                 "SELECT status, completed_at FROM runs WHERE id = ?", [stale_id]
             ).fetchone()
             assert row is not None, f"Row for {stale_id} not found"
-            assert row[0] == "interrupted", f"{stale_id}: expected interrupted, got {row[0]}"
+            assert row[0] == "stalled", f"{stale_id}: expected stalled, got {row[0]}"
             assert row[1] is not None, f"{stale_id}: completed_at should be non-null"
 
     @pytest.mark.asyncio

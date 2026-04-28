@@ -21,6 +21,7 @@ Requirements: 04-REQ-1.1 through 04-REQ-1.4, 04-REQ-1.E1, 04-REQ-1.E2,
 from __future__ import annotations
 
 import asyncio
+import atexit
 import logging
 import signal
 from collections.abc import Callable
@@ -180,6 +181,7 @@ class Orchestrator:
         self._knowledge_db_conn = knowledge_db_conn
         self._platform = platform
         self._issue_summaries_posted: set[str] = set()
+        self._atexit_handler: Callable[[], None] | None = None
 
         self._config_reloader = ConfigReloader(config_path, full_config)
 
@@ -406,7 +408,7 @@ class Orchestrator:
 
                 cleaned = _cleanup(self._knowledge_db_conn, self._run_id)
                 if cleaned:
-                    logger.info("Marked %d stale running run(s) as interrupted", cleaned)
+                    logger.info("Marked %d stale running run(s) as stalled", cleaned)
             except Exception:
                 logger.warning("Failed to clean up stale running runs", exc_info=True)
 
@@ -417,6 +419,22 @@ class Orchestrator:
                 _create_run(self._knowledge_db_conn, self._run_id, plan_hash)
             except Exception:
                 logger.debug("Failed to create DB run record", exc_info=True)
+
+            # Register atexit handler to transition run to 'stalled' on
+            # unexpected process termination (118-REQ-6.2)
+            try:
+                from agent_fox.engine.state import run_cleanup_handler
+
+                _db_conn = self._knowledge_db_conn
+                _run_id = self._run_id
+
+                def _atexit_cleanup() -> None:
+                    run_cleanup_handler(_run_id, _db_conn)
+
+                self._atexit_handler = _atexit_cleanup
+                atexit.register(_atexit_cleanup)
+            except Exception:
+                logger.warning("Failed to register run cleanup handler", exc_info=True)
 
         edges_dict = build_edges_dict(graph)
         node_archetypes = {nid: n.archetype for nid, n in graph.nodes.items()}
@@ -560,6 +578,16 @@ class Orchestrator:
 
         if self._platform is not None and self._graph_sync is not None:
             await self._post_issue_summaries()
+
+        # Unregister the atexit cleanup handler — the run is completing
+        # normally so we don't want the handler to overwrite the terminal
+        # status with 'stalled' (118-REQ-6.3).
+        if self._atexit_handler is not None:
+            try:
+                atexit.unregister(self._atexit_handler)
+            except Exception:
+                pass
+            self._atexit_handler = None
 
         if self._knowledge_db_conn is not None:
             try:
