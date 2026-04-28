@@ -165,9 +165,9 @@ This plan implements session summary storage and retrieval in five task groups:
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/engine/session_lifecycle.py`
     - [x] Requirements 119-REQ-4.1, 4.2, 4.E1, 5.1, 5.3 acceptance criteria met
 
-- [ ] 5. Wiring verification
+- [x] 5. Wiring verification
 
-  - [ ] 5.1 Trace every execution path from design.md end-to-end
+  - [x] 5.1 Trace every execution path from design.md end-to-end
     - Path 1 (summary storage): `_run_and_harvest()` → `_read_session_artifacts()` → `_ingest_knowledge()` → `FoxKnowledgeProvider.ingest()` → `insert_summary()` → DuckDB INSERT
     - Path 2 (summary injection): `_build_prompts()` → `retrieve()` → `_query_same_spec_summaries()` / `_query_cross_spec_summaries()` → `query_same_spec_summaries()` / `query_cross_spec_summaries()` → formatted strings
     - Path 3 (audit event): `_run_and_harvest()` → `_read_session_artifacts()` → `emit_audit_event()` with summary in payload
@@ -175,36 +175,36 @@ This plan implements session summary storage and retrieval in five task groups:
     - Confirm no function is a stub
     - _Requirements: all_
 
-  - [ ] 5.2 Verify return values propagate correctly
+  - [x] 5.2 Verify return values propagate correctly
     - `_read_session_artifacts()` returns `dict | None` → consumed by `_run_and_harvest()`
     - `query_same_spec_summaries()` returns `list[SummaryRecord]` → consumed by `_query_same_spec_summaries()` → formatted as strings
     - `query_cross_spec_summaries()` returns `list[SummaryRecord]` → consumed by `_query_cross_spec_summaries()` → formatted as strings
     - Confirm no caller discards a return value
     - _Requirements: all_
 
-  - [ ] 5.3 Run the integration smoke tests
+  - [x] 5.3 Run the integration smoke tests
     - All TS-119-SMOKE-* tests pass using real components
     - `uv run pytest -q tests/integration/test_summary_lifecycle.py -k smoke`
     - _Test Spec: TS-119-SMOKE-1, TS-119-SMOKE-2, TS-119-SMOKE-3_
 
-  - [ ] 5.4 Stub / dead-code audit
+  - [x] 5.4 Stub / dead-code audit
     - Search `agent_fox/knowledge/summary_store.py` for: `return []`, `return None`, `pass`, `# TODO`, `# stub`, `NotImplementedError`
     - Search `agent_fox/knowledge/fox_provider.py` for new code with stubs
     - Each hit must be justified or replaced
     - _Requirements: all_
 
-  - [ ] 5.5 Cross-spec entry point verification
+  - [x] 5.5 Cross-spec entry point verification
     - `insert_summary()` is called from `FoxKnowledgeProvider.ingest()` (not just tests)
     - `query_same_spec_summaries()` is called from `FoxKnowledgeProvider.retrieve()` (not just tests)
     - `query_cross_spec_summaries()` is called from `FoxKnowledgeProvider.retrieve()` (not just tests)
     - Confirm all three are called from production code
     - _Requirements: all_
 
-  - [ ] 5.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live (traceable in code)
-    - [ ] All cross-spec entry points are called from production code
+  - [x] 5.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] All cross-spec entry points are called from production code
     - [x] All existing tests still pass: `uv run pytest -q`
 
 ## Traceability

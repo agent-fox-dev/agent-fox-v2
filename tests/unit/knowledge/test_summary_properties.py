@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS session_summaries (
 """
 
 spec_names = st.sampled_from(["spec_a", "spec_b", "spec_c", "spec_d", "spec_e"])
-task_groups = st.integers(min_value=1, max_value=9)
+task_groups = st.integers(min_value=1, max_value=15)
 archetypes = st.sampled_from(["coder", "reviewer", "verifier"])
 attempts = st.integers(min_value=1, max_value=3)
 
@@ -62,7 +62,7 @@ def _make_record(spec_name, task_group, archetype, attempt,
         run_id=run_id, spec_name=spec_name, task_group=tg,
         archetype=archetype, attempt=attempt,
         summary=f"Summary for {spec_name} group {tg} attempt {attempt}",
-        created_at=created_at or f"2026-04-28T{10 + task_group}:00:00",
+        created_at=created_at or f"2026-04-28T{10 + (task_group % 14):02d}:{task_group % 60:02d}:00",
     )
 
 
@@ -70,7 +70,7 @@ def _make_record(spec_name, task_group, archetype, attempt,
 class TestPriorGroupFilteringProperty:
     @settings(max_examples=100)
     @given(
-        current_group=st.integers(min_value=1, max_value=9),
+        current_group=st.integers(min_value=1, max_value=15),
         current_spec=st.sampled_from(["spec_a", "spec_b", "spec_c"]),
         records=st.lists(summary_record_st, min_size=1, max_size=15),
     )
@@ -163,7 +163,7 @@ class TestSortOrderProperty:
                     rec["archetype"], rec["attempt"],
                     created_at=f"2026-04-28T{10 + (i % 14):02d}:{i % 60:02d}:00",
                 ))
-            same = query_same_spec_summaries(conn, "spec_a", "9", "run-1")
+            same = query_same_spec_summaries(conn, "spec_a", "16", "run-1")
             for i in range(1, len(same)):
                 assert int(same[i].task_group) > int(same[i - 1].task_group)
             cross = query_cross_spec_summaries(conn, "spec_a", "run-1")
