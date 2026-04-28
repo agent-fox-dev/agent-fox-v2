@@ -222,9 +222,9 @@ group 3 modifies `errors.py`, `harvest.py`, `result_handler.py`, and
     - [x] No linter warnings: `uv run ruff check agent_fox/ tests/`
     - [x] 118-REQ-5.1, 5.2, 5.3, 5.E1, 8.3 acceptance criteria met
 
-- [ ] 6. Wiring verification
+- [x] 6. Wiring verification
 
-  - [ ] 6.1 Trace every execution path from design.md end-to-end
+  - [x] 6.1 Trace every execution path from design.md end-to-end
     - For each path, verify the entry point actually calls the next function
       in the chain (read the calling code, do not assume)
     - Confirm no function in the chain is a stub (`return []`, `return None`,
@@ -233,7 +233,7 @@ group 3 modifies `errors.py`, `harvest.py`, `result_handler.py`, and
       satisfy this check
     - _Requirements: all_
 
-  - [ ] 6.2 Verify return values propagate correctly
+  - [x] 6.2 Verify return values propagate correctly
     - For every function in this spec that returns data consumed by a caller,
       confirm the caller receives and uses the return value
     - Grep for callers of each such function; confirm none discards the return
@@ -242,11 +242,11 @@ group 3 modifies `errors.py`, `harvest.py`, `result_handler.py`, and
       result handler, `detect_and_clean_stale_runs` → count → engine log
     - _Requirements: all_
 
-  - [ ] 6.3 Run the integration smoke tests
+  - [x] 6.3 Run the integration smoke tests
     - All `TS-118-SMOKE-*` tests pass using real components (no stub bypass)
     - _Test Spec: TS-118-SMOKE-1 through TS-118-SMOKE-4_
 
-  - [ ] 6.4 Stub / dead-code audit
+  - [x] 6.4 Stub / dead-code audit
     - Search all files touched by this spec for: `return []`, `return None`
       on non-Optional returns, `pass` in non-abstract methods, `# TODO`,
       `# stub`, `override point`, `NotImplementedError`
@@ -254,7 +254,7 @@ group 3 modifies `errors.py`, `harvest.py`, `result_handler.py`, and
       is intentional, or (b) replaced with a real implementation
     - Document any intentional stubs here with rationale
 
-  - [ ] 6.5 Cross-spec entry point verification
+  - [x] 6.5 Cross-spec entry point verification
     - Verify that `check_workspace_health` is called from `Orchestrator.run()`
       (not just from tests)
     - Verify that `force_clean` flag flows from CLI → config → engine →
@@ -263,11 +263,11 @@ group 3 modifies `errors.py`, `harvest.py`, `result_handler.py`, and
     - Verify that pre-session check is called from dispatch
     - _Requirements: all_
 
-  - [ ] 6.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live (traceable in code)
-    - [ ] All cross-spec entry points are called from production code
+  - [x] 6.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] All cross-spec entry points are called from production code
     - [x] All existing tests still pass: `uv run pytest -q`
 
 ### Checkbox States

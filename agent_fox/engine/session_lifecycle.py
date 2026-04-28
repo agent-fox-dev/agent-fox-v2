@@ -480,7 +480,11 @@ class NodeSessionRunner:
 
         # 03-REQ-7.1: Harvest changes into develop on success
         try:
-            touched_files = await harvest(repo_root, workspace)
+            touched_files = await harvest(
+                repo_root,
+                workspace,
+                force_clean=self._config.workspace.force_clean,
+            )
             # 40-REQ-11.1: Emit git.merge after successful harvest
             if touched_files:
                 # Capture the resulting commit SHA for traceability

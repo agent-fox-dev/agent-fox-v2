@@ -91,7 +91,7 @@ async def ensure_develop(repo_root: Path) -> None:
     logger.info("Created local develop branch from '%s'", default_branch)
 
 
-async def _sync_develop_with_remote(repo_root: Path) -> None:
+async def _sync_develop_with_remote(repo_root: Path) -> str | None:
     """Synchronize local develop with origin/develop.
 
     Checks commit counts to determine if local is behind, ahead,
@@ -100,6 +100,10 @@ async def _sync_develop_with_remote(repo_root: Path) -> None:
     Read-only divergence checks are performed without the lock.
     The merge lock is only acquired when actual changes are needed
     (45-REQ-3.2).
+
+    Returns the sync method used on success ('fast-forward', 'rebase',
+    'merge', or 'merge-agent'), or None when no sync was needed or it
+    failed.
 
     Requirements: 19-REQ-1.6, 19-REQ-1.E1, 19-REQ-1.E4,
                   45-REQ-3.2, 45-REQ-5.1, 45-REQ-5.2, 45-REQ-5.E1, 45-REQ-6.2
@@ -121,12 +125,12 @@ async def _sync_develop_with_remote(repo_root: Path) -> None:
 
     if remote_ahead == 0:
         # Local is up-to-date or ahead — nothing to do (19-REQ-1.E1)
-        return
+        return None
 
     # Remote has new commits — acquire lock before making changes (45-REQ-3.2)
     lock = MergeLock(repo_root)
     async with lock:
-        await _sync_develop_under_lock(repo_root, remote_ahead, local_ahead)
+        return await _sync_develop_under_lock(repo_root, remote_ahead, local_ahead)
 
 
 async def _sync_develop_under_lock(
