@@ -129,8 +129,8 @@ over multiple turns.
 
 Key parameters are resolved per session:
 
-- **Model ID**: Determined by the adaptive routing system based on task
-  complexity assessment (see Model Routing below).
+- **Model ID**: Determined by the escalation ladder based on the archetype's
+  default tier and any prior failures (see Model Routing below).
 - **Max turns**: Archetype-specific limit on the number of agent turns.
 - **Thinking mode**: Extended thinking with configurable token budget,
   currently enabled only for the Coder archetype in adaptive mode.
@@ -174,16 +174,14 @@ After harvest, the system extracts knowledge from the session:
   findings, verdicts, or drift reports. The parser is tolerant of format
   variations — it handles fenced code blocks, bare JSON, wrapper objects with
   various key names, and single-object responses.
-- **Knowledge extraction**: Facts, learnings, and causal relationships are
-  extracted from the session transcript and stored in the knowledge base for
-  future sessions.
+- **Knowledge ingestion**: For completed sessions, the `KnowledgeProvider`
+  supersedes previously injected findings, stores session summaries, and
+  indexes any ADR files created during the session.
 - **Review persistence**: Parsed findings are stored in DuckDB tables for
   querying by subsequent sessions and for convergence analysis.
-
-If the initial parse of review output fails and the session is still responsive,
-a format retry is attempted — the system asks the agent to re-emit its output
-in the correct JSON format. This recovers from common formatting mistakes
-(markdown fences around JSON, missing wrapper keys) without failing the session.
+- **Multi-instance convergence**: When multiple instances ran for the same
+  node, their outputs are merged deterministically before persistence (see
+  Multi-Instance Convergence below).
 
 ---
 
@@ -245,31 +243,27 @@ The task context layer is assembled from the following sources, in order:
    and formatted under markdown section headers. Missing files are logged as
    warnings but do not prevent the session from running.
 
-2. **Archetype-produced files.** If `review.md` or `verification.md` exist on
-   disk from a prior session and have not already been rendered from the
-   database, they are included as additional spec context.
-
-3. **DB-backed findings.** Review findings, drift findings, and verification
+2. **DB-backed findings.** Review findings, drift findings, and verification
    verdicts are queried from DuckDB and rendered as structured markdown
    sections (grouped by severity for reviews, tabular for verifications).
-   Legacy on-disk review and verification files are migrated to the database
-   on first access.
-
-4. **Steering directives.** Project-wide guidance from `.agent-fox/steering.md`
+3. **Steering directives.** Project-wide guidance from `.agent-fox/steering.md`
    is included after spec files and before memory facts. Placeholder-only
    steering files (containing only HTML comment sentinels) are detected and
    skipped.
 
-5. **Knowledge facts.** Relevant facts from the knowledge store are retrieved
-   by the adaptive retrieval pipeline and injected as a bulleted list under a
-   "Memory Facts" header. See Knowledge Retrieval below for the retrieval
-   process.
+4. **Knowledge facts.** Relevant knowledge from the knowledge store is
+   retrieved by the `KnowledgeProvider` and injected as a bulleted list under
+   a "Memory Facts" header. See Knowledge Retrieval below for details.
 
-6. **Prior group findings.** For task groups beyond group 1, active findings
+5. **Prior group findings.** For task groups beyond group 1, active findings
    from earlier groups in the same spec (reviews, drift findings, verification
    verdicts) are queried from DuckDB, sorted by timestamp, and appended as
    accumulated context. This gives later groups visibility into issues found
    during earlier implementation.
+
+6. **Verification checklist.** For the verifier archetype, a structured
+   checklist is generated from the spec's task completion status and
+   requirement-to-test coverage mapping.
 
 All external content (spec files, facts, findings, error messages) is passed
 through a sanitization layer before injection. The sanitizer labels each
@@ -281,44 +275,36 @@ produce a single context string, which becomes Layer 3 of the system prompt.
 
 ### Knowledge Retrieval
 
-The adaptive retriever queries four signals in parallel and fuses their results
-to select the most relevant knowledge facts for a session:
+Before each session, the `KnowledgeProvider` is queried with the spec name,
+a task description derived from the subtask list, the task group number, and
+the session ID. The concrete implementation (`FoxKnowledgeProvider`) queries
+eight categories of knowledge from DuckDB using direct SQL, with keyword-based
+relevance scoring for result ordering:
 
-- **Keyword signal.** Matches task keywords against fact keywords and spec
-  names, scored by keyword overlap count plus a recency bonus.
-- **Vector signal.** Embeds the task description and queries
-  `memory_embeddings` via cosine similarity. Requires an embedding model;
-  gracefully excluded when unavailable.
-- **Entity signal.** Traverses the entity graph from touched file paths via
-  BFS, returning facts linked to related entities.
-- **Causal signal.** Traverses the `fact_causes` graph from same-spec facts,
-  returning causally linked facts ordered by proximity (depth).
+| Category | Source | Prefix | Scope |
+|---|---|---|---|
+| Review findings | `review_findings` | `[REVIEW]` | Active critical/major for this spec and task group |
+| Verification verdicts | `verification_results` | `[VERDICT]` | Active FAIL verdicts only |
+| Errata | `errata` | `[ERRATA]` | All errata for this spec |
+| ADR summaries | `adr_entries` | `[ADR]` | ADRs matching spec or task keywords |
+| Cross-group findings | `review_findings` | `[CROSS-GROUP]` | Critical/major from other task groups in the same spec |
+| Same-spec summaries | `session_summaries` | `[CONTEXT]` | Summaries from earlier sessions on the same spec |
+| Cross-spec summaries | `session_summaries` | `[CROSS-SPEC]` | Summaries from sessions on other specs in the current run |
+| Prior-run findings | `review_findings` + `verification_results` | `[PRIOR-RUN]` | Unresolved findings from previous orchestrator runs |
 
-Each signal produces a ranked list of scored facts. These lists are fused via
-**weighted Reciprocal Rank Fusion (RRF)**: for each fact, a fused score is
-computed as `sum(weight_i / (k + rank_i))` across all signals where it
-appears. The per-signal weights are derived from an **intent profile** — a
-lookup table keyed by `(archetype, node_status)` that adjusts signal
-importance based on what the agent is doing:
+Within each category, results are sorted by keyword overlap between the task
+description and the item text. Results are capped at a configurable maximum
+per category. If any table does not exist (fresh database) or any query fails,
+that category is silently skipped.
 
-| Archetype | Status | Keyword | Vector | Entity | Causal |
-|---|---|---|---|---|---|
-| coder | fresh | 1.0 | 0.8 | 1.5 | 1.0 |
-| coder | retry | 0.8 | 0.6 | 1.0 | 2.0 |
-| reviewer | * | 1.0 | 1.5 | 0.8 | 1.0 |
-| verifier | * | 0.8 | 0.6 | 1.5 | 1.5 |
+When a session ID is provided, the IDs of injected review findings and
+verification verdicts are recorded in the `finding_injections` table. When the
+session later completes, these findings are automatically superseded — closing
+the retrieve-inject-address-supersede feedback loop. Cross-group items and
+prior-run findings are informational and are not tracked for supersession.
 
-For example, a coder retry session heavily weights the causal signal (to
-surface facts about what went wrong and why), while a fresh coder session
-emphasizes entity relationships (to surface facts about the files it will
-touch).
-
-After fusion, the top facts are selected and formatted with **salience-based
-token budgeting**: the top 20% by score receive full detail, the next 40%
-receive one-line summaries, and the bottom 40% are included at full detail if
-space allows or omitted if the token budget is exceeded. Facts are
-topologically sorted by causal precedence (causes before effects) using
-Kahn's algorithm, with ties broken by fused score.
+For the full knowledge system architecture, see
+[Part 5: Knowledge System](05-knowledge-system-architecture.md).
 
 ### Task Prompt
 
@@ -433,12 +419,11 @@ task groups. Its modes cover hunt scan analysis (`hunt`), issue triage
 
 ### Design Rationale
 
-All archetypes default to the STANDARD model tier. The adaptive routing system
-(described below) may escalate individual tasks to higher tiers based on
-complexity assessment and failure history. Operators can also override model
-tiers per archetype via configuration. The intent is to start cost-effective
-and escalate only when needed, rather than running every session at the most
-capable (and expensive) tier.
+All archetypes default to the STANDARD model tier. The escalation ladder may
+promote individual tasks to higher tiers after failures (described below).
+Operators can also override model tiers per archetype via configuration. The
+intent is to start cost-effective and escalate only when needed, rather than
+running every session at the most capable (and expensive) tier.
 
 Read-only tool allowlists for reviewer modes enforce a separation of concerns.
 A reviewer that can modify code is no longer a pure reviewer — it might fix
@@ -490,11 +475,23 @@ what happens next.
 
 ### Success
 
-The task node is marked COMPLETED in the graph. If the session was a review
-agent with blocking authority (Reviewer in pre-review or drift-review mode), the handler evaluates
-whether the findings exceed the configured blocking threshold. If they do,
-downstream coder tasks are blocked — they will not execute until the findings
-are addressed.
+The task node is marked COMPLETED in the graph. Three post-success evaluations
+may alter downstream behavior:
+
+**Review blocking.** If the session was a review agent with blocking authority
+(Reviewer in pre-review or drift-review mode), the handler evaluates whether
+the findings exceed the configured blocking threshold. Critical security
+findings always block regardless of threshold. If the threshold is exceeded,
+downstream coder tasks are blocked via cascade BFS.
+
+**Retry-predecessor.** The audit-review and verifier archetypes both have
+`retry_predecessor=true`. When their session completes with failing outputs
+(MISSING tests, FAIL requirements), the orchestrator re-runs the preceding
+coder session with the review/verification findings injected as context.
+
+**Coverage regression.** Before a coder session, the result handler captures a
+test coverage baseline. After the session, it compares per-file percentages.
+Regressions are reported as audit events.
 
 ### Timeout
 
@@ -523,9 +520,7 @@ count, and escalation count. On failure:
    graph.
 
 Escalation is strictly non-decreasing — a task never drops back to a lower
-tier. The tier ceiling (from the complexity assessment) is enforced at every
-step. A task assessed as STANDARD will never escalate beyond STANDARD even if
-retries at that tier are exhausted.
+tier. The tier ceiling (ADVANCED) prevents unbounded escalation.
 
 ### Cascade Blocking
 
@@ -537,49 +532,29 @@ succeed because their prerequisites failed.
 
 ---
 
-## Model Routing
+## Model Routing and the Escalation Ladder
 
-The adaptive routing system predicts which model tier to use for each task
-before execution. This serves two purposes: controlling cost (SIMPLE tier is
-cheaper than ADVANCED) and improving success rates (complex tasks benefit from
-stronger models).
+Each archetype has a default model tier (STANDARD for all built-in archetypes).
+Model tiers map to concrete model IDs through a registry:
 
-### Assessment Pipeline
+| Tier | Default Model |
+|---|---|
+| SIMPLE | `claude-haiku-4-5` |
+| STANDARD | `claude-sonnet-4-6` |
+| ADVANCED | `claude-opus-4-6` |
 
-Before dispatching a task, the assessor extracts a feature vector from the
-spec content: subtask count, spec word count, presence of property tests, edge
-case count, dependency count, estimated file count, cross-spec integration
-flag, language count, and historical median duration.
+Before dispatching a task, the assessor creates an escalation ladder from the
+node's resolved model tier. The ladder is a per-task state machine that tracks
+the current tier, attempt count at the current tier, and escalation count. The
+tier ceiling is ADVANCED.
 
-The assessment method is selected based on the amount of historical data
-available:
-
-- **Below the training threshold**: A rules-based heuristic classifies tasks
-  using simple thresholds (e.g., cross-spec integration or high file count
-  triggers ADVANCED).
-- **Above the training threshold with adequate accuracy**: A logistic
-  regression classifier trained on historical (feature vector, actual tier)
-  pairs provides the prediction.
-- **Above the training threshold with poor accuracy**: A hybrid approach
-  combines the statistical model with an LLM query and uses the method with
-  higher historical accuracy when they disagree.
-
-In all cases, the prediction is clamped to a tier ceiling that prevents
-over-escalation.
-
-### Duration Estimation
-
-Task duration estimates feed into the ready-task ordering (longest-first) and
-critical path analysis. The duration model uses a precedence chain: regression
-model (if trained), historical median for the spec and archetype, preset
-duration by archetype and tier, or a five-minute default fallback.
-
-### Outcome Recording
+Operators can override model tiers per archetype via configuration. The intent
+is to start cost-effective and escalate only when needed. Escalation is
+strictly non-decreasing — a task never drops back to a lower tier.
 
 After each session, the actual tier used, token consumption, cost, duration,
-and success/failure outcome are recorded. These records train the statistical
-models and update historical medians, creating a feedback loop that improves
-routing accuracy over time.
+and success/failure outcome are recorded in the `session_outcomes` table. This
+data provides observability into routing effectiveness and cost distribution.
 
 ---
 
@@ -592,12 +567,12 @@ and performs synchronization work:
   with the same merge strategy used during harvest.
 - **Worktree verification**: Check for orphaned worktrees and clean them up.
 - **Hot-load discovery**: Check for new specs in `.agent-fox/specs/` that were not present
-  when the plan was built. New specs pass a three-stage gate (git-tracked,
-  complete artifacts, passes lint) before being added to the live graph.
-- **Knowledge ingestion**: Ingest accumulated facts into the knowledge store.
+  when the plan was built. New specs pass four gates (git-tracked on develop,
+  all five artifacts present and non-empty, passes static lint, not fully
+  implemented) before being added to the live graph.
 - **Config reload**: Re-read `config.toml` and apply changes (new cost limits,
-  archetype settings, etc.) without restarting.
-- **Hook execution**: Run user-configured sync hooks.
+  archetype settings, etc.) without restarting. The `parallel` field is
+  immutable and cannot be changed at runtime.
 
 Sync barriers are the mechanism by which long-running execution adapts to
 changes in the environment. They are deliberately periodic rather than
@@ -635,9 +610,8 @@ rolling back code. Session history and counters are preserved. This is
 appropriate after transient failures (network issues, API errors).
 
 **Hard reset** resets tasks and rolls back `develop` to the commit before the
-earliest affected task. This undoes the code changes and allows a clean re-
-execution. The knowledge base is compacted during hard reset to deduplicate
-facts and resolve supersession chains.
+earliest affected task. This undoes the code changes and allows a clean
+re-execution.
 
 Both reset types can target a single spec or the entire plan.
 

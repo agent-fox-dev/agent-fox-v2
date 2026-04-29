@@ -38,11 +38,11 @@ The typical workflow has four stages:
    merged into `develop` under a serializing lock via squash merge (with
    AI-assisted conflict resolution when needed).
 
-4. **Monitor.** Run `agent-fox status` for a progress dashboard — task counts
-   by state, token usage, estimated cost, cost breakdown by archetype and
-   spec, and details on any blocked or failed tasks. Run `agent-fox standup`
-   for a daily activity report covering agent sessions, human commits, and
-   file overlaps. Both commands support `--json` for machine consumption.
+4. **Monitor.** Run `agent-fox standup` for an activity report covering
+   agent sessions, human commits, and file overlaps. Run
+   `agent-fox insights` for a structured view of review findings, drift
+   reports, and verification verdicts across specs. Both commands support
+   `--json` for machine consumption.
 
 ### Agent Archetypes
 
@@ -97,14 +97,22 @@ discovered issue for hands-off repair.
 
 ### Knowledge System
 
-agent-fox maintains a persistent knowledge store (DuckDB) that captures what
-agents learn during sessions — patterns, gotchas, architectural decisions,
-conventions, anti-patterns, and fragile areas. Each new session starts with
-a fresh context window but receives curated, relevant facts from prior
-sessions so the same mistakes are never repeated. The knowledge system handles
-deduplication, contradiction detection, and age-based confidence decay
-automatically. Run `agent-fox onboard` to bootstrap the knowledge store from
-an existing codebase by ingesting ADRs, git history, and source analysis.
+agent-fox maintains a persistent knowledge store (DuckDB) that provides
+institutional memory across sessions. Each new session starts with a fresh
+context window but receives curated, relevant knowledge from prior sessions
+so agents build on each other's work rather than starting blind.
+
+The knowledge system tracks eight categories of context: review findings,
+verification verdicts, errata, architecture decision records, cross-group
+findings, same-spec session summaries, cross-spec session summaries, and
+prior-run findings. Findings follow a closed-loop lifecycle — when a finding
+is injected into a session and the session completes, the finding is
+automatically superseded. This keeps the active knowledge set current without
+manual intervention.
+
+ADR files (`docs/adr/*.md`) created during coding sessions are automatically
+detected and indexed, making architectural decisions discoverable by future
+sessions working on related specs.
 
 ### Recovery
 
@@ -115,20 +123,23 @@ branches, compact the knowledge store, and roll back `develop`.
 
 ## Architecture
 
-For a detailed understanding of how agent-fox works internally — how specs
-become task graphs, how the orchestrator dispatches and serializes sessions,
-the archetype mode system, the knowledge lifecycle, and the night-shift
-hunt-triage-fix pipeline — see the [Architecture Guide](architecture/README.md).
-The architecture docs are written for senior engineers joining the project and
-stay at the conceptual level without code snippets or class hierarchies.
+For a detailed understanding of how agent-fox works internally, start with
+the [Coding Session Architecture](architecture.md) — a top-down walkthrough
+covering persistent state, the orchestrator's dispatch loop, session
+lifecycle, prompt construction, the knowledge system, and worktree/git
+architecture. For topic-specific deep dives, see the
+[Architecture Guide](architecture/README.md). Both are written for senior
+engineers joining the project and stay at the conceptual level without code
+snippets or class hierarchies.
 
 ## Reference
 
 | Document | Description |
 |----------|-------------|
+| [Coding Session Architecture](architecture.md) | Top-down walkthrough of session and knowledge system |
 | [CLI Reference](cli-reference.md) | All commands, flags, and exit codes |
 | [Configuration Reference](config-reference.md) | Every `config.toml` section and option |
 | [Archetypes](architecture/03-execution-and-archetypes.md#agent-archetypes) | Archetype registry, modes, and convergence |
 | [Profiles](profiles.md) | Agent profiles, resolution, and customization |
 | [Skills](skills.md) | Claude Code skill reference |
-| [Architecture Guide](architecture/README.md) | System internals and design rationale |
+| [Architecture Guide](architecture/README.md) | Topic-specific architecture deep dives |

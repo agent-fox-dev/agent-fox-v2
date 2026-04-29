@@ -40,7 +40,7 @@ skip quality checks.
 
 **Graceful degradation everywhere.** Every component handles failure
 non-fatally. If knowledge retrieval fails, the session proceeds without
-knowledge context. If gotcha extraction fails, the session outcome is
+knowledge context. If knowledge ingestion fails, the session outcome is
 unaffected. The knowledge system never blocks the coding session lifecycle.
 
 ## Document Map
@@ -59,17 +59,17 @@ AI validation pipeline, severity model, auto-fixers, and the lint command.
 How specs become an executable plan. Covers the four-phase graph construction
 (base nodes, archetype injection, tag overrides, cross-spec edges),
 topological sort with deterministic tie-breaking, fast mode, file impact
-analysis, critical path analysis, graph persistence, runtime patching, and
+analysis, ready task ordering, graph persistence, runtime patching, and
 hot-load discovery.
 
 ### [Part 3: Execution, Session Lifecycle, and Agent Archetypes](03-execution-and-archetypes.md)
 
 How the plan is carried out. Covers the orchestrator's dispatch loop, the
 four-phase session lifecycle (prepare, execute, harvest, assess), context
-assembly, the four-entry archetype registry with mode system (coder, reviewer,
-verifier, maintainer), multi-instance convergence strategies, the escalation
-ladder, model routing, workspace isolation, merge integration, sync barriers,
-and reset.
+assembly with eight knowledge retrieval categories, the four-entry archetype
+registry with mode system (coder, reviewer, verifier, maintainer),
+multi-instance convergence strategies, the escalation ladder, workspace
+isolation, merge integration, sync barriers, and reset.
 
 ### [Part 4: Night-Shift Mode](04-night-shift.md)
 
@@ -81,11 +81,17 @@ staleness detection.
 
 ### [Part 5: Knowledge System Architecture](05-knowledge-system-architecture.md)
 
-How the system remembers. Covers the `KnowledgeProvider` protocol, gotcha
-extraction from session transcripts, the DuckDB-backed knowledge store
-(`gotchas`, `errata_index`, `review_findings`), TTL-based staleness, spec-scoped
-retrieval, context injection, the quality assurance layer (review findings,
-drift findings, verification results), and the audit trail.
+How the system remembers. Covers the `KnowledgeProvider` protocol, the
+eight-category retrieval pipeline, the closed-loop finding lifecycle
+(create → inject → supersede), session summary storage, ADR indexing, the
+DuckDB-backed knowledge store, the quality assurance layer (review findings,
+drift findings, verification results, multi-instance convergence), and the
+audit trail.
+
+## See Also
+
+For a single-document overview that covers the coding session and knowledge
+system end-to-end, see [Coding Session Architecture](../architecture.md).
 
 ## Reading Order
 
