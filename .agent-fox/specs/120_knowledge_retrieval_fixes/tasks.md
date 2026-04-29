@@ -190,22 +190,22 @@ summaries, then cross-run carry-forward.
     - [x] No linter warnings introduced: `uv run ruff check`
     - [x] Requirements 120-REQ-4.1 through 120-REQ-4.5, 120-REQ-4.E1 through 120-REQ-4.E3 met
 
-- [ ] 6. Checkpoint - Integration Smoke Tests
-  - [ ] 6.1 Create integration smoke test file
+- [x] 6. Checkpoint - Integration Smoke Tests
+  - [x] 6.1 Create integration smoke test file
     - Create `tests/integration/knowledge/test_retrieval_fixes_smoke.py`
     - Implement TS-120-SMOKE-1 (end-to-end summary flow)
     - Implement TS-120-SMOKE-2 (pre-review to coder flow)
     - Implement TS-120-SMOKE-3 (cross-run carry-forward flow)
     - _Test Spec: TS-120-SMOKE-1, TS-120-SMOKE-2, TS-120-SMOKE-3_
 
-  - [ ] 6.2 Update documentation
+  - [x] 6.2 Update documentation
     - Update `docs/memory.md` with summary of changes
     - _Requirements: all_
 
-  - [ ] 6.V Verify task group 6
-    - [ ] All smoke tests pass
-    - [ ] All unit and property tests pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check`
+  - [x] 6.V Verify task group 6
+    - [x] All smoke tests pass
+    - [x] All unit and property tests pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check`
 
 - [ ] 7. Wiring verification
 
