@@ -18,7 +18,7 @@ import pytest
 from agent_fox.core.config import AgentFoxConfig
 from agent_fox.engine.session_lifecycle import NodeSessionRunner
 from agent_fox.knowledge.db import KnowledgeDB
-from agent_fox.knowledge.provider import NoOpKnowledgeProvider
+from agent_fox.knowledge.fox_provider import NoOpKnowledgeProvider
 from agent_fox.knowledge.sink import SessionOutcome
 from agent_fox.workspace import WorkspaceInfo
 

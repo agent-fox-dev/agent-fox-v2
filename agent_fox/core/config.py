@@ -850,6 +850,22 @@ class PathsConfig(BaseModel):
     )
 
 
+class WorkspaceConfig(BaseModel):
+    """Workspace health and cleanup configuration.
+
+    Requirements: 118-REQ-2.2
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    force_clean: bool = Field(
+        default=False,
+        description=(
+            "Automatically remove untracked files and reset dirty index before session dispatch instead of aborting."
+        ),
+    )
+
+
 # Default spec root for backward compatibility fallback
 _LEGACY_SPEC_ROOT = ".specs"
 
@@ -858,6 +874,7 @@ class AgentFoxConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     paths: PathsConfig = Field(default_factory=PathsConfig)
+    workspace: WorkspaceConfig = Field(default_factory=WorkspaceConfig)
     orchestrator: OrchestratorConfig = Field(default_factory=OrchestratorConfig)
     routing: RoutingConfig = Field(default_factory=RoutingConfig)
     models: ModelConfig = Field(default_factory=ModelConfig)

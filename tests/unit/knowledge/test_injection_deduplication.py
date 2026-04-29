@@ -453,7 +453,7 @@ class TestSessionLifecyclePassesSessionId:
         session_id: str | None = None."""
         import inspect
 
-        from agent_fox.knowledge.provider import KnowledgeProvider
+        from agent_fox.knowledge.fox_provider import KnowledgeProvider
 
         sig = inspect.signature(KnowledgeProvider.retrieve)
         assert "session_id" in sig.parameters, (

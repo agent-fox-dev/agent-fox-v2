@@ -53,10 +53,25 @@ def _count_by_status(node_states: dict[str, str]) -> dict[str, int]:
     return counts
 
 
+def _extract_workspace_state_errors(state: ExecutionState) -> list[tuple[str, str]]:
+    """Extract workspace-state errors from blocked reasons.
+
+    Returns a list of (node_id, error_message) tuples for nodes blocked
+    due to workspace-state errors.
+
+    Requirements: 118-REQ-8.3
+    """
+    results: list[tuple[str, str]] = []
+    for node_id, reason in state.blocked_reasons.items():
+        if "workspace-state" in reason:
+            results.append((node_id, reason))
+    return results
+
+
 def _print_summary(state: ExecutionState) -> None:
     """Print a compact execution summary.
 
-    Requirements: 16-REQ-3.1, 16-REQ-3.2, 16-REQ-3.E1
+    Requirements: 16-REQ-3.1, 16-REQ-3.2, 16-REQ-3.E1, 118-REQ-8.3
     """
     total = len(state.node_states)
 
@@ -86,6 +101,16 @@ def _print_summary(state: ExecutionState) -> None:
     click.echo(f"Tokens: {format_tokens(state.total_input_tokens)} in / {format_tokens(state.total_output_tokens)} out")
     click.echo(f"Cost:   ${state.total_cost:.2f}")
     click.echo(f"Status: {state.run_status}")
+
+    # 118-REQ-8.3: when a run stalls/fails due to workspace-state errors,
+    # include the root cause classification and the original error message.
+    if state.run_status in ("stalled", "failed", "block_limit"):
+        ws_errors = _extract_workspace_state_errors(state)
+        if ws_errors:
+            click.echo("")
+            click.echo("Workspace-state errors:")
+            for node_id, reason in ws_errors:
+                click.echo(f"  [{node_id}] {reason}")
 
 
 @click.command("code")
@@ -119,6 +144,12 @@ def _print_summary(state: ExecutionState) -> None:
     default=None,
     help="Seconds between watch polls (default: 60, minimum: 10)",
 )
+@click.option(
+    "--force-clean",
+    is_flag=True,
+    default=False,
+    help="Automatically remove untracked files and reset dirty index before dispatch",
+)
 @click.pass_context
 def code_cmd(
     ctx: click.Context,
@@ -127,12 +158,17 @@ def code_cmd(
     specs_dir: str | None,
     watch: bool,
     watch_interval: int | None,
+    force_clean: bool,
 ) -> None:
     """Execute the task plan."""
     # 16-REQ-1.2: load config from Click context
     config = ctx.obj["config"]
     quiet: bool = ctx.obj.get("quiet", False)
     json_mode: bool = ctx.obj.get("json", False)
+
+    # 118-REQ-2.2: CLI --force-clean flag overrides config value
+    if force_clean:
+        config = config.model_copy(update={"workspace": config.workspace.model_copy(update={"force_clean": True})})
 
     # 85-REQ-3.1: Refuse to run when daemon is active.
     from agent_fox.nightshift.pid import PidStatus, check_pid_file
@@ -214,20 +250,22 @@ def code_cmd(
     # 23-REQ-5.1: emit JSONL summary in JSON mode
     if json_mode:
         counts = _count_by_status(state.node_states)
-        json_io.emit_line(
-            {
-                "event": "complete",
-                "summary": {
-                    "tasks": len(state.node_states),
-                    "completed": counts.get("completed", 0),
-                    "failed": counts.get("failed", 0),
-                    "input_tokens": state.total_input_tokens,
-                    "output_tokens": state.total_output_tokens,
-                    "cost": state.total_cost,
-                    "run_status": state.run_status,
-                },
-            }
-        )
+        summary_payload: dict = {
+            "tasks": len(state.node_states),
+            "completed": counts.get("completed", 0),
+            "failed": counts.get("failed", 0),
+            "input_tokens": state.total_input_tokens,
+            "output_tokens": state.total_output_tokens,
+            "cost": state.total_cost,
+            "run_status": state.run_status,
+        }
+        # 118-REQ-8.3: include workspace-state classification in JSON output
+        ws_errors = _extract_workspace_state_errors(state)
+        if ws_errors:
+            summary_payload["workspace_state_errors"] = [
+                {"node_id": nid, "reason": reason} for nid, reason in ws_errors
+            ]
+        json_io.emit_line({"event": "complete", "summary": summary_payload})
     else:
         # 16-REQ-3.1: print summary
         _print_summary(state)

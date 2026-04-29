@@ -828,6 +828,31 @@ def _migrate_v23(conn: duckdb.DuckDBPyConnection) -> None:
     """)
 
 
+def _migrate_v24(conn: duckdb.DuckDBPyConnection) -> None:
+    """Add session_summaries table for session summary storage.
+
+    Stores natural-language summaries produced by coding sessions.  The
+    table is append-only (no supersession) and retains all attempts.
+
+    Uses ``CREATE TABLE IF NOT EXISTS`` for idempotency.
+
+    Requirements: 119-REQ-1.2, 119-REQ-1.4
+    """
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS session_summaries (
+            id          UUID PRIMARY KEY,
+            node_id     VARCHAR NOT NULL,
+            run_id      VARCHAR NOT NULL,
+            spec_name   VARCHAR NOT NULL,
+            task_group  VARCHAR NOT NULL,
+            archetype   VARCHAR NOT NULL,
+            attempt     INTEGER NOT NULL DEFAULT 1,
+            summary     TEXT NOT NULL,
+            created_at  TIMESTAMP NOT NULL
+        )
+    """)
+
+
 def _migrate_v21(conn: duckdb.DuckDBPyConnection) -> None:
     """Drop dead columns retrieval_summary and coverage_data from session_outcomes.
 
@@ -966,6 +991,11 @@ MIGRATIONS: list[Migration] = [
         description="add finding_injections table for injection deduplication tracking",
         apply=_migrate_v23,
     ),
+    Migration(
+        version=24,
+        description="add session_summaries table for session summary storage",
+        apply=_migrate_v24,
+    ),
 ]
 
 
@@ -1062,6 +1092,18 @@ CREATE TABLE IF NOT EXISTS tool_errors (
     node_id    TEXT,
     tool_name  TEXT,
     failed_at  TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS session_summaries (
+    id          UUID PRIMARY KEY,
+    node_id     VARCHAR NOT NULL,
+    run_id      VARCHAR NOT NULL,
+    spec_name   VARCHAR NOT NULL,
+    task_group  VARCHAR NOT NULL,
+    archetype   VARCHAR NOT NULL,
+    attempt     INTEGER NOT NULL DEFAULT 1,
+    summary     TEXT NOT NULL,
+    created_at  TIMESTAMP NOT NULL
 );
 
 INSERT INTO schema_version (version, description)

@@ -523,3 +523,127 @@ class TestCleanConflictingUntracked:
             assert any(name in msg for msg in warning_messages), (
                 f"Expected '{name}' in WARNING messages; got: {warning_messages}"
             )
+
+
+# ---------------------------------------------------------------------------
+# TS-118-6, TS-118-7, TS-118-9, TS-118-17: Git stack hardening tests
+# Requirements: 118-REQ-2.3, 118-REQ-3.1, 118-REQ-3.E1, 118-REQ-8.1
+# ---------------------------------------------------------------------------
+
+
+class TestForceCleanDuringHarvest:
+    """TS-118-6: harvest with force_clean=True removes divergent files.
+
+    Requirements: 118-REQ-2.3
+    """
+
+    @pytest.mark.asyncio
+    async def test_force_clean_harvest_removes_divergent(
+        self,
+        tmp_worktree_repo: Path,
+    ) -> None:
+        """Harvest with force_clean=True removes divergent untracked files
+        and proceeds with the merge without raising IntegrationError."""
+        ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
+        add_commit_to_branch(ws.path, "new_file.py", "branch content\n")
+
+        # Place a *different* file as untracked on develop (divergent).
+        untracked = tmp_worktree_repo / "new_file.py"
+        untracked.write_text("local divergent content\n")
+
+        # With force_clean=True, harvest should succeed (no IntegrationError)
+        files = await harvest(tmp_worktree_repo, ws, force_clean=True)
+        assert len(files) > 0
+
+
+class TestNonRetryableErrorOnDivergent:
+    """TS-118-7: _clean_conflicting_untracked raises IntegrationError(retryable=False).
+
+    Requirements: 118-REQ-3.1
+    """
+
+    @pytest.mark.asyncio
+    async def test_divergent_untracked_raises_nonretryable(
+        self,
+        tmp_worktree_repo: Path,
+    ) -> None:
+        """When divergent untracked files are found, _clean_conflicting_untracked
+        raises IntegrationError with retryable=False."""
+        ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
+        add_commit_to_branch(ws.path, "new_file.py", "branch content\n")
+
+        # Place divergent content as untracked on develop
+        untracked = tmp_worktree_repo / "new_file.py"
+        untracked.write_text("local divergent content\n")
+
+        with pytest.raises(IntegrationError) as exc_info:
+            await _clean_conflicting_untracked(tmp_worktree_repo, ws.branch)
+
+        assert exc_info.value.retryable is False
+
+
+class TestMergeConflictRemainsRetryable:
+    """TS-118-9: merge conflict errors remain retryable.
+
+    Requirements: 118-REQ-3.E1
+    """
+
+    @pytest.mark.asyncio
+    async def test_merge_conflict_retryable(
+        self,
+        tmp_worktree_repo: Path,
+    ) -> None:
+        """Harvest failures from merge conflicts (not untracked files) produce
+        retryable errors — retryable defaults to True."""
+        ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
+
+        # Add a file on the feature branch
+        add_commit_to_branch(ws.path, "shared.py", "feature content\n")
+
+        # Add the SAME file with DIFFERENT content on develop
+        subprocess.run(
+            ["git", "checkout", "develop"],
+            cwd=tmp_worktree_repo,
+            check=True,
+            capture_output=True,
+        )
+        add_commit_to_branch(tmp_worktree_repo, "shared.py", "develop content\n")
+
+        # With the merge agent mocked to fail, harvest should raise retryable
+        with patch(
+            "agent_fox.workspace.harvest.run_merge_agent",
+            new_callable=AsyncMock,
+            return_value=False,
+        ):
+            with pytest.raises(IntegrationError) as exc_info:
+                await harvest(tmp_worktree_repo, ws)
+            assert exc_info.value.retryable is True
+
+
+class TestHarvestErrorDiagnostics:
+    """TS-118-17: harvest error messages include remediation hints.
+
+    Requirements: 118-REQ-8.1
+    """
+
+    @pytest.mark.asyncio
+    async def test_error_message_includes_remediation(
+        self,
+        tmp_worktree_repo: Path,
+    ) -> None:
+        """Error message from divergent untracked file IntegrationError contains
+        file path, 'git clean', and '--force-clean'."""
+        ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
+        add_commit_to_branch(ws.path, "src/foo.py", "branch content\n")
+
+        # Create a directory and divergent file
+        (tmp_worktree_repo / "src").mkdir(exist_ok=True)
+        (tmp_worktree_repo / "src" / "foo.py").write_text("divergent\n")
+
+        with pytest.raises(IntegrationError) as exc_info:
+            await _clean_conflicting_untracked(tmp_worktree_repo, ws.branch)
+
+        msg = str(exc_info.value)
+        assert "src/foo.py" in msg
+        assert "git clean" in msg
+        assert "--force-clean" in msg

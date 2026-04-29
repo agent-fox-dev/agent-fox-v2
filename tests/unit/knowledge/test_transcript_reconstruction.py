@@ -232,7 +232,7 @@ def _make_minimal_runner(tmp_path: Path, node_id: str):
     runner._config = config
     runner._knowledge_db = db
     runner._sink = None
-    from agent_fox.knowledge.provider import NoOpKnowledgeProvider
+    from agent_fox.knowledge.fox_provider import NoOpKnowledgeProvider
 
     runner._knowledge_provider = NoOpKnowledgeProvider()
     runner._archetype = "coder"

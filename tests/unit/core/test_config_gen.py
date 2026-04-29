@@ -280,6 +280,7 @@ class TestSchemaExtraction:
             "caching",
             "night_shift",
             "paths",
+            "workspace",
         }
         assert section_paths == expected
 

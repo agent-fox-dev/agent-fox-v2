@@ -95,6 +95,12 @@ class AuditEventType(StrEnum):
     ERRATA_GENERATED = "errata.generated"
     ADR_VALIDATION_FAILED = "adr.validation_failed"  # 117-REQ-7.2
     ADR_INGESTED = "adr.ingested"  # 117-REQ-7.4
+    WORKSPACE_HEALTH_CHECK = "workspace.health_check"  # 118-REQ-1.1
+    WORKSPACE_FORCE_CLEAN = "workspace.force_clean"  # 118-REQ-2.1
+    DEVELOP_SYNC = "develop.sync"  # 118-REQ-5.1
+    DEVELOP_SYNC_FAILED = "develop.sync_failed"  # 118-REQ-5.2
+    DEVELOP_FETCH_FAILED = "develop.fetch_failed"  # 118-REQ-5.E1
+    RUN_STALE_DETECTED = "run.stale_detected"  # 118-REQ-6.1
 
 
 # ---------------------------------------------------------------------------

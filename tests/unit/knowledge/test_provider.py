@@ -11,7 +11,7 @@ from __future__ import annotations
 import inspect
 from typing import Any
 
-from agent_fox.knowledge.provider import KnowledgeProvider, NoOpKnowledgeProvider
+from agent_fox.knowledge.fox_provider import KnowledgeProvider, NoOpKnowledgeProvider
 
 # ---------------------------------------------------------------------------
 # TS-114-1: KnowledgeProvider Protocol Definition
@@ -36,7 +36,7 @@ class TestProtocolDefinition:
     def test_ingest_return_annotation(self) -> None:
         """ingest() return annotation is None."""
         sig = inspect.signature(KnowledgeProvider.ingest)
-        assert sig.return_annotation is None
+        assert sig.return_annotation is None or sig.return_annotation == "None"
 
     def test_retrieve_method_exists(self) -> None:
         """KnowledgeProvider has a retrieve method."""
@@ -56,7 +56,7 @@ class TestProtocolDefinition:
     def test_retrieve_return_annotation(self) -> None:
         """retrieve() return annotation is list[str]."""
         sig = inspect.signature(KnowledgeProvider.retrieve)
-        assert sig.return_annotation == list[str]
+        assert sig.return_annotation == list[str] or sig.return_annotation == "list[str]"
 
 
 # ---------------------------------------------------------------------------
@@ -96,7 +96,7 @@ class TestRetrieveReturnType:
 
     def test_return_type_is_list_str(self) -> None:
         sig = inspect.signature(KnowledgeProvider.retrieve)
-        assert sig.return_annotation == list[str]
+        assert sig.return_annotation == list[str] or sig.return_annotation == "list[str]"
 
 
 # ---------------------------------------------------------------------------
@@ -113,12 +113,13 @@ class TestIngestSignature:
     def test_context_annotation(self) -> None:
         """context parameter is annotated as dict[str, Any]."""
         sig = inspect.signature(KnowledgeProvider.ingest)
-        assert sig.parameters["context"].annotation == dict[str, Any]
+        ann = sig.parameters["context"].annotation
+        assert ann == dict[str, Any] or ann == "dict[str, Any]"
 
     def test_return_is_none(self) -> None:
         """Return annotation is None."""
         sig = inspect.signature(KnowledgeProvider.ingest)
-        assert sig.return_annotation is None
+        assert sig.return_annotation is None or sig.return_annotation == "None"
 
 
 # ---------------------------------------------------------------------------

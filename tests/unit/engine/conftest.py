@@ -7,6 +7,7 @@ and helper functions for constructing test graphs and execution states.
 from __future__ import annotations
 
 import json
+import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -257,3 +258,35 @@ def db_conn_with_schema() -> duckdb.DuckDBPyConnection:
     conn = _create_db_with_schema()
     yield conn
     conn.close()
+
+@pytest.fixture
+def tmp_worktree_repo(tmp_path: Path) -> Path:
+    """Create a temporary git repo with a develop branch and initial commit.
+
+    Used by dispatch health check tests that need a real git repo.
+    """
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-b", "develop"], cwd=repo, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@test.com"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Test"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+    (repo / "README.md").write_text("# Test\n")
+    subprocess.run(["git", "add", "README.md"], cwd=repo, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "commit", "-m", "init"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+    return repo
+

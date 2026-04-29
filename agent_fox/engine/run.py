@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from agent_fox.engine.engine import Orchestrator
-from agent_fox.engine.state import ExecutionState
+from agent_fox.engine.state import ExecutionState, RunStatus
 from agent_fox.knowledge.db import open_knowledge_store
 from agent_fox.knowledge.duckdb_sink import DuckDBSink
 from agent_fox.knowledge.fox_provider import FoxKnowledgeProvider
@@ -39,6 +39,20 @@ class InterruptedResult:
     """Lightweight result returned when execution is interrupted."""
 
     status: str = "interrupted"
+
+
+def _stalled_result() -> ExecutionState:
+    """Return a minimal ExecutionState with STALLED status for early aborts."""
+    from datetime import UTC, datetime
+
+    now = datetime.now(UTC).isoformat()
+    return ExecutionState(
+        plan_hash="",
+        node_states={},
+        run_status=RunStatus.STALLED,
+        started_at=now,
+        updated_at=now,
+    )
 
 
 def _apply_overrides(
@@ -218,6 +232,35 @@ async def run_code(
     # Suppress noisy third-party warnings
     warnings.filterwarnings("ignore", module=r"huggingface_hub\..*")
     warnings.filterwarnings("ignore", module=r"sentence_transformers\..*")
+
+    # 118-REQ-1.1, 118-REQ-1.2, 118-REQ-1.3: Pre-run workspace health gate
+    try:
+        from agent_fox.workspace.health import (
+            check_workspace_health,
+            force_clean_workspace,
+            format_health_diagnostic,
+        )
+
+        repo_root = agent_dir.parent
+        health_report = await check_workspace_health(repo_root)
+
+        if health_report.has_issues:
+            if config.workspace.force_clean:
+                logger.warning("Pre-run health check found issues; force-clean enabled, cleaning workspace")
+                cleaned = await force_clean_workspace(repo_root, health_report)
+                if cleaned.has_issues:
+                    diag = format_health_diagnostic(cleaned)
+                    logger.error("Force-clean could not resolve all issues:\n%s", diag)
+                    return _stalled_result()
+            else:
+                diag = format_health_diagnostic(health_report)
+                logger.error("Pre-run workspace health check failed:\n%s", diag)
+                return _stalled_result()
+        else:
+            logger.info("Pre-run workspace health check: clean")
+    except Exception:
+        # 118-REQ-1.E2: Fail-open on unexpected errors
+        logger.warning("Pre-run health gate raised an exception; proceeding", exc_info=True)
 
     try:
         # Build orchestrator kwargs — use infra if available

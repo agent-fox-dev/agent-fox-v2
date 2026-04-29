@@ -39,6 +39,8 @@ async def harvest(
     repo_root: Path,
     workspace: WorkspaceInfo,
     dev_branch: str = "develop",
+    *,
+    force_clean: bool = False,
 ) -> list[str]:
     """Integrate a workspace's changes into the development branch.
 
@@ -53,8 +55,14 @@ async def harvest(
     4. On conflict, spawn the merge agent to resolve.
     5. Return the list of changed files.
 
+    Args:
+        force_clean: When True, remove divergent untracked files instead
+            of raising IntegrationError. Defaults to False.
+
     Raises:
         IntegrationError: If merge fails after merge-agent attempt.
+
+    Requirements: 118-REQ-2.3
     """
     # Step 1: Check for new commits (03-REQ-7.E2)
     if not await has_new_commits(repo_root, workspace.branch, dev_branch):
@@ -68,12 +76,19 @@ async def harvest(
     # Wrap all merge operations in the merge lock (45-REQ-3.1)
     lock = MergeLock(repo_root)
     async with lock:
-        return await _harvest_under_lock(repo_root, workspace, dev_branch)
+        return await _harvest_under_lock(
+            repo_root,
+            workspace,
+            dev_branch,
+            force_clean=force_clean,
+        )
 
 
 async def _clean_conflicting_untracked(
     repo_root: Path,
     feature_branch: str,
+    *,
+    force_clean: bool = False,
 ) -> None:
     """Remove untracked files that exist in the incoming feature branch.
 
@@ -84,7 +99,9 @@ async def _clean_conflicting_untracked(
 
     If any conflicting untracked file has content that differs from the
     branch version (i.e. local work not yet committed), the function
-    raises IntegrationError rather than silently destroying that work.
+    raises IntegrationError rather than silently destroying that work —
+    unless ``force_clean`` is True, in which case divergent files are
+    removed with a WARNING.
 
     If content cannot be verified (git error, unreadable file), the
     file is preserved and a WARNING is logged.
@@ -92,9 +109,15 @@ async def _clean_conflicting_untracked(
     Only removes files — never directories — and only those that would
     actually conflict with the merge.
 
+    Args:
+        force_clean: When True, remove divergent files instead of raising.
+
     Raises:
         IntegrationError: If any conflicting untracked file has content
-            that diverges from the feature branch version.
+            that diverges from the feature branch version and force_clean
+            is False.
+
+    Requirements: 118-REQ-2.3, 118-REQ-3.1
     """
     # List untracked files in the repo root
     rc, stdout, _ = await run_git(
@@ -174,17 +197,39 @@ async def _clean_conflicting_untracked(
             divergent.append(path)
 
     if divergent:
-        logger.warning(
-            "Refusing to remove %d untracked file(s) whose content differs from feature branch '%s': %s",
-            len(divergent),
-            feature_branch,
-            ", ".join(divergent),
-        )
-        raise IntegrationError(
-            f"Untracked file(s) with content that diverges from the feature "
-            f"branch would be overwritten by merge: {', '.join(divergent)}",
-            branch=feature_branch,
-        )
+        if force_clean:
+            # 118-REQ-2.3: Remove divergent files when force_clean is enabled
+            logger.warning(
+                "Force-clean: removing %d divergent untracked file(s) for feature branch '%s': %s",
+                len(divergent),
+                feature_branch,
+                ", ".join(divergent),
+            )
+            for path in divergent:
+                full = repo_root / path
+                try:
+                    full.unlink(missing_ok=True)
+                except OSError:
+                    logger.debug("Could not force-remove divergent file %s", full)
+        else:
+            logger.warning(
+                "Refusing to remove %d untracked file(s) whose content differs from feature branch '%s': %s",
+                len(divergent),
+                feature_branch,
+                ", ".join(divergent),
+            )
+            file_list = ", ".join(divergent)
+            raise IntegrationError(
+                f"Untracked file(s) with content that diverges from the feature "
+                f"branch would be overwritten by merge: {file_list}\n"
+                f"\n"
+                f"Remediation:\n"
+                f"  git clean -fd          # remove untracked files\n"
+                f"\n"
+                f"Or re-run with --force-clean to automatically clean the workspace.",
+                retryable=False,
+                branch=feature_branch,
+            )
 
     if safe_to_remove:
         logger.warning(
@@ -246,6 +291,8 @@ async def _harvest_under_lock(
     repo_root: Path,
     workspace: WorkspaceInfo,
     dev_branch: str,
+    *,
+    force_clean: bool = False,
 ) -> list[str]:
     """Execute the harvest squash-merge under the merge lock.
 
@@ -255,7 +302,7 @@ async def _harvest_under_lock(
 
     Called from harvest() after the lock is acquired.
 
-    Requirements: 45-REQ-4.1, 45-REQ-6.1
+    Requirements: 45-REQ-4.1, 45-REQ-6.1, 118-REQ-2.3
     """
     # Ensure a clean working tree before any merge operation. A prior
     # failed harvest may have left tracked files dirty, which would cause
@@ -265,7 +312,7 @@ async def _harvest_under_lock(
     # Remove untracked files that would block the merge. A prior session
     # may have created files (e.g. test files) that now exist both as
     # untracked in the working tree and in the incoming feature branch.
-    await _clean_conflicting_untracked(repo_root, workspace.branch)
+    await _clean_conflicting_untracked(repo_root, workspace.branch, force_clean=force_clean)
 
     # Capture the list of changed files before switching branches
     changed_files = await get_changed_files(

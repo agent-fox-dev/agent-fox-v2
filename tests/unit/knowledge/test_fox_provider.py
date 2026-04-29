@@ -134,7 +134,7 @@ class TestIsinstanceCheck:
     def test_isinstance_check(self, provider_db) -> None:
         from agent_fox.core.config import KnowledgeProviderConfig
         from agent_fox.knowledge.fox_provider import FoxKnowledgeProvider
-        from agent_fox.knowledge.provider import KnowledgeProvider
+        from agent_fox.knowledge.fox_provider import KnowledgeProvider
 
         provider = FoxKnowledgeProvider(provider_db, KnowledgeProviderConfig())
         assert isinstance(provider, KnowledgeProvider)
@@ -404,7 +404,7 @@ class TestReplacesNoop:
     def test_not_noop(self) -> None:
         from agent_fox.engine.run import _setup_infrastructure
         from agent_fox.knowledge.fox_provider import FoxKnowledgeProvider
-        from agent_fox.knowledge.provider import NoOpKnowledgeProvider
+        from agent_fox.knowledge.fox_provider import NoOpKnowledgeProvider
 
         with (
             patch("agent_fox.engine.run.open_knowledge_store") as mock_store,

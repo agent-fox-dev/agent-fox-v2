@@ -1,7 +1,8 @@
 """Develop branch management: ensure, sync, and reconcile.
 
 Requirements: 19-REQ-1.1 through 19-REQ-1.6,
-              45-REQ-3.2, 45-REQ-5.1, 45-REQ-5.2, 45-REQ-5.E1, 45-REQ-6.2
+              45-REQ-3.2, 45-REQ-5.1, 45-REQ-5.2, 45-REQ-5.E1, 45-REQ-6.2,
+              118-REQ-5.1, 118-REQ-5.2, 118-REQ-5.3, 118-REQ-5.E1
 """
 
 from __future__ import annotations
@@ -10,6 +11,8 @@ import logging
 from pathlib import Path
 
 from agent_fox.core.errors import WorkspaceError
+from agent_fox.engine.audit_helpers import emit_audit_event
+from agent_fox.knowledge.audit import AuditEventType, AuditSeverity
 from agent_fox.workspace.git import (
     detect_default_branch,
     local_branch_exists,
@@ -36,15 +39,24 @@ async def ensure_develop(repo_root: Path) -> None:
     Raises:
         WorkspaceError: If no suitable base branch can be found.
 
-    Requirements: 19-REQ-1.1, 19-REQ-1.2, 19-REQ-1.3, 19-REQ-1.5, 19-REQ-1.6
+    Requirements: 19-REQ-1.1, 19-REQ-1.2, 19-REQ-1.3, 19-REQ-1.5, 19-REQ-1.6,
+                  118-REQ-5.E1
     """
     # Step 1: Fetch origin (best-effort)
     fetch_ok = True
     try:
         await run_git(["fetch", "origin"], cwd=repo_root)
-    except WorkspaceError:
+    except WorkspaceError as exc:
         logger.warning("Failed to fetch from origin; proceeding with local state only")
         fetch_ok = False
+        # 118-REQ-5.E1: emit develop.fetch_failed audit event
+        emit_audit_event(
+            None,
+            "",
+            AuditEventType.DEVELOP_FETCH_FAILED,
+            severity=AuditSeverity.WARNING,
+            payload={"reason": str(exc)},
+        )
 
     has_local = await local_branch_exists(repo_root, "develop")
 
@@ -79,7 +91,7 @@ async def ensure_develop(repo_root: Path) -> None:
     logger.info("Created local develop branch from '%s'", default_branch)
 
 
-async def _sync_develop_with_remote(repo_root: Path) -> None:
+async def _sync_develop_with_remote(repo_root: Path) -> str | None:
     """Synchronize local develop with origin/develop.
 
     Checks commit counts to determine if local is behind, ahead,
@@ -88,6 +100,10 @@ async def _sync_develop_with_remote(repo_root: Path) -> None:
     Read-only divergence checks are performed without the lock.
     The merge lock is only acquired when actual changes are needed
     (45-REQ-3.2).
+
+    Returns the sync method used on success ('fast-forward', 'rebase',
+    'merge', or 'merge-agent'), or None when no sync was needed or it
+    failed.
 
     Requirements: 19-REQ-1.6, 19-REQ-1.E1, 19-REQ-1.E4,
                   45-REQ-3.2, 45-REQ-5.1, 45-REQ-5.2, 45-REQ-5.E1, 45-REQ-6.2
@@ -109,23 +125,30 @@ async def _sync_develop_with_remote(repo_root: Path) -> None:
 
     if remote_ahead == 0:
         # Local is up-to-date or ahead — nothing to do (19-REQ-1.E1)
-        return
+        return None
 
     # Remote has new commits — acquire lock before making changes (45-REQ-3.2)
     lock = MergeLock(repo_root)
     async with lock:
-        await _sync_develop_under_lock(repo_root, remote_ahead, local_ahead)
+        return await _sync_develop_under_lock(repo_root, remote_ahead, local_ahead)
 
 
-async def _sync_develop_under_lock(repo_root: Path, remote_ahead: int, local_ahead: int) -> None:
+async def _sync_develop_under_lock(repo_root: Path, remote_ahead: int, local_ahead: int) -> str | None:
     """Execute the develop sync strategies under the merge lock.
 
     Called from _sync_develop_with_remote() after the lock is acquired.
     The commit counts are pre-computed outside the lock.
+
+    Returns the sync method used on success ('fast-forward', 'rebase',
+    'merge', or 'merge-agent'), or None on failure.
+
+    Requirements: 118-REQ-5.1, 118-REQ-5.2, 118-REQ-5.3
     """
+    sync_method: str | None = None
 
     if local_ahead > 0 and remote_ahead > 0:
         # Diverged — attempt rebase to reconcile
+        # 118-REQ-5.3: log commit counts at INFO before reconciliation
         logger.info(
             "Local develop has diverged from origin/develop (%d local, %d remote commits). Attempting rebase.",
             local_ahead,
@@ -150,7 +173,19 @@ async def _sync_develop_under_lock(repo_root: Path, remote_ahead: int, local_ahe
             logger.warning(
                 "Could not checkout develop for rebase. Using local as-is.",
             )
-            return
+            # 118-REQ-5.2: emit develop.sync_failed audit event
+            emit_audit_event(
+                None,
+                "",
+                AuditEventType.DEVELOP_SYNC_FAILED,
+                severity=AuditSeverity.WARNING,
+                payload={
+                    "reason": "Could not checkout develop for rebase",
+                    "local_ahead": local_ahead,
+                    "remote_ahead": remote_ahead,
+                },
+            )
+            return None
 
         # Attempt rebase onto origin/develop
         rc_rb, _, stderr_rb = await run_git(
@@ -160,6 +195,7 @@ async def _sync_develop_under_lock(repo_root: Path, remote_ahead: int, local_ahe
         )
         if rc_rb == 0:
             # Rebase succeeded
+            sync_method = "rebase"
             logger.info(
                 "Rebased %d local commit(s) onto origin/develop successfully.",
                 local_ahead,
@@ -179,6 +215,7 @@ async def _sync_develop_under_lock(repo_root: Path, remote_ahead: int, local_ahe
             )
             if rc_merge == 0:
                 # Merge succeeded
+                sync_method = "merge"
                 logger.info(
                     "Merged origin/develop into local develop via merge commit.",
                 )
@@ -198,6 +235,7 @@ async def _sync_develop_under_lock(repo_root: Path, remote_ahead: int, local_ahe
                 )
                 if resolved:
                     # Agent resolved conflicts (45-REQ-5.2)
+                    sync_method = "merge-agent"
                     logger.info(
                         "Merge agent resolved develop-sync conflicts successfully.",
                     )
@@ -207,6 +245,26 @@ async def _sync_develop_under_lock(repo_root: Path, remote_ahead: int, local_ahe
                         "Merge agent failed to resolve develop-sync conflicts. "
                         "Using local develop as-is; verify manually.",
                     )
+                    # 118-REQ-5.2: emit develop.sync_failed audit event
+                    emit_audit_event(
+                        None,
+                        "",
+                        AuditEventType.DEVELOP_SYNC_FAILED,
+                        severity=AuditSeverity.WARNING,
+                        payload={
+                            "reason": "Merge agent failed to resolve conflicts",
+                            "local_ahead": local_ahead,
+                            "remote_ahead": remote_ahead,
+                        },
+                    )
+                    # Restore original branch
+                    if original_branch and original_branch != "develop":
+                        await run_git(
+                            ["checkout", original_branch],
+                            cwd=repo_root,
+                            check=False,
+                        )
+                    return None
 
         # Restore original branch
         if original_branch and original_branch != "develop":
@@ -215,7 +273,20 @@ async def _sync_develop_under_lock(repo_root: Path, remote_ahead: int, local_ahe
                 cwd=repo_root,
                 check=False,
             )
-        return
+
+        # 118-REQ-5.1: emit develop.sync audit event on success
+        if sync_method is not None:
+            emit_audit_event(
+                None,
+                "",
+                AuditEventType.DEVELOP_SYNC,
+                payload={
+                    "method": sync_method,
+                    "local_ahead": local_ahead,
+                    "remote_ahead": remote_ahead,
+                },
+            )
+        return sync_method
 
     # Local is behind only — fast-forward (19-REQ-1.6)
     logger.info(
@@ -235,3 +306,18 @@ async def _sync_develop_under_lock(repo_root: Path, remote_ahead: int, local_ahe
             ["branch", "-f", "develop", "origin/develop"],
             cwd=repo_root,
         )
+
+    sync_method = "fast-forward"
+
+    # 118-REQ-5.1: emit develop.sync audit event on success
+    emit_audit_event(
+        None,
+        "",
+        AuditEventType.DEVELOP_SYNC,
+        payload={
+            "method": sync_method,
+            "local_ahead": local_ahead,
+            "remote_ahead": remote_ahead,
+        },
+    )
+    return sync_method

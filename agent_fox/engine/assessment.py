@@ -37,8 +37,8 @@ class AssessmentManager:
         if node_id in self.ladders:
             return
 
+        from agent_fox.core.escalation import EscalationLadder
         from agent_fox.engine.sdk_params import resolve_model_tier
-        from agent_fox.routing.escalation import EscalationLadder
 
         tier_ceiling = ModelTier.ADVANCED
 

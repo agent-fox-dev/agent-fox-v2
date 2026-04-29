@@ -293,7 +293,7 @@ def test_prop_pipeline_modules_not_importable(module_path: str) -> None:
 @pytest.mark.parametrize("start", [ModelTier.SIMPLE, ModelTier.STANDARD])
 def test_prop_escalation_preserved(retries: int, start: ModelTier) -> None:
     """After retries_before_escalation + 1 failures, tier escalates."""
-    from agent_fox.routing.escalation import EscalationLadder
+    from agent_fox.core.escalation import EscalationLadder
 
     ladder = EscalationLadder(
         starting_tier=start,

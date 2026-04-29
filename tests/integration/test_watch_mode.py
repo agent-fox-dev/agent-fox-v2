@@ -18,7 +18,13 @@ from agent_fox.cli.app import main
 
 
 def _setup_minimal_project(project_dir: Path) -> None:
-    """Create a minimal project structure for CLI tests."""
+    """Create a minimal project structure for CLI tests.
+
+    Files are committed so that the pre-run workspace health gate
+    (118-REQ-1.1) does not detect them as untracked and abort.
+    """
+    import subprocess
+
     agent_fox_dir = project_dir / ".agent-fox"
     agent_fox_dir.mkdir(exist_ok=True)
 
@@ -30,6 +36,20 @@ def _setup_minimal_project(project_dir: Path) -> None:
     # Create a stub DuckDB file so the CLI plan existence check passes
     # (the CLI checks DEFAULT_DB_PATH instead of plan.json).
     (agent_fox_dir / "knowledge.duckdb").write_bytes(b"")
+
+    # Commit setup files so the health gate sees a clean workspace.
+    subprocess.run(
+        ["git", "add", "."],
+        cwd=project_dir,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "commit", "-m", "setup"],
+        cwd=project_dir,
+        check=True,
+        capture_output=True,
+    )
 
 
 # ---------------------------------------------------------------------------

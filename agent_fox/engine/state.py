@@ -60,6 +60,7 @@ class SessionRecord:
     commit_sha: str = ""  # develop HEAD after harvest (empty if no code merged)
     is_transport_error: bool = False  # True when failure was a transient connection error
     is_budget_exhausted: bool = False  # True when failure was caused by SDK budget limit
+    is_non_retryable: bool = False  # True when failure is non-retryable (workspace-state error)
 
 
 @dataclass
@@ -512,14 +513,16 @@ def cleanup_stale_runs(
     conn: duckdb.DuckDBPyConnection,
     current_run_id: str,
 ) -> int:
-    """Mark stale running runs as interrupted.
+    """Mark stale running runs as stalled.
 
     Any run with status='running' and completed_at IS NULL whose id differs
     from *current_run_id* is considered an orphan left by a prior aborted
-    start. They are updated to status='interrupted' with the current
+    start. They are updated to status='stalled' with the current
     timestamp so they no longer pollute reports.
 
     Returns the number of rows updated.
+
+    Requirements: 118-REQ-6.1, 118-REQ-6.E2
     """
     count_row = conn.execute(
         """
@@ -538,7 +541,7 @@ def cleanup_stale_runs(
         conn.execute(
             """
             UPDATE runs
-            SET status = 'interrupted',
+            SET status = 'stalled',
                 completed_at = ?
             WHERE status = 'running'
               AND completed_at IS NULL
@@ -548,6 +551,28 @@ def cleanup_stale_runs(
         )
 
     return count
+
+
+def run_cleanup_handler(
+    run_id: str,
+    conn: duckdb.DuckDBPyConnection,
+) -> None:
+    """Transition the current run to 'stalled' on unexpected process termination.
+
+    Wraps ``complete_run()`` with exception handling so it never raises.
+    Intended to be registered via ``atexit`` or signal handling to ensure
+    run lifecycle completeness.
+
+    Requirements: 118-REQ-6.2, 118-REQ-6.E1
+    """
+    try:
+        complete_run(conn, run_id, "stalled")
+    except Exception:
+        logger.warning(
+            "Failed to transition run %s to stalled during cleanup",
+            run_id,
+            exc_info=True,
+        )
 
 
 def load_run(

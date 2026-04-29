@@ -532,7 +532,7 @@ class TestAC5ExhaustedLadderBlocksPermanently:
     ) -> None:
         """After the ladder is exhausted, the coder is blocked (not reset to pending)."""
         from agent_fox.core.models import ModelTier
-        from agent_fox.routing.escalation import EscalationLadder
+        from agent_fox.core.escalation import EscalationLadder
 
         finding = _make_audit_finding(
             severity="critical",

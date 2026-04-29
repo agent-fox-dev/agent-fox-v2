@@ -15,7 +15,7 @@ from unittest.mock import MagicMock, patch
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from agent_fox.knowledge.provider import KnowledgeProvider, NoOpKnowledgeProvider
+from agent_fox.knowledge.fox_provider import KnowledgeProvider, NoOpKnowledgeProvider
 
 # ---------------------------------------------------------------------------
 # TS-114-P1: Protocol Structural Conformance

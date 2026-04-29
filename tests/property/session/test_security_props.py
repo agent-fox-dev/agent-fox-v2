@@ -11,7 +11,7 @@ from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
 from agent_fox.core.config import AgentFoxConfig
-from agent_fox.security.security import DEFAULT_ALLOWLIST, make_pre_tool_use_hook
+from agent_fox.core.security import DEFAULT_ALLOWLIST, make_pre_tool_use_hook
 
 # Strategy for command-like strings: a first token (no spaces) followed
 # by optional arguments

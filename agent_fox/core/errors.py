@@ -34,7 +34,21 @@ class SessionError(AgentFoxError): ...
 class WorkspaceError(AgentFoxError): ...
 
 
-class IntegrationError(AgentFoxError): ...
+class IntegrationError(AgentFoxError):
+    """Error during workspace integration (harvest/merge).
+
+    Attributes:
+        retryable: Whether the error is retryable. Defaults to True for
+            backward compatibility. Set to False for workspace-state errors
+            (e.g. divergent untracked files) that cannot be resolved by
+            re-running the same session.
+
+    Requirements: 118-REQ-3.1
+    """
+
+    def __init__(self, message: str, *, retryable: bool = True, **context: Any) -> None:
+        super().__init__(message, **context)
+        self.retryable = retryable
 
 
 class SessionTimeoutError(AgentFoxError): ...

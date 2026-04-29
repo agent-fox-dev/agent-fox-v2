@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from agent_fox.knowledge.provider import NoOpKnowledgeProvider
+from agent_fox.knowledge.fox_provider import NoOpKnowledgeProvider
 
 
 def _make_mock_config() -> MagicMock:

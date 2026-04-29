@@ -269,7 +269,7 @@ class SessionResultHandler:
         Returns True if the coder was permanently blocked (ladder exhausted),
         False if converted to a retry.
         """
-        from agent_fox.routing.escalation import EscalationLadder
+        from agent_fox.core.escalation import EscalationLadder
 
         coder_node_id = decision.coder_node_id
 
@@ -636,6 +636,22 @@ class SessionResultHandler:
         node_id = record.node_id
         error_tracker[node_id] = record.error_message
 
+        # 118-REQ-3.2, 118-REQ-3.3: Non-retryable errors (workspace-state)
+        # are blocked immediately without consuming escalation ladder retries.
+        if getattr(record, "is_non_retryable", False):
+            logger.warning(
+                "Non-retryable workspace-state error for %s, blocking immediately: %s",
+                node_id,
+                record.error_message,
+            )
+            self._block_task(
+                node_id,
+                state,
+                f"workspace-state: {record.error_message}",
+            )
+            self._check_block_budget(state)
+            return
+
         # Budget exhaustion is not retryable — the session did real work but
         # the SDK terminated it when the max-budget-usd cap was reached.
         # Retrying would just burn the same budget again with no progress.
@@ -745,7 +761,7 @@ class SessionResultHandler:
                 )
 
         # 58-REQ-1.1: Record failure on predecessor's escalation ladder
-        from agent_fox.routing.escalation import EscalationLadder
+        from agent_fox.core.escalation import EscalationLadder
 
         pred_ladder = self._routing_ladders.get(pred_id)
         if pred_ladder is None:

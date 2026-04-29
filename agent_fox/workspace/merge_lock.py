@@ -4,6 +4,9 @@ Provides ``MergeLock``, an async context manager that serializes merge
 operations across asyncio tasks (via ``asyncio.Lock``) and OS processes
 (via atomic lock file creation with ``O_CREAT | O_EXCL``).
 
+A background heartbeat task keeps the lock file's mtime fresh so that a
+live holder is never falsely treated as stale by a competing waiter.
+
 Requirements: 45-REQ-1.1 through 45-REQ-1.E3,
               45-REQ-2.1, 45-REQ-2.2, 45-REQ-2.E1
 """
@@ -23,19 +26,27 @@ from agent_fox.core.errors import IntegrationError
 
 logger = logging.getLogger(__name__)
 
+# Merge-agent sessions can take up to one hour.  The stale timeout must be
+# comfortably larger than that so a live holder is never broken mid-session.
+_DEFAULT_STALE_TIMEOUT: float = 3600.0
+
 
 class MergeLock:
     """File-based merge lock for serializing develop-branch operations.
 
     Works across asyncio tasks (via asyncio.Lock) and OS processes
     (via lock file with atomic creation).
+
+    A heartbeat task updates the lock file's mtime every
+    ``stale_timeout / 2`` seconds while the lock is held, preventing a
+    competing waiter from treating a live holder as stale.
     """
 
     def __init__(
         self,
         repo_root: Path,
         timeout: float = 300.0,
-        stale_timeout: float = 300.0,
+        stale_timeout: float = _DEFAULT_STALE_TIMEOUT,
         poll_interval: float = 1.0,
     ) -> None:
         self._repo_root = repo_root
@@ -45,6 +56,20 @@ class MergeLock:
         self._async_lock = asyncio.Lock()
         self._lock_dir = repo_root / ".agent-fox"
         self._lock_file = self._lock_dir / "merge.lock"
+        self._heartbeat_task: asyncio.Task[None] | None = None
+
+    # ------------------------------------------------------------------
+    # Public property so tests and callers can inspect the effective timeout
+    # ------------------------------------------------------------------
+
+    @property
+    def stale_timeout(self) -> float:
+        """Effective stale-timeout threshold in seconds."""
+        return self._stale_timeout
+
+    # ------------------------------------------------------------------
+    # Acquire / Release
+    # ------------------------------------------------------------------
 
     async def acquire(self) -> None:
         """Acquire the merge lock. Blocks until acquired or timeout.
@@ -70,12 +95,14 @@ class MergeLock:
         while True:
             # Try atomic creation
             if self._try_create_lock_file():
+                self._start_heartbeat()
                 return
 
             # Lock file exists — check if stale (45-REQ-1.E1)
             if self._try_break_stale_lock():
                 # Stale lock removed, retry creation immediately
                 if self._try_create_lock_file():
+                    self._start_heartbeat()
                     return
                 # Another process won the race (45-REQ-1.E3), fall through
 
@@ -171,6 +198,10 @@ class MergeLock:
         If the lock file has already been removed (e.g., broken by another
         process as stale), logs a warning and continues without error.
         """
+        # Stop heartbeat before removing the file so the task doesn't race
+        # with the unlink below.
+        await self._stop_heartbeat()
+
         try:
             self._lock_file.unlink()
             logger.info("Released merge lock: %s", self._lock_file)
@@ -182,6 +213,59 @@ class MergeLock:
             )
         finally:
             self._async_lock.release()
+
+    # ------------------------------------------------------------------
+    # Heartbeat: keep mtime fresh while the lock is held
+    # ------------------------------------------------------------------
+
+    def _start_heartbeat(self) -> None:
+        """Start the background heartbeat task."""
+        self._heartbeat_task = asyncio.create_task(
+            self._heartbeat_loop(),
+            name="merge-lock-heartbeat",
+        )
+
+    async def _stop_heartbeat(self) -> None:
+        """Cancel and await the heartbeat task."""
+        if self._heartbeat_task is None:
+            return
+        self._heartbeat_task.cancel()
+        try:
+            await self._heartbeat_task
+        except asyncio.CancelledError:
+            pass
+        self._heartbeat_task = None
+
+    async def _heartbeat_loop(self) -> None:
+        """Periodically touch the lock file to keep its mtime current.
+
+        Fires every ``stale_timeout / 2`` seconds.  If the lock file
+        disappears (broken externally), the loop exits silently — the
+        release() path will log the warning.
+        """
+        interval = self._stale_timeout / 2
+        try:
+            while True:
+                await asyncio.sleep(interval)
+                try:
+                    os.utime(str(self._lock_file), None)
+                    logger.debug(
+                        "Merge lock heartbeat: refreshed mtime on %s",
+                        self._lock_file,
+                    )
+                except OSError:
+                    # Lock file gone — stop heartbeating quietly
+                    logger.debug(
+                        "Merge lock heartbeat: lock file gone, stopping: %s",
+                        self._lock_file,
+                    )
+                    return
+        except asyncio.CancelledError:
+            pass
+
+    # ------------------------------------------------------------------
+    # Context manager
+    # ------------------------------------------------------------------
 
     async def __aenter__(self) -> MergeLock:
         await self.acquire()

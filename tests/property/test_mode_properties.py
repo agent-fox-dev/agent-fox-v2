@@ -267,7 +267,7 @@ class TestEmptyAllowlistBlocksAll:
     def test_empty_allowlist_blocks_any_command(self, cmd: str) -> None:
         """Every non-empty command is blocked when allowlist is empty."""
         from agent_fox.core.config import SecurityConfig
-        from agent_fox.security.security import make_pre_tool_use_hook
+        from agent_fox.core.security import make_pre_tool_use_hook
 
         # Strip to ensure non-empty, add a prefix to ensure it's a valid command name
         safe_cmd = "mycmd_" + cmd.strip()

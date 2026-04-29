@@ -17,7 +17,7 @@ import pytest
 
 from agent_fox.core.config import SecurityConfig
 from agent_fox.core.errors import SecurityError
-from agent_fox.security.security import (
+from agent_fox.core.security import (
     DEFAULT_ALLOWLIST,
     build_effective_allowlist,
     check_command_allowed,
@@ -289,7 +289,7 @@ class TestBothAllowlistOptions:
             bash_allowlist_extend=["docker"],
         )
 
-        with caplog.at_level(logging.WARNING, logger="agent_fox.security.security"):
+        with caplog.at_level(logging.WARNING, logger="agent_fox.core.security"):
             build_effective_allowlist(config)
 
         assert any(

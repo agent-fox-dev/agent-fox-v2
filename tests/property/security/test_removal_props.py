@@ -39,7 +39,7 @@ class TestSecurityModuleFunctionalEquivalence:
     @settings(max_examples=50)
     def test_check_command_allowed_returns_typed_result(self, cmd: str) -> None:
         """check_command_allowed always returns (bool, str) for any non-whitespace command string."""
-        from agent_fox.security.security import (  # noqa: PLC0415
+        from agent_fox.core.security import (  # noqa: PLC0415
             DEFAULT_ALLOWLIST,
             check_command_allowed,
         )
@@ -54,7 +54,7 @@ class TestSecurityModuleFunctionalEquivalence:
     def test_build_effective_allowlist_returns_frozenset(self, cmd: str) -> None:
         """build_effective_allowlist always returns a frozenset."""
         from agent_fox.core.config import SecurityConfig  # noqa: PLC0415
-        from agent_fox.security.security import (  # noqa: PLC0415
+        from agent_fox.core.security import (  # noqa: PLC0415
             build_effective_allowlist,
         )
 

@@ -28,7 +28,7 @@ from agent_fox.knowledge.migrations import (
     record_version,
     run_migrations,
 )
-from agent_fox.knowledge.provider import KnowledgeProvider
+from agent_fox.knowledge.fox_provider import KnowledgeProvider
 from agent_fox.knowledge.review_store import (
     ReviewFinding,
     insert_findings,
@@ -475,7 +475,7 @@ class TestMigrationV18FreshDb:
         run_migrations(conn)
 
         version = conn.execute("SELECT MAX(version) FROM schema_version").fetchone()[0]
-        assert version == 23
+        assert version == 24
 
         conn.close()
 

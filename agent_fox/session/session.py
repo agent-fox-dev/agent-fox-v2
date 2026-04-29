@@ -20,12 +20,12 @@ from typing import Any
 
 from agent_fox.core.config import AgentFoxConfig
 from agent_fox.core.models import resolve_model
+from agent_fox.core.security import make_pre_tool_use_hook
 from agent_fox.knowledge.audit import (
     AuditEvent,
     AuditEventType,
 )
 from agent_fox.knowledge.sink import SessionOutcome, SinkDispatcher, ToolCall, ToolError
-from agent_fox.security.security import make_pre_tool_use_hook
 from agent_fox.session.backends.claude import ClaudeBackend
 from agent_fox.session.backends.types import (
     AssistantMessage,

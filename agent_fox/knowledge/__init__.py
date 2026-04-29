@@ -5,7 +5,7 @@ infrastructure, schema management, audit/sink infrastructure, review
 store, and agent trace.
 """
 
-from agent_fox.knowledge.provider import KnowledgeProvider, NoOpKnowledgeProvider
+from agent_fox.knowledge.fox_provider import KnowledgeProvider, NoOpKnowledgeProvider
 
 __all__ = [
     "KnowledgeProvider",

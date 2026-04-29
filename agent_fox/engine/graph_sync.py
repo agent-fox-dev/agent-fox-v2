@@ -320,6 +320,10 @@ class GraphSync:
         Uses BFS to find all transitively dependent nodes and marks
         them as blocked.
 
+        Idempotent: if *node_id* is already blocked, the call is a no-op
+        (no state change, no warning log, no audit event).  Completed
+        nodes are also skipped silently.
+
         Args:
             node_id: The task that exhausted retries.
             reason: Human-readable blocking reason.
@@ -327,7 +331,15 @@ class GraphSync:
         Returns:
             List of node_ids that were cascade-blocked (does not include
             the originally blocked node itself).
+
+        Requirements: 118-REQ-7.1, 118-REQ-7.2, 118-REQ-7.E1
         """
+        current_status = self.node_states.get(node_id)
+
+        # Already blocked — skip silently (118-REQ-7.1)
+        if current_status == "blocked":
+            return []
+
         self._transition(node_id, "blocked", reason=reason)
 
         # BFS through dependents to cascade the block
@@ -340,9 +352,13 @@ class GraphSync:
             for dependent in self._dependents.get(current, []):
                 if dependent in visited:
                     continue
+                dep_status = self.node_states.get(dependent)
                 # Skip completed nodes — their work is done and cannot be
-                # reversed.
-                if self.node_states.get(dependent) == "completed":
+                # reversed (118-REQ-7.2).
+                if dep_status == "completed":
+                    continue
+                # Skip already-blocked nodes silently (118-REQ-7.1).
+                if dep_status == "blocked":
                     continue
                 visited.add(dependent)
                 # In-progress nodes are actively executing and cannot be
@@ -351,8 +367,12 @@ class GraphSync:
                 # pending dependents are blocked.  Without this traversal,
                 # those dependents would appear in ready_tasks() when the
                 # in-progress node completes and be dispatched despite the
-                # quality gate (issue #481).
-                if self.node_states.get(dependent) == "in_progress":
+                # quality gate (issue #481).  Log at DEBUG (118-REQ-7.E1).
+                if dep_status == "in_progress":
+                    logger.debug(
+                        "Skipping block of in-progress node %s; will be handled on completion",
+                        dependent,
+                    )
                     queue.append(dependent)
                     continue
                 self._transition(
