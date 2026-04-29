@@ -102,7 +102,7 @@ Three tables store the outputs of review and verification agents:
 
 ### 2.4 Knowledge State
 
-Three tables store the institutional memory:
+Five tables store the institutional memory:
 
 - **`errata`** — Spec divergence records indexed from `docs/errata/` markdown
   files. Each record is keyed by spec name and carries a content hash for
@@ -111,6 +111,17 @@ Three tables store the institutional memory:
   `docs/adr/*.md` in MADR 4.0.0 format. Fields: file path, title, status,
   chosen option, justification, considered options, summary, content hash,
   keywords, and spec references.
+- **`session_summaries`** — Append-only log of session summaries. Each record
+  carries the spec name, task group, archetype, attempt number, run ID, and a
+  free-text summary extracted from the agent's session output. Used to provide
+  cross-session context: later sessions in the same spec receive summaries from
+  earlier sessions, and sessions in different specs receive relevant cross-spec
+  summaries from the current run.
+- **`finding_injections`** — Tracks which review findings and verification
+  verdicts were injected into which sessions. When a session completes
+  successfully, all findings that were injected into it are automatically
+  superseded — the assumption being the coder addressed them. This table
+  enables the closed-loop finding lifecycle.
 - **`audit_events`** — Structured log of every significant operation: run
   start, session start/complete/fail, git merge, config reload, preflight
   skip. Each event has a type, severity, run ID, node ID, and a JSON payload.
@@ -287,8 +298,8 @@ Each iteration:
    escalation logic, persists state, and updates the graph.
 
 8. **Sync barrier.** At configurable intervals (every N completed tasks), the
-   orchestrator pauses dispatch, pulls remote changes, checks for new specs,
-   reloads config, and executes user-configured hooks.
+   orchestrator pauses dispatch, verifies worktrees, pulls remote changes,
+   checks for new specs, and reloads config.
 
 9. **Stall detection.** If no tasks are ready and the graph is not fully
    completed, the orchestrator detects a stall (all remaining tasks are blocked
@@ -337,15 +348,19 @@ that are ready but waiting for a pool slot remain `pending`.
 
 Before dispatching a task, the `DispatchManager` runs a preparation pipeline:
 
-1. **Assessment.** The assessor creates an escalation ladder for the node based
+1. **Workspace health check.** The repository is inspected for untracked files
+   and dirty index state. If untracked files are detected in a coder session's
+   predicted file impact zone, the task is blocked rather than dispatched — this
+   prevents the session from producing conflicts with uncommitted human work.
+2. **Assessment.** The assessor creates an escalation ladder for the node based
    on its archetype's default model tier and the configured tier ceiling.
-2. **Circuit breaker check.** The per-task retry limit is evaluated. If
+3. **Circuit breaker check.** The per-task retry limit is evaluated. If
    exhausted, the task is blocked.
-3. **Preflight check** (coder tasks only, first attempt). The preflight
+4. **Preflight check** (coder tasks only, first attempt). The preflight
    verifier checks whether all checkboxes in `tasks.md` are already marked
    complete, no active critical findings exist, and tests pass. If all three
    hold, the session is skipped — the work is already done.
-4. **Parameter resolution.** The archetype's model tier, security allowlist,
+5. **Parameter resolution.** The archetype's model tier, security allowlist,
    session timeout, max turns, thinking configuration, and budget cap are
    resolved from the archetype registry, mode overrides, and configuration.
 
@@ -487,12 +502,34 @@ Verifier), the session output is parsed for structured findings. Parsed
 findings are written to the appropriate DuckDB quality tables
 (`review_findings`, `drift_findings`, `verification_results`).
 
+**Multi-instance convergence.** When a node is configured with `instances > 1`,
+multiple sessions run in parallel for the same task. Their outputs are merged
+deterministically:
+
+- **Reviewer convergence** (pre-review, drift-review): Union all findings,
+  deduplicate by description similarity, majority-gate critical findings —
+  a finding is only promoted to critical severity if a majority of instances
+  flagged it as critical.
+- **Verifier convergence**: Majority-vote each requirement verdict across
+  instances. A requirement is FAIL only if a majority of instances failed it.
+- **Auditor convergence** (audit-review): Worst-verdict-wins — if any instance
+  flags an issue, the converged result includes it.
+
+Convergence is entirely deterministic (no LLM calls). It ensures that
+multi-instance results are consistent and that individual outlier sessions
+do not produce spurious blocking findings.
+
+**Session summary generation.** For reviewer and verifier sessions, a
+structured summary is generated from the persisted findings and verdicts. This
+summary includes severity counts (e.g., "2 critical, 3 major findings") and
+lists specific requirement IDs for failed verdicts. If the agent itself
+produced no summary artifact, this auto-generated summary is used for the
+knowledge ingestion step.
+
 **Knowledge ingestion.** For completed sessions, the `KnowledgeProvider`
-ingests session context. The concrete implementation detects ADR files
-(`docs/adr/*.md`) among the session's touched files and indexes them into
-the `adr_entries` table — parsing title, status, chosen option, justification,
-considered options, and keywords. This makes architectural decisions
-discoverable by future sessions working on related specs.
+ingests session context — superseding previously injected findings, storing
+session summaries, and indexing any ADR files created during the session.
+See Section 10.3 for the full ingestion pipeline.
 
 **Outcome recording.** The `SessionRecord` (node ID, attempt, status, token
 counts, cost, duration, touched files, model, commit SHA, archetype) is
@@ -508,17 +545,28 @@ and archetype.
 
 ### 6.1 Success
 
-The node is marked `completed` in the graph. If the session was a review agent
-with blocking authority (Reviewer in `pre-review` or `drift-review` mode), the
-result handler evaluates whether the findings exceed the configured blocking
-threshold (default: any critical finding). If they do, all downstream coder
-tasks for that spec are set to `blocked`, and all their transitive dependents
-are cascade-blocked via BFS.
+The node is marked `completed` in the graph. Three post-success evaluations
+may alter downstream behavior:
 
-The `audit-review` and `verifier` archetypes both have `retry_predecessor=true`.
-When their session completes with failing outputs (MISSING tests, FAIL
-requirements), the orchestrator may re-run the preceding coder session with the
-review/verification findings injected as context.
+**Review blocking.** If the session was a review agent with blocking authority
+(Reviewer in `pre-review` or `drift-review` mode), the result handler evaluates
+whether the findings exceed the configured blocking threshold (default: any
+critical finding). Critical security findings always block regardless of
+threshold. If the threshold is exceeded, all downstream coder tasks for that
+spec are set to `blocked`, and all their transitive dependents are
+cascade-blocked via BFS.
+
+**Retry-predecessor.** The `audit-review` and `verifier` archetypes both have
+`retry_predecessor=true`. When their session completes with failing outputs
+(MISSING tests, FAIL requirements), the orchestrator re-runs the preceding
+coder session with the review/verification findings injected as context.
+
+**Coverage regression detection.** Before a coder session, the result handler
+captures a test coverage baseline. After the session completes, it measures
+coverage again and compares per-file percentages. If any file's coverage
+dropped below its baseline, the regression is flagged. Coverage regressions
+do not currently block the session but are reported as audit events for
+visibility.
 
 ### 6.2 Model Routing and the Escalation Ladder
 
@@ -651,20 +699,39 @@ and filters patterns that could constitute prompt injection attacks.
 
 ### 7.2 Knowledge Retrieval
 
-Before each session, the `KnowledgeProvider` is queried with the spec name and
-a task description derived from the subtask list. The concrete implementation
-(`FoxKnowledgeProvider`) retrieves three categories of knowledge:
+Before each session, the `KnowledgeProvider` is queried with the spec name, a
+task description derived from the subtask list, the task group number, and a
+session ID. The concrete implementation (`FoxKnowledgeProvider`) retrieves
+eight categories of knowledge, each formatted with a distinct prefix for
+prompt traceability:
 
-| Category | Source | Format |
-|---|---|---|
-| **Review findings** | `review_findings` table | Active critical/major findings prefixed with `[REVIEW]` |
-| **Errata** | `errata` table (indexed from `docs/errata/`) | Spec divergence notes prefixed with `[ERRATA]` |
-| **ADR summaries** | `adr_entries` table (indexed from `docs/adr/`) | Architectural decisions prefixed with `[ADR]` |
+| Category | Source | Prefix | Scope |
+|---|---|---|---|
+| **Review findings** | `review_findings` table | `[REVIEW]` | Active critical/major for this spec and task group |
+| **Verification verdicts** | `verification_results` table | `[VERDICT]` | Active FAIL verdicts only (PASS are not actionable) |
+| **Errata** | `errata` table | `[ERRATA]` | All errata for this spec |
+| **ADR summaries** | `adr_entries` table | `[ADR]` | ADRs matching spec or task description keywords |
+| **Cross-group findings** | `review_findings` table | `[CROSS-GROUP]` | Critical/major findings from other task groups in the same spec |
+| **Same-spec summaries** | `session_summaries` table | `[CONTEXT]` | Summaries from earlier sessions on the same spec (current run) |
+| **Cross-spec summaries** | `session_summaries` table | `[CROSS-SPEC]` | Summaries from sessions on other specs (current run) |
+| **Prior-run findings** | `review_findings` + `verification_results` | `[PRIOR-RUN]` | Unresolved findings from previous orchestrator runs |
 
-Results are capped at a configurable maximum item count and formatted as
-prompt-ready text blocks. If the knowledge store is unavailable or any query
-fails, retrieval degrades gracefully — the session proceeds without that
-category of knowledge context.
+**Relevance scoring.** Within each category, results are sorted by keyword
+overlap between the task description and the finding/summary text. This
+ensures the most relevant items appear first when results are capped.
+
+**Injection tracking.** When a `session_id` is provided, the IDs of all
+injected review findings and verification verdicts are recorded in the
+`finding_injections` table. This enables the supersession lifecycle: when the
+session completes, injected findings are automatically retired (Section 10.3).
+Cross-group items and prior-run findings are informational and are not tracked
+in the injection table.
+
+**Capping and degradation.** Results are capped at a configurable maximum
+(`max_items` for primary categories, separate caps for cross-group and
+prior-run). If any table does not exist (fresh database) or any query fails,
+that category is silently skipped — the session proceeds with whatever
+knowledge is available.
 
 ### 7.3 Task Prompt
 
@@ -855,8 +922,10 @@ allows the knowledge implementation to evolve without affecting the engine.
 
 The protocol defines two methods:
 
-- `retrieve(spec_name, task_description) → list[str]` — Called before each
-  session. Returns formatted text blocks for prompt injection.
+- `retrieve(spec_name, task_description, task_group?, session_id?) → list[str]`
+  — Called before each session. Returns formatted text blocks for prompt
+  injection. The optional `task_group` and `session_id` parameters enable
+  scoped retrieval and injection tracking.
 - `ingest(session_id, spec_name, context) → None` — Called after each
   successful session. Receives session metadata (touched files, commit SHA,
   session status).
@@ -866,34 +935,60 @@ configured.
 
 ### 10.2 Knowledge Retrieval
 
-The concrete `FoxKnowledgeProvider` queries three sources when `retrieve` is
-called:
+The concrete `FoxKnowledgeProvider` queries eight sources when `retrieve` is
+called. A full description of each category, including prefixes, scoping, and
+capping behavior, is given in Section 7.2.
 
-**Review findings.** Active critical and major review findings for the spec are
-queried from the `review_findings` table. Each finding is formatted with its
-severity and category as a `[REVIEW]`-prefixed string. This ensures coders are
-aware of quality issues identified by prior review sessions.
+In summary, the retrieval pipeline aggregates:
 
-**Errata.** Spec divergence records are queried from the `errata` table.
-Errata are indexed from markdown files in `docs/errata/` at context assembly
-time. Each erratum is formatted as an `[ERRATA]`-prefixed string.
+1. **Same-group findings** — Active critical/major review findings and FAIL
+   verdicts for the current task group. These are the highest-priority items:
+   they represent known issues the coder must address.
 
-**ADR summaries.** Architecture Decision Records matching the spec name or
-task description are queried from the `adr_entries` table. Each ADR is
-formatted as an `[ADR]`-prefixed string with title, status, chosen option,
-and justification.
+2. **Cross-group findings** — Findings from other task groups in the same spec.
+   These provide awareness of issues in adjacent work without creating blocking
+   obligations. Pre-review findings are excluded from cross-group results since
+   they concern spec quality, not implementation.
 
-The combined results are capped at a configurable maximum (`max_items`) and
-returned for prompt injection. If any table does not exist (fresh database) or
-any query fails, that category is silently skipped.
+3. **Errata and ADRs** — Institutional knowledge that provides design context
+   and documents known spec divergences.
+
+4. **Session summaries** — Natural-language summaries from prior sessions in the
+   current run, both same-spec (what earlier groups did) and cross-spec (what
+   related specs accomplished). These give the agent continuity of purpose
+   across the session boundary.
+
+5. **Prior-run findings** — Unresolved findings from previous orchestrator runs.
+   These surface issues that were not addressed in earlier runs, giving the
+   current run an opportunity to fix them.
+
+All results are relevance-scored against the task description, capped per
+category, and formatted with distinctive prefixes. Finding and verdict IDs are
+tracked for the supersession lifecycle (Section 10.3).
 
 ### 10.3 Knowledge Ingestion
 
-After a successful session, the `FoxKnowledgeProvider` ingests knowledge by
-scanning the session's `touched_files` for ADR files matching the
-`docs/adr/*.md` pattern.
+After each session, the `FoxKnowledgeProvider.ingest()` method performs three
+actions:
 
-For each detected ADR file:
+**Finding supersession.** If the session completed successfully, all review
+findings and verification verdicts that were injected into this session (as
+tracked in the `finding_injections` table) are automatically superseded. The
+logic: if the coder saw the finding and completed the work, the finding is
+considered addressed. Superseded findings remain in the database for audit
+history but are excluded from active queries. This closes the
+retrieve-inject-address-supersede feedback loop.
+
+**Session summary storage.** Completed sessions that produced a non-empty
+summary (either extracted from the agent's `session-summary.json` artifact or
+auto-generated from review findings/verdicts for reviewer/verifier archetypes)
+are stored in the `session_summaries` table. Each summary record carries the
+spec name, task group, archetype, attempt number, run ID, and creation
+timestamp. These summaries are later retrieved by `_query_same_spec_summaries`
+and `_query_cross_spec_summaries` to provide cross-session context.
+
+**ADR detection and indexing.** The session's `touched_files` are scanned for
+ADR files matching the `docs/adr/*.md` pattern. For each detected file:
 1. The markdown is parsed according to the MADR 4.0.0 format.
 2. Mandatory sections (context, options, decision outcome) are extracted.
 3. Keywords are derived via stop-word filtering.
@@ -916,17 +1011,30 @@ knowledge through structured review persistence:
 - **Verification results** from verifier sessions are stored in
   `verification_results`.
 
-These findings flow back into future sessions through two paths:
+These findings flow back into future sessions through three paths:
 1. **Context assembly** — findings are rendered as structured markdown sections
    in the session's system prompt (Section 7.1, Layer 3).
 2. **Retry context** — active critical/major findings are prepended to coder
    task prompts on retry attempts.
 3. **Knowledge retrieval** — the `FoxKnowledgeProvider` queries active findings
-   as part of the `retrieve` call.
+   and FAIL verdicts as part of the `retrieve` call, including cross-group
+   and prior-run items.
 
-Findings use a `superseded_by` chain: when newer findings replace older ones,
-the older findings are retired without deletion, preserving audit history while
-keeping active queries current.
+**Finding lifecycle.** Findings follow a closed-loop lifecycle:
+
+```
+Created (by reviewer/verifier session)
+    ↓
+Active (queryable by context assembly and knowledge retrieval)
+    ↓
+Injected (tracked in finding_injections when served to a session)
+    ↓
+Superseded (retired when the session that received them completes)
+```
+
+Superseded findings remain in the database with a `superseded_by` reference
+for audit history but are excluded from active queries. This ensures that
+resolved issues do not permanently consume prompt space.
 
 ### 10.5 The Audit Trail
 
@@ -953,16 +1061,17 @@ limit are pruned at the start of each new run.
 At configurable intervals (every N completed tasks), the orchestrator pauses
 dispatch and runs a synchronization sequence:
 
-1. **Develop sync.** Pull remote changes into `develop`, reconciling divergence
+1. **Worktree verification.** Check for orphaned worktrees and clean them up.
+
+2. **Develop sync.** Pull remote changes into `develop`, reconciling divergence
    using the same merge strategy as harvest.
 
-2. **Hot-load discovery.** Scan `.agent-fox/specs/` for new specs that weren't
+3. **Hot-load discovery.** Scan `.agent-fox/specs/` for new specs that weren't
    present when the plan was built. Each candidate passes four gates:
    git-tracked on develop, all five artifacts non-empty, passes static lint,
    not fully implemented. Admitted specs are merged into the live graph.
-
-3. **Plan status sync.** Write current node statuses back to DuckDB so state
-   accurately reflects progress.
+   Current node statuses are persisted back to DuckDB immediately after
+   hot-loading so a crash does not lose new specs.
 
 4. **Config reload.** Re-read `config.toml` and apply changes (new cost limits,
    archetype settings, routing parameters). The `parallel` field is immutable
@@ -1020,7 +1129,8 @@ Orchestrator  [deterministic dispatch loop, zero LLM]
     │   │      ↓                                                     │
     │   │  System prompt [agent.md + archetype profile + context]    │
     │   │      ↓                                                     │
-    │   │  Knowledge retrieval [reviews + errata + ADRs]             │
+    │   │  Knowledge retrieval [reviews + verdicts + errata + ADRs   │
+    │   │      + summaries + cross-group + prior-run]                │
     │   │      ↓                                                     │
     │   │  Claude Agent SDK ──→ LLM inference                        │
     │   │      ↓                                                     │
@@ -1028,7 +1138,9 @@ Orchestrator  [deterministic dispatch loop, zero LLM]
     │   │      ↓                                                     │
     │   │  Harvest: squash merge → develop                           │
     │   │      ↓                                                     │
-    │   │  Assess: parse findings / ingest ADRs / emit audit         │
+    │   │  Assess: parse findings → converge (multi-instance)        │
+    │   │      → supersede injected findings → store summary         │
+    │   │      → ingest ADRs → emit audit events                     │
     │   │                                                            │
     │   └────────────────────────────────────────────────────────────┘
     │
@@ -1036,19 +1148,25 @@ Orchestrator  [deterministic dispatch loop, zero LLM]
     │   │                                                            │
     │   │  review_findings ── drift_findings ── verification_results │
     │   │  adr_entries ────── errata ──────────── audit_events       │
-    │   │  session_outcomes ─ tool_calls ──────── runs               │
+    │   │  session_summaries  finding_injections ── tool_calls       │
+    │   │  session_outcomes ─ runs                                   │
     │   │                                                            │
     │   └────────────────────────────────────────────────────────────┘
     │
     └─ Sync barriers: hot-load specs, reload config, persist state
 ```
 
-Each session's review findings and ADR outputs feed back into the knowledge
-store, which feeds forward into the context of the next session for the same
-spec (or for any future session where the knowledge is relevant). Quality
-findings from reviewer and verifier sessions are carried forward as structured
-context — ensuring that later coder sessions address issues found by earlier
-quality gates.
+Each session's review findings, session summaries, and ADR outputs feed back
+into the knowledge store, which feeds forward into the context of the next
+session for the same spec (or for any future session where the knowledge is
+relevant). Quality findings from reviewer and verifier sessions are carried
+forward as structured context — ensuring that later coder sessions address
+issues found by earlier quality gates. Session summaries provide continuity
+of purpose across session boundaries, both within a spec (what earlier groups
+accomplished) and across specs (what related work produced). Findings that
+were injected into a session and addressed are automatically superseded when
+the session completes, keeping the knowledge store current without manual
+intervention.
 
 ---
 
@@ -1067,10 +1185,12 @@ Reviewer judges quality; the Verifier checks correctness; the Maintainer handles
 maintenance. Their tool allowlists enforce the separation — Reviewers cannot
 write code; Verifiers can run tests; Coders have full access.
 
-**Knowledge compounds over time.** Review findings, errata, and architectural
-decisions accumulate in the knowledge store. Each subsequent session receives
-relevant accumulated knowledge as context. Findings use supersession chains to
-stay current without losing history.
+**Knowledge compounds over time.** Review findings, session summaries, errata,
+and architectural decisions accumulate in the knowledge store. Each subsequent
+session receives relevant accumulated knowledge as context — same-group,
+cross-group, cross-spec, and prior-run. Findings follow a closed-loop
+lifecycle (created → injected → superseded) that keeps the active set current
+without losing audit history.
 
 **Graceful degradation everywhere.** If knowledge retrieval fails, the session
 proceeds without knowledge context. If review parsing fails, the session outcome

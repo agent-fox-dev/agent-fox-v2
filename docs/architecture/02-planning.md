@@ -7,7 +7,7 @@ Planning is the bridge between human intent (specs) and machine execution
 [Part 1: Spec Authoring](01-spec-authoring.md), constructs a directed acyclic
 graph of tasks with dependency edges, injects review and validation agents at
 the right points, computes an execution order, and persists the result. The
-output — `plan.json` — is what the engine consumes when `agent-fox code` runs
+output — persisted to DuckDB — is what the engine consumes when `agent-fox code` runs
 (see [Part 3: Execution and Archetypes](03-execution-and-archetypes.md)).
 
 The planner is deterministic. Given the same specs and configuration, it
@@ -185,27 +185,16 @@ predictions are serialized.
 
 ---
 
-## Critical Path Analysis
+## Ready Task Ordering
 
-The critical path is the longest-duration path through the DAG — the sequence
-of tasks that determines the minimum possible wall-clock time for the entire
-plan, assuming unlimited parallelism.
-
-The algorithm performs a forward pass in topological order, computing the
-earliest finish time for each node as its own duration plus the maximum
-earliest-finish of its predecessors. Source nodes (no predecessors) have an
-earliest finish equal to their own duration. The critical path is then
-reconstructed by backtracking from the sink node with the maximum earliest
-finish, choosing predecessors whose earliest finish equals the current node's
-earliest finish minus its duration.
-
-When multiple paths tie for the longest duration, all tied paths are reported.
-This gives the operator visibility into which specs and groups are bottlenecks,
-enabling spec restructuring to improve parallelism.
-
-Duration estimates come from the adaptive routing system, which predicts
-execution time based on historical data, feature heuristics, or preset defaults
-(see [Part 3](03-execution-and-archetypes.md) for the routing model).
+When multiple tasks are simultaneously ready, the dispatcher uses spec-fair
+round-robin to prevent any single spec from monopolizing all parallel slots.
+Tasks are grouped by spec (sorted by numeric prefix), and the dispatcher
+interleaves one task from each spec per round. Within a spec, tasks are
+sorted by predicted duration descending — longest tasks dispatch first to
+minimize wall-clock time. Fan-out weights bias ordering toward specs
+whose downstream dependents are most impactful — unblocking a spec with many
+successors is higher priority than one with few.
 
 ---
 
@@ -238,8 +227,8 @@ two ways:
 archetype configuration than the current one (for example, audit-review was
 disabled when the plan was built but is now enabled), the engine injects the
 missing archetype nodes into the live graph, adds the appropriate edges, and
-updates the execution order. This is transparent to the operator — the plan
-file on disk is not modified, only the in-memory graph.
+updates the execution order. The updated plan is persisted back to DuckDB so
+the injected nodes survive a restart.
 
 **Hot-load discovery**: During sync barriers (periodic pauses in execution),
 the engine checks for new specs that have appeared in `.agent-fox/specs/` since the plan

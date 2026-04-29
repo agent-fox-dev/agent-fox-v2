@@ -20,7 +20,7 @@ executable task graphs, see [Part 2: Planning](02-planning.md).
 
 A specification maps to a single coherent feature, capability, or change. It
 lives in a numbered directory under `.agent-fox/specs/` — for example,
-`.specs/03_session_and_workspace/`. The numeric prefix establishes creation
+`.agent-fox/specs/03_session_and_workspace/`. The numeric prefix establishes creation
 order and provides a stable namespace for cross-spec references. The name after
 the prefix is a snake_case descriptor chosen by the author.
 
