@@ -1,6 +1,14 @@
 # Agent-Fox Memory
 
-_3181 facts | last updated: 2026-04-29_
+_3182 facts | last updated: 2026-04-29_
+
+**2026-04-29 Audit-reviewer grades design quality (issue #568):**
+`reviewer_audit-review.md` profile was conflating test pass/fail status with
+test design quality, marking well-designed tests as WEAK when they failed due
+to unimplemented upstream specs. Updated the template to grade test design
+quality only: PASS means sound assertions/scenario regardless of execution
+status, WEAK means actual design flaws. Added anti-pattern examples and
+multi-spec upstream dependency guidance. +8 tests (4672 total pass).
 
 **2026-04-29 Wire audit_max_retries (issue #567):** `ReviewerConfig.audit_max_retries`
 was defined but never read by the retry logic. Added a dedicated per-coder-node
