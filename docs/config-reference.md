@@ -16,13 +16,16 @@ the most commonly changed settings. Add any section below manually to
 - [theme](#theme)
 - [platform](#platform)
 - [knowledge](#knowledge)
+  - [knowledge.provider](#knowledgeprovider)
 - [archetypes](#archetypes)
   - [archetypes.instances](#archetypesinstances)
   - [archetypes.reviewer_config](#archetypesreviewer_config)
+  - [archetypes.overrides](#archetypesoverrides)
+  - [archetypes.custom](#archetypescustom)
 - [pricing](#pricing)
 - [planning](#planning)
-- [blocking](#blocking)
 - [night_shift](#night_shift)
+  - [night_shift.categories](#night_shiftcategories)
 - [caching](#caching)
 
 ---
@@ -33,7 +36,7 @@ Controls project directory locations.
 
 | Field | Type | Default | Bounds | Description |
 |-------|------|---------|--------|-------------|
-| `spec_root` | str | `".agent-fox/specs"` | — | Spec root directory relative to project root. Legacy projects using `.agent-fox/specs/` are auto-detected with a deprecation warning. |
+| `spec_root` | str | `".agent-fox/specs"` | -- | Spec root directory relative to project root. Legacy projects using `.specs/` are auto-detected with a deprecation warning. |
 
 ```toml
 [paths]
@@ -48,7 +51,7 @@ Controls workspace health checks and automatic cleanup before session dispatch.
 
 | Field | Type | Default | Bounds | Description |
 |-------|------|---------|--------|-------------|
-| `force_clean` | bool | `false` | — | Automatically remove untracked files and reset dirty index before session dispatch instead of aborting. Can also be set via `--force-clean` CLI flag on the `code` command (CLI flag takes precedence). |
+| `force_clean` | bool | `false` | -- | Automatically remove untracked files and reset dirty index before session dispatch instead of aborting. Can also be set via `--force-clean` CLI flag on the `code` command (CLI flag takes precedence). |
 
 ```toml
 [workspace]
@@ -63,22 +66,21 @@ Controls the orchestration loop: parallelism, retries, timeouts, and quality gat
 
 | Field | Type | Default | Bounds | Description |
 |-------|------|---------|--------|-------------|
-| `parallel` | int | `2` | 1–8 | Maximum number of parallel coding sessions |
-| `quality_gate` | str | `""` | — | Shell command run after each coder session to verify code quality (e.g. `"make check"`) |
-| `max_budget_usd` | float | `2.0` | ≥ 0 | Per-session spend cap in USD; `0` means unlimited |
-| `sync_interval` | int | `5` | ≥ 0 | Task-group sync interval in number of sessions |
-| `hot_load` | bool | `true` | — | Hot-reload spec files between sessions without restarting the orchestrator |
-| `max_retries` | int | `2` | ≥ 0 | Maximum number of automatic retries per task group |
-| `session_timeout` | int | `30` | ≥ 1 | Per-session timeout in minutes |
-| `inter_session_delay` | int | `3` | ≥ 0 | Delay in seconds between consecutive session launches |
-| `max_cost` | float\|null | `null` | — | Hard cost ceiling for the entire run (null = no limit) |
-| `max_sessions` | int\|null | `null` | — | Maximum total sessions in a run (null = no limit) |
-| `audit_retention_runs` | int | `20` | ≥ 1 | Number of run audit logs to retain on disk |
-| `max_blocked_fraction` | float\|null | `null` | 0.0–1.0 | Abort the run when this fraction of nodes are blocked; `null` disables |
-| `max_review_fraction` | float | `0.34` | 0.0–1.0 | Maximum fraction of parallel slots for review sessions; `auto_pre` nodes exempt |
-| `quality_gate_timeout` | int | `300` | — | Timeout in seconds for the quality-gate command |
-| `causal_context_limit` | int | `200` | 10–10000 | Maximum prior facts included in causal extraction prompts |
-| `watch_interval` | int | `60` | ≥ 10 | Seconds between polls in `--watch` mode |
+| `parallel` | int | `2` | 1--8 | Maximum number of parallel coding sessions |
+| `quality_gate` | str | `""` | -- | Shell command run after each coder session to verify code quality (e.g. `"make check"`) |
+| `quality_gate_timeout` | int | `300` | -- | Timeout in seconds for the quality-gate command |
+| `max_budget_usd` | float | `8.0` | >= 0 | Per-session spend cap in USD; `0` means unlimited |
+| `sync_interval` | int | `5` | >= 0 | Task-group sync interval in number of sessions |
+| `hot_load` | bool | `true` | -- | Hot-reload spec files between sessions without restarting the orchestrator |
+| `max_retries` | int | `2` | >= 0 | Maximum number of automatic retries per task group |
+| `session_timeout` | int | `30` | >= 1 | Per-session timeout in minutes |
+| `inter_session_delay` | int | `3` | >= 0 | Delay in seconds between consecutive session launches |
+| `max_cost` | float\|null | `null` | -- | Hard cost ceiling for the entire run (null = no limit) |
+| `max_sessions` | int\|null | `null` | -- | Maximum total sessions in a run (null = no limit) |
+| `audit_retention_runs` | int | `20` | >= 1 | Number of run audit logs to retain on disk |
+| `max_blocked_fraction` | float\|null | `null` | 0.0--1.0 | Abort the run when this fraction of nodes are blocked; `null` disables |
+| `max_review_fraction` | float | `0.34` | 0.0--1.0 | Maximum fraction of parallel slots for review sessions; `auto_pre` nodes exempt |
+| `watch_interval` | int | `60` | >= 10 | Seconds between polls in `--watch` mode |
 
 **Example:**
 
@@ -98,27 +100,21 @@ max_retries = 3
 Adaptive model routing configuration. Controls when the orchestrator escalates
 to a more capable model tier based on past session outcomes.
 
-> **Note:** This is a hidden section — it does not appear in the simplified
+> **Note:** This is a hidden section -- it does not appear in the simplified
 > template. Add it manually when you want to tune routing behaviour.
 
 | Field | Type | Default | Bounds | Description |
 |-------|------|---------|--------|-------------|
-| `retries_before_escalation` | int | `1` | 0–3 | Failed retries before escalating to the next model tier |
-| `training_threshold` | int | `20` | 5–1000 | Minimum outcome records needed before routing model training |
-| `accuracy_threshold` | float | `0.75` | 0.5–1.0 | Minimum routing accuracy to trust the trained model |
-| `retrain_interval` | int | `10` | 5–100 | Number of new outcomes between routing model retrains |
-| `max_timeout_retries` | int | `2` | ≥ 0 | Maximum timeout retries before falling through to escalation (0 = disable timeout handling) |
-| `timeout_multiplier` | float | `1.5` | ≥ 1.0 | Factor by which `max_turns` and `session_timeout` are extended on each timeout retry |
-| `timeout_ceiling_factor` | float | `2.0` | ≥ 1.0 | Maximum `session_timeout` as a multiple of the original configured value |
+| `retries_before_escalation` | int | `1` | 0--3 | Failed retries before escalating to the next model tier |
+| `max_timeout_retries` | int | `2` | >= 0 | Maximum timeout retries before falling through to escalation (0 = disable timeout handling) |
+| `timeout_multiplier` | float | `1.5` | >= 1.0 | Factor by which `max_turns` and `session_timeout` are extended on each timeout retry |
+| `timeout_ceiling_factor` | float | `2.0` | >= 1.0 | Maximum `session_timeout` as a multiple of the original configured value |
 
 **Example:**
 
 ```toml
 [routing]
 retries_before_escalation = 2
-training_threshold = 50
-accuracy_threshold = 0.80
-retrain_interval = 20
 max_timeout_retries = 3
 timeout_multiplier = 1.5
 timeout_ceiling_factor = 2.0
@@ -133,9 +129,9 @@ Selects the model tier for each task category. Valid tier values are
 
 | Field | Type | Default | Bounds | Description |
 |-------|------|---------|--------|-------------|
-| `coding` | str | `"ADVANCED"` | — | Model tier for coding tasks: SIMPLE, STANDARD, or ADVANCED |
-| `memory_extraction` | str | `"SIMPLE"` | — | Model tier for memory/fact extraction |
-| `fallback_model` | str | `"claude-sonnet-4-6"` | — | Fallback model ID when the primary model is unavailable |
+| `coding` | str | `"ADVANCED"` | -- | Model tier for coding tasks: SIMPLE, STANDARD, or ADVANCED |
+| `memory_extraction` | str | `"SIMPLE"` | -- | Model tier for memory/fact extraction |
+| `fallback_model` | str | `"claude-sonnet-4-6"` | -- | Fallback model ID when the primary model is unavailable |
 
 **Example:**
 
@@ -154,8 +150,8 @@ Controls the bash command allowlist that agent sessions may execute.
 
 | Field | Type | Default | Bounds | Description |
 |-------|------|---------|--------|-------------|
-| `bash_allowlist` | list[str]\|null | `null` | — | Full replacement allowlist (null uses the built-in list) |
-| `bash_allowlist_extend` | list[str] | `[]` | — | Additional commands appended to the built-in allowlist |
+| `bash_allowlist` | list[str]\|null | `null` | -- | Full replacement allowlist (null uses the built-in list) |
+| `bash_allowlist_extend` | list[str] | `[]` | -- | Additional commands appended to the built-in allowlist |
 
 **Example:**
 
@@ -171,18 +167,18 @@ bash_allowlist_extend = ["my-custom-tool", "deploy.sh"]
 Rich text styles for terminal output. Values use
 [Rich markup](https://rich.readthedocs.io/en/stable/style.html) syntax.
 
-> **Note:** This is a hidden section — add it manually to customise colours.
+> **Note:** This is a hidden section -- add it manually to customise colours.
 
 | Field | Type | Default | Bounds | Description |
 |-------|------|---------|--------|-------------|
-| `playful` | bool | `true` | — | Enable playful emoji/banner output style |
-| `header` | str | `"bold #ff8c00"` | — | Style for section headers |
-| `success` | str | `"bold green"` | — | Style for success messages |
-| `error` | str | `"bold red"` | — | Style for error messages |
-| `warning` | str | `"bold yellow"` | — | Style for warning messages |
-| `info` | str | `"#daa520"` | — | Style for informational messages |
-| `tool` | str | `"bold #cd853f"` | — | Style for tool/command output |
-| `muted` | str | `"dim"` | — | Style for secondary/muted text |
+| `playful` | bool | `true` | -- | Enable playful emoji/banner output style |
+| `header` | str | `"bold #ff8c00"` | -- | Style for section headers |
+| `success` | str | `"bold green"` | -- | Style for success messages |
+| `error` | str | `"bold red"` | -- | Style for error messages |
+| `warning` | str | `"bold yellow"` | -- | Style for warning messages |
+| `info` | str | `"#daa520"` | -- | Style for informational messages |
+| `tool` | str | `"bold #cd853f"` | -- | Style for tool/command output |
+| `muted` | str | `"dim"` | -- | Style for secondary/muted text |
 
 **Example:**
 
@@ -198,14 +194,14 @@ success = "green"
 ## platform
 
 Issue-tracker integration. Set `type = "github"` to enable GitHub Issues
-support for the `af-fix` skill.
+support for Night Shift and the fix pipeline.
 
 > **Note:** This is a hidden section.
 
 | Field | Type | Default | Bounds | Description |
 |-------|------|---------|--------|-------------|
-| `type` | str | `"none"` | — | Platform type: `"none"` or `"github"` |
-| `url` | str | `""` | — | Issue tracker base URL (inferred from type when left empty) |
+| `type` | str | `"none"` | -- | Platform type: `"none"` or `"github"` |
+| `url` | str | `""` | -- | Issue tracker base URL (inferred from type when left empty) |
 
 **Example:**
 
@@ -219,104 +215,46 @@ url = "https://github.com/my-org/my-repo"
 
 ## knowledge
 
-Knowledge store and semantic search configuration. The knowledge store
-persists facts learned across sessions for use as context in future sessions.
+Knowledge store configuration. The knowledge store persists session outcomes,
+review findings, and other artifacts across sessions.
 
 > **Note:** This is a hidden section.
 
 | Field | Type | Default | Bounds | Description |
 |-------|------|---------|--------|-------------|
-| `store_path` | str | `".agent-fox/knowledge.duckdb"` | — | Path to the DuckDB knowledge store file |
-| `embedding_model` | str | `"all-MiniLM-L6-v2"` | — | Sentence-transformers model used for fact embeddings |
-| `embedding_dimensions` | int | `384` | — | Dimensionality of embedding vectors |
-| `ask_top_k` | int | `20` | ≥ 1 | Number of top-ranked facts returned by knowledge queries |
-| `ask_synthesis_model` | str | `"STANDARD"` | — | Model tier used to synthesise query answers |
-| `confidence_threshold` | float | `0.5` | 0.0–1.0 | Minimum similarity score for fact inclusion in session context |
-| `fact_cache_enabled` | bool | `true` | — | Pre-compute fact rankings at plan time for faster session start |
-| `dedup_similarity_threshold` | float | `0.92` | — | Cosine similarity threshold for near-duplicate detection |
-| `contradiction_similarity_threshold` | float | `0.8` | — | Cosine similarity threshold for contradiction candidates |
-| `contradiction_model` | str | `"SIMPLE"` | — | Model tier for contradiction classification LLM calls |
-| `decay_half_life_days` | float | `90.0` | — | Days for fact confidence to halve |
-| `decay_floor` | float | `0.1` | — | Effective confidence below which facts are auto-superseded |
-| `cleanup_fact_threshold` | int | `500` | — | Active fact count above which decay cleanup runs |
-| `cleanup_enabled` | bool | `true` | — | Enable/disable end-of-run fact lifecycle cleanup |
-| `retrieval` | table | — | — | Adaptive retrieval tuning parameters (see `[knowledge.retrieval]`) |
-| `sleep` | table | — | — | Sleep-time compute configuration (see `[knowledge.sleep]`) |
-| `provider` | table | — | — | Knowledge provider configuration (see `[knowledge.provider]`) |
+| `store_path` | str | `".agent-fox/knowledge.duckdb"` | -- | Path to the DuckDB knowledge store file |
+| `provider` | table | -- | -- | Knowledge provider configuration (see `[knowledge.provider]`) |
+
+Old fields (`embedding_model`, `dedup_similarity_threshold`,
+`confidence_threshold`, `fact_cache_enabled`, `decay_half_life_days`, etc.)
+are silently ignored for backward compatibility but have no effect.
+
+```toml
+[knowledge]
+store_path = ".agent-fox/knowledge.duckdb"
+```
 
 ### knowledge.provider
 
-Configuration for the pluggable knowledge provider (spec 115). Controls
-retrieval limits, gotcha TTL, and the LLM model tier used for gotcha
-extraction.
+Configuration for the pluggable knowledge provider. Controls retrieval limits
+for the context injected into session prompts.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `max_items` | int | `10` | Max total retrieval items across all categories |
-| `gotcha_ttl_days` | int | `90` | Days before gotcha expiry |
-| `model_tier` | str | `"SIMPLE"` | LLM tier for gotcha extraction |
+| `max_cross_group_items` | int | `3` | Max cross-group retrieval items (findings from other groups in the same spec) |
+| `max_prior_run_items` | int | `5` | Max prior-run finding items per spec (findings carried forward from previous runs) |
+
+Old fields (`gotcha_ttl_days`, `model_tier`) are silently ignored for
+backward compatibility.
 
 **Example:**
 
 ```toml
 [knowledge.provider]
 max_items = 10
-gotcha_ttl_days = 90
-model_tier = "SIMPLE"
-```
-
-### knowledge.sleep
-
-Configuration for the sleep-time compute pipeline (spec 112). Controls
-pre-computation of context blocks and retrieval bundles during idle periods.
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `enabled` | bool | `true` | Enable/disable sleep compute globally |
-| `max_cost` | float | `1.0` | Maximum LLM cost (USD) per sleep compute invocation |
-| `nightshift_interval` | int | `1800` | Seconds between nightshift sleep compute runs |
-| `context_rewriter_enabled` | bool | `true` | Enable context re-representation task |
-| `bundle_builder_enabled` | bool | `true` | Enable retrieval bundle builder task |
-
-**Example:**
-
-```toml
-[knowledge.sleep]
-enabled = true
-max_cost = 0.50
-nightshift_interval = 3600
-```
-
-### knowledge.retrieval
-
-Tuning parameters for the unified adaptive retriever (spec 104). Controls
-multi-signal RRF fusion, token budgeting, and per-signal candidate caps.
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `rrf_k` | int | `60` | RRF smoothing constant (denominator offset) |
-| `max_facts` | int | `50` | Maximum facts in the fused anchor set |
-| `token_budget` | int | `30000` | Maximum characters for the formatted context block |
-| `keyword_top_k` | int | `100` | Candidate cap for the keyword signal |
-| `vector_top_k` | int | `50` | Candidate cap for the vector signal |
-| `entity_max_depth` | int | `2` | Max BFS traversal depth for entity signal |
-| `entity_max_entities` | int | `50` | Max entities traversed in entity signal |
-| `causal_max_depth` | int | `3` | Max traversal depth for causal signal |
-
-**Example:**
-
-```toml
-[knowledge]
-ask_top_k = 30
-confidence_threshold = 0.6
-fact_cache_enabled = true
-cleanup_enabled = true
-decay_half_life_days = 90
-
-[knowledge.retrieval]
-rrf_k = 60
-max_facts = 50
-token_budget = 30000
+max_cross_group_items = 3
+max_prior_run_items = 5
 ```
 
 ---
@@ -331,17 +269,17 @@ behaviour (`pre-review`, `drift-review`, `audit-review`, `fix-review`).
 
 | Field | Type | Default | Bounds | Description |
 |-------|------|---------|--------|-------------|
-| `coder` | bool | `true` | — | Enable the Coder archetype |
-| `reviewer` | bool | `true` | — | Enable the Reviewer archetype (replaces skeptic, oracle, auditor) |
-| `verifier` | bool | `true` | — | Enable the Verifier archetype (post-code correctness checks) |
-| `instances` | table | see below | — | Per-archetype instance counts |
-| `reviewer_config` | table | see below | — | Reviewer-specific configuration (replaces skeptic_config, oracle_settings, auditor_config) |
-| `models` | dict[str, str] | `{}` | — | Per-archetype model tier overrides (e.g. `{coder = "STANDARD"}`) |
-| `allowlists` | dict[str, list[str]] | `{}` | — | Per-archetype extra bash command allowlists |
-| `max_turns` | dict[str, int] | `{}` | — | Per-archetype maximum turn limits (≥ 0) |
-| `thinking` | dict[str, ThinkingConfig] | `{}` | — | Per-archetype extended thinking configuration |
-| `overrides` | dict[str, PerArchetypeConfig] | `{}` | — | Per-archetype config overrides (model_tier, max_turns, allowlist, modes) |
-| `custom` | list[CustomArchetypeConfig] | `[]` | — | Custom archetype definitions |
+| `coder` | bool | `true` | -- | Enable the Coder archetype (cannot be disabled; always forced to `true`) |
+| `reviewer` | bool | `true` | -- | Enable the Reviewer archetype (replaces skeptic, oracle, auditor) |
+| `verifier` | bool | `true` | -- | Enable the Verifier archetype (post-code correctness checks) |
+| `instances` | table | see below | -- | Per-archetype instance counts |
+| `reviewer_config` | table | see below | -- | Reviewer-specific configuration |
+| `models` | dict[str, str] | `{}` | -- | Per-archetype model tier overrides (e.g. `{coder = "STANDARD"}`) |
+| `allowlists` | dict[str, list[str]] | `{}` | -- | Per-archetype extra bash command allowlists |
+| `max_turns` | dict[str, int] | `{}` | -- | Per-archetype maximum turn limits (>= 0) |
+| `thinking` | dict[str, ThinkingConfig] | `{}` | -- | Per-archetype extended thinking configuration |
+| `overrides` | dict[str, PerArchetypeConfig] | `{}` | -- | Unified per-archetype config overrides (takes precedence over individual dicts) |
+| `custom` | dict[str, CustomArchetypeConfig] | `{}` | -- | Custom archetype definitions |
 
 **Example:**
 
@@ -356,13 +294,18 @@ models = {coder = "STANDARD", reviewer = "ADVANCED"}
 max_turns = {coder = 100, verifier = 50}
 ```
 
+**Obsolete keys:** Using `skeptic`, `oracle`, `auditor`, `skeptic_config`,
+`skeptic_settings`, `oracle_settings`, `auditor_config`, `fix_reviewer`, or
+`fix_coder` will produce a validation error with migration guidance. The
+`triage` key is silently stripped with a deprecation warning.
+
 ### archetypes.instances
 
 Controls how many parallel instances of each archetype are spawned.
 
 | Field | Type | Default | Bounds | Description |
 |-------|------|---------|--------|-------------|
-| `reviewer` | int | `1` | 1–5 | Number of parallel Reviewer instances |
+| `reviewer` | int | `1` | 1--5 | Number of parallel Reviewer instances |
 | `verifier` | int | `1` | 1 | Number of Verifier instances (always clamped to 1) |
 
 **Example:**
@@ -378,18 +321,64 @@ Reviewer-specific configuration, consolidating settings for all review modes.
 
 | Field | Type | Default | Bounds | Description |
 |-------|------|---------|--------|-------------|
-| `pre_review_block_threshold` | int | `3` | ≥ 0 | Finding count to block merge for pre-review mode |
-| `drift_review_block_threshold` | int\|null | `null` | ≥ 1 | Drift count to block for drift-review mode; `null` = advisory only |
-| `audit_min_ts_entries` | int | `5` | ≥ 1 | Minimum test-spec entries to trigger audit-review injection |
-| `audit_max_retries` | int | `2` | ≥ 0 | Maximum audit-review retry iterations |
+| `pre_review_block_threshold` | int | `1` | >= 0 | Finding count to block merge for pre-review mode |
+| `drift_review_block_threshold` | int\|null | `null` | >= 1 | Drift count to block for drift-review mode; `null` = advisory only |
+| `audit_min_ts_entries` | int | `5` | >= 1 | Minimum test-spec entries to trigger audit-review injection |
+| `audit_max_retries` | int | `2` | >= 0 | Maximum audit-review retry iterations |
 
 **Example:**
 
 ```toml
 [archetypes.reviewer_config]
-pre_review_block_threshold = 5
+pre_review_block_threshold = 3
 audit_min_ts_entries = 3
 audit_max_retries = 1
+```
+
+### archetypes.overrides
+
+Unified per-archetype configuration tables. Takes precedence over the
+individual `models`, `max_turns`, `thinking`, and `allowlists` dicts.
+
+Each override is keyed by archetype name and supports:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `model_tier` | str\|null | `null` | Model tier override (SIMPLE, STANDARD, ADVANCED). Null = registry default. |
+| `max_turns` | int\|null | `null` | Max turns override. 0 = unlimited. Null = registry default. |
+| `thinking_mode` | str\|null | `null` | Extended thinking mode: `enabled`, `adaptive`, or `disabled`. Null = registry default. |
+| `thinking_budget` | int\|null | `null` | Thinking budget in tokens. Null = registry default. |
+| `allowlist` | list[str]\|null | `null` | Bash command allowlist override. Null = registry default. |
+| `modes` | dict[str, PerArchetypeConfig] | `{}` | Per-mode overrides (same fields as above, keyed by mode name). |
+
+**Example:**
+
+```toml
+[archetypes.overrides.reviewer]
+model_tier = "ADVANCED"
+max_turns = 120
+
+[archetypes.overrides.reviewer.modes.pre-review]
+model_tier = "STANDARD"
+max_turns = 50
+```
+
+### archetypes.custom
+
+Custom (project-defined) archetype configurations. Each entry specifies
+which built-in archetype's permission profile the custom archetype inherits.
+The custom archetype must have a corresponding profile in
+`.agent-fox/profiles/`.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `permissions` | str | `"coder"` | Built-in archetype name whose permissions to inherit |
+
+**Example:**
+
+```toml
+[archetypes.custom.my-analyzer]
+permissions = "coder"
 ```
 
 ---
@@ -410,10 +399,10 @@ Each entry in `models` is a TOML inline table or sub-table with these fields:
 
 | Sub-field | Type | Default | Bounds | Description |
 |-----------|------|---------|--------|-------------|
-| `input_price_per_m` | float | `0.0` | ≥ 0 | USD per million input tokens |
-| `output_price_per_m` | float | `0.0` | ≥ 0 | USD per million output tokens |
-| `cache_read_price_per_m` | float | `0.0` | ≥ 0 | USD per million cache-read input tokens |
-| `cache_creation_price_per_m` | float | `0.0` | ≥ 0 | USD per million cache-creation input tokens |
+| `input_price_per_m` | float | `0.0` | >= 0 | USD per million input tokens |
+| `output_price_per_m` | float | `0.0` | >= 0 | USD per million output tokens |
+| `cache_read_price_per_m` | float | `0.0` | >= 0 | USD per million cache-read input tokens |
+| `cache_creation_price_per_m` | float | `0.0` | >= 0 | USD per million cache-creation input tokens |
 
 **Built-in defaults:**
 
@@ -444,10 +433,10 @@ Controls task scheduling, duration prediction, and file-conflict detection.
 
 | Field | Type | Default | Bounds | Description |
 |-------|------|---------|--------|-------------|
-| `duration_ordering` | bool | `true` | — | Sort ready tasks by predicted duration (shortest first) |
-| `min_outcomes_for_historical` | int | `10` | 1–1000 | Minimum session outcomes before using historical duration data |
-| `min_outcomes_for_regression` | int | `30` | 5–10000 | Minimum outcomes before training the duration regression model |
-| `file_conflict_detection` | bool | `false` | — | Detect and defer tasks that edit the same files in parallel |
+| `duration_ordering` | bool | `true` | -- | Sort ready tasks by predicted duration (shortest first) |
+| `min_outcomes_for_historical` | int | `10` | 1--1000 | Minimum session outcomes before using historical duration data |
+| `min_outcomes_for_regression` | int | `30` | 5--10000 | Minimum outcomes before training the duration regression model |
+| `file_conflict_detection` | bool | `false` | -- | Detect and defer tasks that edit the same files in parallel |
 
 **Example:**
 
@@ -456,30 +445,6 @@ Controls task scheduling, duration prediction, and file-conflict detection.
 duration_ordering = true
 file_conflict_detection = true
 min_outcomes_for_historical = 15
-```
-
----
-
-## blocking
-
-Threshold learning for the blocking subsystem. When enabled, the orchestrator
-learns from past blocking decisions to auto-tune its thresholds.
-
-> **Note:** This is a hidden section.
-
-| Field | Type | Default | Bounds | Description |
-|-------|------|---------|--------|-------------|
-| `learn_thresholds` | bool | `false` | — | Enable automatic blocking threshold learning from history |
-| `min_decisions_for_learning` | int | `20` | 1–1000 | Minimum blocking decisions before learning begins |
-| `max_false_negative_rate` | float | `0.1` | 0.0–1.0 | Maximum acceptable false-negative rate for the learned thresholds |
-
-**Example:**
-
-```toml
-[blocking]
-learn_thresholds = true
-min_decisions_for_learning = 50
-max_false_negative_rate = 0.05
 ```
 
 ---
@@ -494,14 +459,15 @@ stale dependencies, TODO debt, and linter violations.
 
 | Field | Type | Default | Bounds | Description |
 |-------|------|---------|--------|-------------|
-| `issue_check_interval` | int | `900` | ≥ 60 | Seconds between issue-tracker checks |
-| `hunt_scan_interval` | int | `14400` | ≥ 60 | Seconds between full hunt scans |
-| `quality_gate_timeout` | int | `600` | ≥ 60 | Per-check timeout in seconds |
-| `categories` | table | (all enabled) | — | Per-category enable/disable toggles |
-| `spec_interval` | int | `60` | ≥ 10 | Seconds between spec executor cycles |
-| `enabled_streams` | list | `["specs","fixes","hunts"]` | — | List of enabled work stream names |
-| `merge_strategy` | string | `"direct"` | — | Merge strategy: `direct` or `pr` |
-| `push_fix_branch` | bool | `false` | — | Push fix branches to origin before harvest |
+| `issue_check_interval` | int | `900` | >= 60 | Seconds between issue-tracker checks |
+| `hunt_scan_interval` | int | `21600` | >= 60 | Seconds between full hunt scans |
+| `quality_gate_timeout` | int | `600` | >= 60 | Per-check timeout in seconds |
+| `categories` | table | (all enabled) | -- | Per-category enable/disable toggles |
+| `spec_interval` | int | `300` | >= 10 | Seconds between spec executor cycles |
+| `enabled_streams` | list | `["specs","fixes","hunts"]` | -- | List of enabled work stream names (empty = all enabled) |
+| `merge_strategy` | string | `"direct"` | -- | Merge strategy: `direct` or `pr` |
+| `push_fix_branch` | bool | `false` | -- | Push fix branches to origin before harvest |
+| `similarity_threshold` | float | `0.85` | 0.0--1.0 | Cosine similarity threshold for duplicate/ignore detection. Higher = stricter matching (fewer suppressed findings). Lower = more aggressive dedup. |
 
 ### night_shift.categories
 
@@ -523,6 +489,7 @@ stale dependencies, TODO debt, and linter violations.
 issue_check_interval = 1800
 hunt_scan_interval = 7200
 quality_gate_timeout = 300
+similarity_threshold = 0.90
 
 [night_shift.categories]
 dead_code = false
@@ -544,13 +511,13 @@ injected into Anthropic API requests, reducing input token costs on cache hits.
 
 | Policy | `cache_control` marker | TTL | Cost trade-off |
 |--------|------------------------|-----|----------------|
-| `NONE` | None | — | No caching — identical behaviour to pre-caching releases |
+| `NONE` | None | -- | No caching -- identical behaviour to pre-caching releases |
 | `DEFAULT` | `{"type": "ephemeral"}` | 5 minutes | Reduces input costs on repeated calls within a short window |
 | `EXTENDED` | `{"type": "ephemeral", "ttl": "1h"}` | 1 hour | Higher cache-write cost; pays off on long-running sessions |
 
 **Token threshold:** Caching is automatically skipped when the system prompt
-is estimated to be below the model's minimum cacheable size (≈2 048 tokens
-for Sonnet-class models, ≈4 096 for Opus/Haiku-class). Prompts below this
+is estimated to be below the model's minimum cacheable size (~2048 tokens
+for Sonnet-class models, ~4096 for Opus/Haiku-class). Prompts below this
 threshold are passed through unchanged regardless of policy.
 
 **Example:**
