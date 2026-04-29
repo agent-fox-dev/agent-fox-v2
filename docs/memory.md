@@ -1,6 +1,13 @@
 # Agent-Fox Memory
 
-_3180 facts | last updated: 2026-04-29_
+_3181 facts | last updated: 2026-04-29_
+
+**2026-04-29 Wire audit_max_retries (issue #567):** `ReviewerConfig.audit_max_retries`
+was defined but never read by the retry logic. Added a dedicated per-coder-node
+counter (`_audit_retry_counts`) and `_retry_on_audit_review_block()` method in
+`SessionResultHandler` so audit-review retries are tracked independently of the
+generic `EscalationLadder`. Pre-review and drift-review modes are unaffected.
++4 tests (4635 total pass).
 
 **2026-04-29 Tier 1+2b code simplification:** Eliminated two single-file
 packages and merged one single-implementation protocol. Moved

@@ -324,7 +324,7 @@ Reviewer-specific configuration, consolidating settings for all review modes.
 | `pre_review_block_threshold` | int | `1` | >= 0 | Finding count to block merge for pre-review mode |
 | `drift_review_block_threshold` | int\|null | `null` | >= 1 | Drift count to block for drift-review mode; `null` = advisory only |
 | `audit_min_ts_entries` | int | `5` | >= 1 | Minimum test-spec entries to trigger audit-review injection |
-| `audit_max_retries` | int | `2` | >= 0 | Maximum audit-review retry iterations |
+| `audit_max_retries` | int | `2` | >= 0 | Maximum audit-review/coder retry cycles before permanently blocking. Tracked independently of the generic escalation ladder, so audit retries do not consume the coder's escalation budget. Set to 0 to block on the first audit-review failure |
 
 **Example:**
 
