@@ -79,6 +79,9 @@ class SessionResultHandler:
         self._node_timeout: dict[str, int] = {}
         self._original_node_timeout: dict[str, int] = {}  # per-node original timeouts
 
+        # Audit-review retry counter (separate from the generic EscalationLadder)
+        self._audit_retry_counts: dict[str, int] = {}
+
         # Coverage regression gate state
         self._coverage_baselines: dict[str, Any] = {}
         self._coverage_tool: Any = None  # None = not checked, False = no tool
@@ -248,7 +251,7 @@ class SessionResultHandler:
             archetype_entry = resolve_effective_config(archetype_entry, node_mode)
 
         if archetype_entry.retry_predecessor:
-            return self._retry_on_review_block(record, decision, state)
+            return self._retry_on_review_block(record, decision, state, mode=node_mode)
 
         self._block_task(decision.coder_node_id, state, decision.reason)
         self._generate_errata(record)
@@ -259,19 +262,28 @@ class SessionResultHandler:
         record: SessionRecord,
         decision: Any,
         state: ExecutionState,
+        *,
+        mode: str | None = None,
     ) -> bool:
         """Convert a review block to a coder retry when retry_predecessor is set.
 
         Instead of permanently blocking the coder, lets it proceed with review
-        findings injected as context. Uses the coder's escalation ladder to
-        prevent infinite retries; permanently blocks when the ladder is exhausted.
+        findings injected as context.
 
-        Returns True if the coder was permanently blocked (ladder exhausted),
+        For audit-review mode, uses a dedicated per-node counter capped by
+        ``ReviewerConfig.audit_max_retries`` so audit retries do not consume
+        the coder's generic escalation budget. For other modes, falls back to
+        the coder's ``EscalationLadder``.
+
+        Returns True if the coder was permanently blocked (retries exhausted),
         False if converted to a retry.
         """
-        from agent_fox.core.escalation import EscalationLadder
-
         coder_node_id = decision.coder_node_id
+
+        if mode == "audit-review":
+            return self._retry_on_audit_review_block(record, decision, state, coder_node_id)
+
+        from agent_fox.core.escalation import EscalationLadder
 
         pred_ladder = self._routing_ladders.get(coder_node_id)
         if pred_ladder is None:
@@ -314,6 +326,83 @@ class SessionResultHandler:
                 "to_status": "retry_predecessor",
                 "reason": decision.reason,
                 "coder_node_id": coder_node_id,
+            },
+        )
+
+        if self._task_callback is not None:
+            self._task_callback(
+                TaskEvent(
+                    node_id=record.node_id,
+                    status="disagreed",
+                    duration_s=0,
+                    archetype=self._get_node_archetype(record.node_id),
+                    predecessor_node=coder_node_id,
+                )
+            )
+
+        self._generate_errata(record)
+        return False
+
+    def _get_audit_max_retries(self) -> int:
+        """Read audit_max_retries from ReviewerConfig, defaulting to 2."""
+        if self._archetypes_config is not None:
+            return self._archetypes_config.reviewer_config.audit_max_retries
+        return 2
+
+    def _retry_on_audit_review_block(
+        self,
+        record: SessionRecord,
+        decision: Any,
+        state: ExecutionState,
+        coder_node_id: str,
+    ) -> bool:
+        """Handle audit-review retry using a dedicated counter.
+
+        Uses ``ReviewerConfig.audit_max_retries`` instead of the generic
+        ``EscalationLadder`` so audit retries do not consume the coder's
+        escalation budget.
+
+        Returns True if permanently blocked, False if converted to retry.
+        """
+        max_retries = self._get_audit_max_retries()
+        count = self._audit_retry_counts.get(coder_node_id, 0)
+
+        if count >= max_retries:
+            logger.warning(
+                "Audit-review retries exhausted for %s (%d/%d), permanently blocking",
+                coder_node_id,
+                count,
+                max_retries,
+            )
+            self._block_task(coder_node_id, state, decision.reason)
+            self._generate_errata(record)
+            return True
+
+        self._audit_retry_counts[coder_node_id] = count + 1
+
+        logger.info(
+            "Audit-review blocking converted to retry for %s (%d/%d, findings injected as context)",
+            coder_node_id,
+            count + 1,
+            max_retries,
+        )
+        coder_status = self._graph_sync.node_states.get(coder_node_id)
+        if coder_status == "completed":
+            self._graph_sync._transition(coder_node_id, "pending", reason="retry after audit-review block")
+            self._graph_sync._transition(record.node_id, "pending", reason="retry after audit-review block")
+
+        emit_audit_event(
+            self._sink,
+            self._run_id,
+            AuditEventType.TASK_STATUS_CHANGE,
+            node_id=record.node_id,
+            payload={
+                "from_status": "completed",
+                "to_status": "retry_predecessor",
+                "reason": decision.reason,
+                "coder_node_id": coder_node_id,
+                "audit_retry_count": count + 1,
+                "audit_max_retries": max_retries,
             },
         )
 
