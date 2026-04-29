@@ -254,9 +254,8 @@ class TestPriorRunFindingsNotTracked:
         _create_run(provider_conn, "prior_run_id")
         _complete_run(provider_conn, "prior_run_id", "stalled")
 
-        _insert_finding_direct(
+        prior_finding_id = _insert_finding_direct(
             provider_conn,
-            finding_id="F-prior-1",
             spec_name="test_spec",
             severity="critical",
             description="Prior issue",
@@ -270,7 +269,7 @@ class TestPriorRunFindingsNotTracked:
         provider.retrieve("test_spec", "test", task_group="1", session_id="sess-1")
 
         rows = provider_conn.execute(
-            "SELECT * FROM finding_injections WHERE finding_id = ?", ["F-prior-1"]
+            "SELECT * FROM finding_injections WHERE finding_id = ?", [prior_finding_id]
         ).fetchall()
         assert len(rows) == 0
 
@@ -329,3 +328,44 @@ class TestAllPriorSuperseded:
             provider_conn, "test_spec", "current_run_id", max_items=5
         )
         assert result == []
+
+
+# ---------------------------------------------------------------------------
+# TS-120-E9: Missing tables in fresh database (120-REQ-4.E3)
+# ---------------------------------------------------------------------------
+
+
+class TestMissingTablesGraceful:
+    """Graceful empty return when review_findings or verification_results table does not exist.
+
+    This exercises a completely different code path from an empty table: a
+    missing table raises duckdb.CatalogException, which must be caught and
+    handled by returning an empty list.
+    """
+
+    def test_missing_review_findings_table(self) -> None:
+        """query_prior_run_findings returns [] when review_findings table is absent."""
+        conn = duckdb.connect(":memory:")
+        try:
+            # Create only the runs table (no review_findings)
+            conn.execute(
+                "CREATE TABLE runs ("
+                "  id VARCHAR PRIMARY KEY,"
+                "  plan_content_hash VARCHAR NOT NULL,"
+                "  started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,"
+                "  completed_at TIMESTAMP,"
+                "  status VARCHAR NOT NULL DEFAULT 'running',"
+                "  total_input_tokens BIGINT NOT NULL DEFAULT 0,"
+                "  total_output_tokens BIGINT NOT NULL DEFAULT 0,"
+                "  total_cost DOUBLE NOT NULL DEFAULT 0.0,"
+                "  total_sessions INTEGER NOT NULL DEFAULT 0"
+                ")"
+            )
+            conn.execute(
+                "INSERT INTO runs (id, plan_content_hash) VALUES (?, ?)",
+                ["current_run", "hash1"],
+            )
+            result = _query_prior_run_findings(conn, "test_spec", "current_run", max_items=5)
+            assert result == []
+        finally:
+            conn.close()

@@ -16,6 +16,9 @@ import uuid
 import duckdb
 import pytest
 
+from agent_fox.core.config import KnowledgeProviderConfig
+from agent_fox.knowledge.db import KnowledgeDB
+from agent_fox.knowledge.fox_provider import FoxKnowledgeProvider
 from agent_fox.knowledge.migrations import run_migrations
 from agent_fox.knowledge.review_store import ReviewFinding, VerificationResult
 from agent_fox.knowledge.summary_store import (
@@ -43,6 +46,14 @@ def summary_conn() -> duckdb.DuckDBPyConnection:
     run_migrations(conn)
     yield conn
     conn.close()
+
+
+@pytest.fixture()
+def summary_db(summary_conn: duckdb.DuckDBPyConnection) -> KnowledgeDB:
+    """KnowledgeDB wrapper around summary_conn."""
+    db = KnowledgeDB.__new__(KnowledgeDB)
+    db._conn = summary_conn
+    return db
 
 
 def _make_summary(
@@ -172,6 +183,35 @@ class TestSameSpecIncludesAllArchetypes:
         assert len(records) == 3
         archetypes = {r.archetype for r in records}
         assert archetypes == {"coder", "reviewer", "verifier"}
+
+    def test_context_prefix_includes_archetype(
+        self,
+        summary_conn: duckdb.DuckDBPyConnection,
+        summary_db: KnowledgeDB,
+    ) -> None:
+        """120-REQ-3.4: [CONTEXT] prefix includes archetype so downstream sessions
+        can distinguish coder summaries from reviewer/verifier summaries."""
+        for arch in ["coder", "reviewer", "verifier"]:
+            insert_summary(
+                summary_conn,
+                _make_summary(
+                    spec_name="test_spec",
+                    task_group="1",
+                    run_id="run1",
+                    archetype=arch,
+                    summary=f"{arch} did X",
+                ),
+            )
+        provider = FoxKnowledgeProvider(summary_db, KnowledgeProviderConfig())
+        provider.set_run_id("run1")
+        result = provider.retrieve("test_spec", "test", task_group="3")
+        context_items = [i for i in result if "[CONTEXT]" in i]
+        assert len(context_items) == 3
+        # Each item should include its archetype in the prefix
+        for arch in ["coder", "reviewer", "verifier"]:
+            assert any(arch in item for item in context_items), (
+                f"Archetype '{arch}' not found in any [CONTEXT] item: {context_items}"
+            )
 
 
 # ---------------------------------------------------------------------------

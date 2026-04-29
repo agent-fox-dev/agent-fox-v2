@@ -142,7 +142,7 @@ class TestPreReviewFindingsTracked:
         provider_db: KnowledgeDB,
         provider_conn: duckdb.DuckDBPyConnection,
     ) -> None:
-        finding_id = "F-001"
+        finding_id = str(uuid.uuid4())
         _insert_finding(
             provider_conn,
             _make_finding(
