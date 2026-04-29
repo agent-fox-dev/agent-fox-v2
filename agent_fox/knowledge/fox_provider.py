@@ -104,6 +104,65 @@ def _score_relevance(text: str, keywords: frozenset[str]) -> int:
     return sum(1 for kw in keywords if kw in text_lower)
 
 
+def generate_archetype_summary(
+    archetype: str,
+    findings: list[Any] | None = None,
+    verdicts: list[Any] | None = None,
+) -> str:
+    """Generate a summary string for reviewer or verifier sessions.
+
+    For reviewer: counts findings by severity and includes descriptions of
+    up to 3 top-severity findings.
+    For verifier: counts pass/fail verdicts and lists the requirement IDs
+    of all FAIL verdicts.
+
+    Returns a non-empty string even when the input lists are empty
+    (120-REQ-3.E1, 120-REQ-3.E2).
+
+    Requirements: 120-REQ-3.1, 120-REQ-3.2, 120-REQ-3.E1, 120-REQ-3.E2
+    """
+    if archetype == "reviewer":
+        if not findings:
+            return "Reviewer session completed with no findings."
+        severity_counts: dict[str, int] = {}
+        for f in findings:
+            sev = getattr(f, "severity", "unknown")
+            severity_counts[sev] = severity_counts.get(sev, 0) + 1
+        # Build count string ordered by severity rank
+        count_parts: list[str] = []
+        for sev in ["critical", "major", "minor", "observation"]:
+            if sev in severity_counts:
+                count_parts.append(f"{severity_counts[sev]} {sev}")
+        count_str = ", ".join(count_parts) if count_parts else "0 findings"
+        # Include up to 3 top-severity finding descriptions
+        sorted_findings = sorted(
+            findings,
+            key=lambda f: _SEVERITY_RANK.get(getattr(f, "severity", ""), 99),
+        )
+        top_descriptions = [
+            getattr(f, "description", "") for f in sorted_findings[:3]
+        ]
+        desc_str = "; ".join(top_descriptions)
+        return f"Reviewer session completed with {count_str}. Top findings: {desc_str}"
+
+    if archetype == "verifier":
+        if not verdicts:
+            return "Verifier session completed with no verdicts."
+        pass_count = sum(1 for v in verdicts if getattr(v, "verdict", "") == "PASS")
+        fail_count = sum(1 for v in verdicts if getattr(v, "verdict", "") == "FAIL")
+        fail_req_ids = [
+            getattr(v, "requirement_id", "")
+            for v in verdicts
+            if getattr(v, "verdict", "") == "FAIL"
+        ]
+        parts = [f"Verifier session completed with {pass_count} pass, {fail_count} fail."]
+        if fail_req_ids:
+            parts.append(f"Failed requirements: {', '.join(fail_req_ids)}")
+        return " ".join(parts)
+
+    return f"{archetype} session completed."
+
+
 class FoxKnowledgeProvider:
     """Concrete KnowledgeProvider: review carry-forward + ADR retrieval.
 
@@ -657,7 +716,10 @@ class FoxKnowledgeProvider:
             )
             return []
 
-        return [f"[CONTEXT] (group {r.task_group}, attempt {r.attempt}) {r.summary}" for r in records]
+        return [
+            f"[CONTEXT] ({r.archetype}, group {r.task_group}, attempt {r.attempt}) {r.summary}"
+            for r in records
+        ]
 
     def _query_cross_spec_summaries(
         self,

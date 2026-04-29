@@ -84,16 +84,17 @@ def query_same_spec_summaries(
     run_id: str,
     max_items: int = 5,
 ) -> list[SummaryRecord]:
-    """Return coder summaries from prior task groups in the same spec/run.
+    """Return summaries from prior task groups in the same spec/run.
 
-    Filters: archetype='coder', task_group < current, latest attempt per group.
+    Returns summaries from all archetypes (coder, reviewer, verifier).
+    Filters: task_group < current, latest attempt per (task_group, archetype).
     Sorts by task_group ASC. Caps at max_items.
 
     Uses CAST(task_group AS INTEGER) for numeric comparison to avoid
     lexicographic ordering issues with VARCHAR (e.g. '2' > '10').
 
     Requirements: 119-REQ-2.1, 119-REQ-2.3, 119-REQ-2.4, 119-REQ-2.5,
-                  119-REQ-2.6
+                  119-REQ-2.6, 120-REQ-3.3
     """
     try:
         rows = conn.execute(
@@ -101,13 +102,12 @@ def query_same_spec_summaries(
             WITH ranked AS (
                 SELECT *,
                        ROW_NUMBER() OVER (
-                           PARTITION BY task_group
+                           PARTITION BY task_group, archetype
                            ORDER BY attempt DESC
                        ) AS rn
                 FROM session_summaries
                 WHERE spec_name = ?
                   AND run_id = ?
-                  AND archetype = 'coder'
                   AND CAST(task_group AS INTEGER) < CAST(? AS INTEGER)
             )
             SELECT id, node_id, run_id, spec_name, task_group,
@@ -139,12 +139,14 @@ def query_cross_spec_summaries(
     run_id: str,
     max_items: int = 3,
 ) -> list[SummaryRecord]:
-    """Return coder summaries from other specs in the same run.
+    """Return summaries from other specs in the same run.
 
-    Filters: archetype='coder', spec_name != current, latest attempt per
-    (spec, task_group). Sorts by created_at DESC. Caps at max_items.
+    Returns summaries from all archetypes (coder, reviewer, verifier).
+    Filters: spec_name != current, latest attempt per
+    (spec, task_group, archetype). Sorts by created_at DESC. Caps at max_items.
 
-    Requirements: 119-REQ-3.1, 119-REQ-3.3, 119-REQ-3.4, 119-REQ-3.5
+    Requirements: 119-REQ-3.1, 119-REQ-3.3, 119-REQ-3.4, 119-REQ-3.5,
+                  120-REQ-3.3
     """
     try:
         rows = conn.execute(
@@ -152,12 +154,11 @@ def query_cross_spec_summaries(
             WITH ranked AS (
                 SELECT *,
                        ROW_NUMBER() OVER (
-                           PARTITION BY spec_name, task_group
+                           PARTITION BY spec_name, task_group, archetype
                            ORDER BY attempt DESC
                        ) AS rn
                 FROM session_summaries
                 WHERE run_id = ?
-                  AND archetype = 'coder'
                   AND spec_name != ?
             )
             SELECT id, node_id, run_id, spec_name, task_group,

@@ -85,7 +85,7 @@ class TestSummariesFormattedWithContextPrefix:
                                   task_group="3", session_id="spec_a:3")
         context_items = [i for i in items if i.startswith("[CONTEXT]")]
         assert len(context_items) >= 1
-        assert "(group 2, attempt 1)" in context_items[0]
+        assert "(coder, group 2, attempt 1)" in context_items[0]
         assert "Built the SQLite store with WAL mode" in context_items[0]
 
 

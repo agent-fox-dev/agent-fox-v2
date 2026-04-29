@@ -790,6 +790,11 @@ class NodeSessionRunner:
                 workspace,
                 outcome_response=outcome.response,
             )
+            # 120-REQ-3.1, 120-REQ-3.2: Generate summaries for reviewer/verifier
+            # sessions from persisted findings/verdicts when no agent-written
+            # summary exists.
+            if summary_text is None and self._archetype in ("reviewer", "verifier"):
+                summary_text = self._generate_archetype_session_summary(node_id)
             # 114-REQ-4.1, 119-REQ-5.1: Ingest knowledge via KnowledgeProvider.
             # Pass summary, archetype, task_group, and attempt through the
             # context dict so the provider can store the summary.
@@ -858,6 +863,50 @@ class NodeSessionRunner:
             mode=self._mode,
             specs_dir=resolve_spec_root(self._config, Path.cwd()),
         )
+
+    def _generate_archetype_session_summary(self, node_id: str) -> str | None:
+        """Generate a summary for reviewer/verifier sessions from DB findings/verdicts.
+
+        Queries the findings or verdicts persisted by ``_extract_knowledge_and_findings``
+        for the given session and produces a human-readable summary string via
+        ``generate_archetype_summary``.
+
+        Returns ``None`` if the DB is unavailable or an error occurs.
+
+        Requirements: 120-REQ-3.1, 120-REQ-3.2, 120-REQ-3.E1, 120-REQ-3.E2
+        """
+        try:
+            conn = self._knowledge_db.connection
+        except Exception:
+            logger.warning(
+                "Knowledge DB unavailable for archetype summary generation on %s",
+                node_id,
+                exc_info=True,
+            )
+            return None
+
+        try:
+            from agent_fox.knowledge.fox_provider import generate_archetype_summary
+
+            if self._archetype == "reviewer":
+                from agent_fox.knowledge.review_store import query_findings_by_session
+
+                findings = query_findings_by_session(conn, node_id)
+                return generate_archetype_summary("reviewer", findings=findings)
+
+            if self._archetype == "verifier":
+                from agent_fox.knowledge.review_store import query_verdicts_by_session
+
+                verdicts = query_verdicts_by_session(conn, node_id)
+                return generate_archetype_summary("verifier", verdicts=verdicts)
+        except Exception:
+            logger.warning(
+                "Failed to generate archetype summary for %s (%s)",
+                node_id,
+                self._archetype,
+                exc_info=True,
+            )
+        return None
 
     def _build_retry_context(self, spec_name: str) -> str:
         """Query active critical/major findings for the spec and format them.

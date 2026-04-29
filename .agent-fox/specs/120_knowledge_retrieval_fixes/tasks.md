@@ -131,35 +131,35 @@ summaries, then cross-run carry-forward.
     - [x] No linter warnings introduced: `uv run ruff check`
     - [x] Requirements 120-REQ-2.1 through 120-REQ-2.4, 120-REQ-2.E1, 120-REQ-2.E2 met
 
-- [ ] 4. All-archetype summary storage (Fix 3)
-  - [ ] 4.1 Add generate_archetype_summary function
+- [x] 4. All-archetype summary storage (Fix 3)
+  - [x] 4.1 Add generate_archetype_summary function
     - Add to `knowledge/fox_provider.py` (or a new helper in the same package)
     - For reviewer: count findings by severity, include top 3 descriptions
     - For verifier: count pass/fail, list FAIL requirement IDs
     - Handle empty lists gracefully
     - _Requirements: 120-REQ-3.1, 120-REQ-3.2, 120-REQ-3.E1, 120-REQ-3.E2_
 
-  - [ ] 4.2 Wire summary generation for reviewer/verifier sessions
+  - [x] 4.2 Wire summary generation for reviewer/verifier sessions
     - In the session completion path (session_lifecycle.py or result_handler.py),
       generate summary for reviewer and verifier archetypes
     - Set `context["summary"]` before calling `ingest()`
     - _Requirements: 120-REQ-3.1, 120-REQ-3.2_
 
-  - [ ] 4.3 Remove archetype='coder' filter from query_same_spec_summaries
+  - [x] 4.3 Remove archetype='coder' filter from query_same_spec_summaries
     - In `summary_store.py`, remove the `AND archetype = 'coder'` clause
     - _Requirements: 120-REQ-3.3_
 
-  - [ ] 4.4 Update context prefix to include archetype
+  - [x] 4.4 Update context prefix to include archetype
     - Verify that `_query_same_spec_summaries` result formatting in
       fox_provider.py includes archetype in the `[CONTEXT]` prefix
     - _Requirements: 120-REQ-3.4_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Spec tests pass: TS-120-8, TS-120-9, TS-120-10, TS-120-E5, TS-120-E6
-    - [ ] Property test passes: TS-120-P4
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check`
-    - [ ] Requirements 120-REQ-3.1 through 120-REQ-3.4, 120-REQ-3.E1, 120-REQ-3.E2 met
+  - [x] 4.V Verify task group 4
+    - [x] Spec tests pass: TS-120-8, TS-120-9, TS-120-10, TS-120-E5, TS-120-E6
+    - [x] Property test passes: TS-120-P4
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check`
+    - [x] Requirements 120-REQ-3.1 through 120-REQ-3.4, 120-REQ-3.E1, 120-REQ-3.E2 met
 
 - [ ] 5. Cross-run finding carry-forward (Fix 4)
   - [ ] 5.1 Add query_prior_run_findings to review_store.py
