@@ -9,7 +9,6 @@ Requirements: 120-REQ-1.3
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -25,11 +24,13 @@ class TestEngineCallsSetRunId:
         with the generated run ID.
 
         The test constructs a minimal Orchestrator with a real
-        FoxKnowledgeProvider (mocked DB) and verifies set_run_id is called.
+        FoxKnowledgeProvider (in-memory DB) and verifies set_run_id is called.
         """
         import duckdb
 
         from agent_fox.engine.engine import Orchestrator
+        from agent_fox.graph.persistence import save_plan
+        from agent_fox.graph.types import Node, PlanMetadata, TaskGraph
         from agent_fox.knowledge.db import KnowledgeDB
         from agent_fox.knowledge.migrations import run_migrations
 
@@ -41,33 +42,30 @@ class TestEngineCallsSetRunId:
 
         provider = FoxKnowledgeProvider(db, KnowledgeProviderConfig())
 
-        # Write a minimal plan.json so _load_graph succeeds
+        # Save a minimal plan to the DB so _load_graph succeeds
+        graph = TaskGraph(
+            metadata=PlanMetadata(
+                created_at="2026-01-01T00:00:00",
+                fast_mode=False,
+                filtered_spec=None,
+                version="0.1.0",
+            ),
+            nodes={
+                "spec_a:1": Node(
+                    id="spec_a:1",
+                    spec_name="spec_a",
+                    group_number=1,
+                    title="Task 1",
+                    optional=False,
+                ),
+            },
+            edges=[],
+            order=["spec_a:1"],
+        )
+        save_plan(graph, conn)
+
         plan_dir = tmp_path / ".agent-fox"
         plan_dir.mkdir(parents=True, exist_ok=True)
-        plan = {
-            "metadata": {
-                "created_at": "2026-01-01T00:00:00",
-                "fast_mode": False,
-                "filtered_spec": None,
-                "version": "0.1.0",
-            },
-            "nodes": {
-                "spec_a:1": {
-                    "id": "spec_a:1",
-                    "spec_name": "spec_a",
-                    "group_number": 1,
-                    "title": "Task 1",
-                    "optional": False,
-                    "status": "pending",
-                    "subtask_count": 0,
-                    "body": "",
-                    "archetype": "coder",
-                },
-            },
-            "edges": [],
-            "order": ["spec_a:1"],
-        }
-        (plan_dir / "plan.json").write_text(json.dumps(plan))
 
         mock_runner_factory = MagicMock()
 

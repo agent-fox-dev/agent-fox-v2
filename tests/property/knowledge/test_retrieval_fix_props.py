@@ -213,7 +213,7 @@ class TestPriorRunFindingsNeverTracked:
             from agent_fox.engine.state import complete_run, create_run
 
             # Create and complete a prior run
-            create_run(conn, "prior_run")
+            create_run(conn, "prior_run", "hash_prior")
             complete_run(conn, "prior_run", "stalled")
 
             prior_ids: set[str] = set()
@@ -228,7 +228,7 @@ class TestPriorRunFindingsNeverTracked:
                 prior_ids.add(fid)
 
             # Create current run
-            create_run(conn, "current_run")
+            create_run(conn, "current_run", "hash_current")
 
             provider = FoxKnowledgeProvider(db, KnowledgeProviderConfig())
             provider.set_run_id("current_run")

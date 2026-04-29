@@ -285,6 +285,7 @@ async def run_code(
                     "audit_db_conn": infra["knowledge_db"].connection,
                     "knowledge_db_conn": infra["knowledge_db"].connection,
                     "platform": infra.get("platform"),
+                    "knowledge_provider": infra.get("knowledge_provider"),
                 }
             )
 

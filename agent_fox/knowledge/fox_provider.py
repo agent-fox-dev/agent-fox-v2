@@ -123,6 +123,17 @@ class FoxKnowledgeProvider:
         self._config = config
         self._run_id: str | None = None
 
+    def set_run_id(self, run_id: str) -> None:
+        """Set the current run ID for summary queries.
+
+        Stores the run ID for use in ``_query_same_spec_summaries()`` and
+        ``_query_cross_spec_summaries()``.  An empty string is treated as
+        unset (``None``).
+
+        Requirements: 120-REQ-1.1, 120-REQ-1.2
+        """
+        self._run_id = run_id if run_id else None
+
     # ------------------------------------------------------------------
     # KnowledgeProvider protocol methods
     # ------------------------------------------------------------------

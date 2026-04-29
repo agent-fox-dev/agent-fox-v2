@@ -82,24 +82,24 @@ summaries, then cross-run carry-forward.
     - [x] All spec tests FAIL (red) -- no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check`
 
-- [ ] 2. Fix run_id wiring (Fix 1)
-  - [ ] 2.1 Add set_run_id method to FoxKnowledgeProvider
+- [x] 2. Fix run_id wiring (Fix 1)
+  - [x] 2.1 Add set_run_id method to FoxKnowledgeProvider
     - Add `set_run_id(self, run_id: str) -> None` method
     - Store `run_id if run_id else None` in `self._run_id`
     - _Requirements: 120-REQ-1.1, 120-REQ-1.2_
 
-  - [ ] 2.2 Wire set_run_id in engine.py
+  - [x] 2.2 Wire set_run_id in engine.py
     - After `generate_run_id()` in `Engine._init_run`, call
       `knowledge_provider.set_run_id(self._run_id)`
     - The knowledge_provider is accessible via the run setup dict
     - _Requirements: 120-REQ-1.3_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests pass: TS-120-1, TS-120-2, TS-120-3, TS-120-4, TS-120-E1, TS-120-E2
-    - [ ] Property test passes: TS-120-P1
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check`
-    - [ ] Requirements 120-REQ-1.1 through 120-REQ-1.5, 120-REQ-1.E1, 120-REQ-1.E2 met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests pass: TS-120-1, TS-120-2, TS-120-3, TS-120-4, TS-120-E1, TS-120-E2
+    - [x] Property test passes: TS-120-P1
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check`
+    - [x] Requirements 120-REQ-1.1 through 120-REQ-1.5, 120-REQ-1.E1, 120-REQ-1.E2 met
 
 - [ ] 3. Elevate pre-review findings (Fix 2)
   - [ ] 3.1 Update query_active_findings to include group 0

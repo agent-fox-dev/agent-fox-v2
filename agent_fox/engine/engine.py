@@ -161,6 +161,7 @@ class Orchestrator:
         config_path: Path | None = None,
         full_config: AgentFoxConfig | None = None,
         platform: Any | None = None,
+        knowledge_provider: Any | None = None,
     ) -> None:
         self._config = config
         self._watch = watch
@@ -180,6 +181,7 @@ class Orchestrator:
         self._audit_db_conn = audit_db_conn
         self._knowledge_db_conn = knowledge_db_conn
         self._platform = platform
+        self._knowledge_provider = knowledge_provider
         self._issue_summaries_posted: set[str] = set()
         self._atexit_handler: Callable[[], None] | None = None
 
@@ -352,6 +354,11 @@ class Orchestrator:
     ) -> tuple[ExecutionState, dict[str, int], dict[str, str | None]] | ExecutionState:
         self._run_id = generate_run_id()
         logger.debug("Audit run ID: %s", self._run_id)
+
+        # Wire run_id to the knowledge provider so summary queries work
+        # (120-REQ-1.3).
+        if self._knowledge_provider is not None and hasattr(self._knowledge_provider, "set_run_id"):
+            self._knowledge_provider.set_run_id(self._run_id)
 
         if self._audit_dir is not None and self._sink is not None:
             try:
