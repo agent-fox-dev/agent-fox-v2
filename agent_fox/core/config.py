@@ -241,6 +241,7 @@ class KnowledgeProviderConfig(BaseModel):
 
     max_items: int = Field(default=10, description="Max total retrieval items")
     max_cross_group_items: int = Field(default=3, description="Max cross-group retrieval items")
+    max_prior_run_items: int = Field(default=5, description="Max prior-run finding items per spec")
 
 
 class KnowledgeConfig(BaseModel):

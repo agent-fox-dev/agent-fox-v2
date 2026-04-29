@@ -206,15 +206,18 @@ class TestSameSpecCapApplied:
 
 
 # TS-119-10: Only coder summaries retrieved (119-REQ-2.6)
-class TestOnlyCoderSummariesRetrieved:
-    def test_excludes_non_coder(self, summary_conn):
+class TestAllArchetypeSummariesRetrieved:
+    """120-REQ-3.3: query returns summaries from all archetypes, not just coder."""
+
+    def test_includes_all_archetypes(self, summary_conn):
         for arch in ["coder", "reviewer", "verifier"]:
             insert_summary(summary_conn, _make_record(
                 id=str(uuid.uuid4()), task_group="2", node_id=f"spec_a:2:{arch}", archetype=arch,
             ))
         results = query_same_spec_summaries(summary_conn, "spec_a", "3", "run-1")
-        assert len(results) == 1
-        assert results[0].archetype == "coder"
+        assert len(results) == 3
+        archetypes = {r.archetype for r in results}
+        assert archetypes == {"coder", "reviewer", "verifier"}
 
 
 # TS-119-11: Cross-spec retrieval excludes current spec (119-REQ-3.1)
@@ -350,9 +353,11 @@ class TestTaskGroup1ReturnsEmpty:
         assert results == []
 
 
-# TS-119-E5: No coder summaries for prior groups (119-REQ-2.E2)
-class TestNoCoderSummariesForPriorGroups:
-    def test_only_non_coder_prior_groups(self, summary_conn):
+# TS-119-E5: Non-coder prior groups now included (120-REQ-3.3 supersedes 119-REQ-2.E2)
+class TestNonCoderPriorGroupsIncluded:
+    """120-REQ-3.3: all archetypes are now returned, not just coder."""
+
+    def test_non_coder_prior_groups_returned(self, summary_conn):
         insert_summary(summary_conn, _make_record(
             id=str(uuid.uuid4()), task_group="1", node_id="spec_a:1:reviewer", archetype="reviewer",
         ))
@@ -360,7 +365,9 @@ class TestNoCoderSummariesForPriorGroups:
             id=str(uuid.uuid4()), task_group="2", node_id="spec_a:2:verifier", archetype="verifier",
         ))
         results = query_same_spec_summaries(summary_conn, "spec_a", "3", "run-1")
-        assert results == []
+        assert len(results) == 2
+        archetypes = {r.archetype for r in results}
+        assert archetypes == {"reviewer", "verifier"}
 
 
 # TS-119-E6: No cross-spec summaries in run (119-REQ-3.E1)

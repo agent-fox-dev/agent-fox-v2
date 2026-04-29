@@ -86,15 +86,15 @@ class TestPriorGroupFilteringProperty:
             for r in results:
                 assert r.spec_name == current_spec
                 assert int(r.task_group) < current_group
-                assert r.archetype == "coder"
-            groups = [r.task_group for r in results]
-            assert len(groups) == len(set(groups))
+            # 120-REQ-3.3: all archetypes returned, uniqueness is per (task_group, archetype)
+            pairs = [(r.task_group, r.archetype) for r in results]
+            assert len(pairs) == len(set(pairs))
             for r in results:
                 max_attempt = max(
                     rec["attempt"] for rec in records
                     if rec["spec_name"] == current_spec
                     and rec["task_group"] == int(r.task_group)
-                    and rec["archetype"] == "coder"
+                    and rec["archetype"] == r.archetype
                 )
                 assert r.attempt == max_attempt
         finally:
@@ -119,9 +119,9 @@ class TestCrossSpecExclusionProperty:
             results = query_cross_spec_summaries(conn, current_spec, "run-1")
             for r in results:
                 assert r.spec_name != current_spec
-                assert r.archetype == "coder"
-            pairs = [(r.spec_name, r.task_group) for r in results]
-            assert len(pairs) == len(set(pairs))
+            # 120-REQ-3.3: all archetypes returned, uniqueness per (spec, group, archetype)
+            triples = [(r.spec_name, r.task_group, r.archetype) for r in results]
+            assert len(triples) == len(set(triples))
         finally:
             conn.close()
 
@@ -164,8 +164,9 @@ class TestSortOrderProperty:
                     created_at=f"2026-04-28T{10 + (i % 14):02d}:{i % 60:02d}:00",
                 ))
             same = query_same_spec_summaries(conn, "spec_a", "16", "run-1")
+            # 120-REQ-3.3: multiple archetypes per group, so >= not >
             for i in range(1, len(same)):
-                assert int(same[i].task_group) > int(same[i - 1].task_group)
+                assert int(same[i].task_group) >= int(same[i - 1].task_group)
             cross = query_cross_spec_summaries(conn, "spec_a", "run-1")
             for i in range(1, len(cross)):
                 assert cross[i].created_at <= cross[i - 1].created_at

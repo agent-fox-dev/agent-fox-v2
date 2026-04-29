@@ -104,6 +104,59 @@ def _score_relevance(text: str, keywords: frozenset[str]) -> int:
     return sum(1 for kw in keywords if kw in text_lower)
 
 
+def generate_archetype_summary(
+    archetype: str,
+    findings: list[Any] | None = None,
+    verdicts: list[Any] | None = None,
+) -> str:
+    """Generate a summary string for reviewer or verifier sessions.
+
+    For reviewer: counts findings by severity and includes descriptions of
+    up to 3 top-severity findings.
+    For verifier: counts pass/fail verdicts and lists the requirement IDs
+    of all FAIL verdicts.
+
+    Returns a non-empty string even when the input lists are empty
+    (120-REQ-3.E1, 120-REQ-3.E2).
+
+    Requirements: 120-REQ-3.1, 120-REQ-3.2, 120-REQ-3.E1, 120-REQ-3.E2
+    """
+    if archetype == "reviewer":
+        if not findings:
+            return "Reviewer session completed with no findings."
+        severity_counts: dict[str, int] = {}
+        for f in findings:
+            sev = getattr(f, "severity", "unknown")
+            severity_counts[sev] = severity_counts.get(sev, 0) + 1
+        # Build count string ordered by severity rank
+        count_parts: list[str] = []
+        for sev in ["critical", "major", "minor", "observation"]:
+            if sev in severity_counts:
+                count_parts.append(f"{severity_counts[sev]} {sev}")
+        count_str = ", ".join(count_parts) if count_parts else "0 findings"
+        # Include up to 3 top-severity finding descriptions
+        sorted_findings = sorted(
+            findings,
+            key=lambda f: _SEVERITY_RANK.get(getattr(f, "severity", ""), 99),
+        )
+        top_descriptions = [getattr(f, "description", "") for f in sorted_findings[:3]]
+        desc_str = "; ".join(top_descriptions)
+        return f"Reviewer session completed with {count_str}. Top findings: {desc_str}"
+
+    if archetype == "verifier":
+        if not verdicts:
+            return "Verifier session completed with no verdicts."
+        pass_count = sum(1 for v in verdicts if getattr(v, "verdict", "") == "PASS")
+        fail_count = sum(1 for v in verdicts if getattr(v, "verdict", "") == "FAIL")
+        fail_req_ids = [getattr(v, "requirement_id", "") for v in verdicts if getattr(v, "verdict", "") == "FAIL"]
+        parts = [f"Verifier session completed with {pass_count} pass, {fail_count} fail."]
+        if fail_req_ids:
+            parts.append(f"Failed requirements: {', '.join(fail_req_ids)}")
+        return " ".join(parts)
+
+    return f"{archetype} session completed."
+
+
 class FoxKnowledgeProvider:
     """Concrete KnowledgeProvider: review carry-forward + ADR retrieval.
 
@@ -122,6 +175,17 @@ class FoxKnowledgeProvider:
         self._knowledge_db = knowledge_db
         self._config = config
         self._run_id: str | None = None
+
+    def set_run_id(self, run_id: str) -> None:
+        """Set the current run ID for summary queries.
+
+        Stores the run ID for use in ``_query_same_spec_summaries()`` and
+        ``_query_cross_spec_summaries()``.  An empty string is treated as
+        unset (``None``).
+
+        Requirements: 120-REQ-1.1, 120-REQ-1.2
+        """
+        self._run_id = run_id if run_id else None
 
     # ------------------------------------------------------------------
     # KnowledgeProvider protocol methods
@@ -211,9 +275,14 @@ class FoxKnowledgeProvider:
         result.extend(same_spec_summaries)
         result.extend(cross_spec_summaries)
 
+        # Prior-run carry-forward (120-REQ-4.1, 120-REQ-4.2).
+        # Informational context, NOT tracked in finding_injections (120-REQ-4.4).
+        prior_run_items, prior_run_ids = self._query_prior_run_findings(conn, spec_name)
+        result.extend(prior_run_items)
+
         logger.debug(
             "Retrieved %d review + %d errata + %d ADR + %d verdict + %d cross-group "
-            "+ %d context + %d cross-spec items for %s",
+            "+ %d context + %d cross-spec + %d prior-run items for %s",
             len(reviews),
             len(errata),
             len(adrs),
@@ -221,14 +290,16 @@ class FoxKnowledgeProvider:
             len(cross_group_items),
             len(same_spec_summaries),
             len(cross_spec_summaries),
+            len(prior_run_items),
             spec_name,
         )
 
         # Record which finding/verdict IDs were injected into this session so
         # that a successful ingest() can supersede them later (558-AC-1).
-        # Cross-group items are NOT tracked — they are informational context.
+        # Cross-group items and prior-run items are NOT tracked — they are
+        # informational context (120-REQ-4.4).
         if session_id:
-            injected_ids = [id_ for _, id_ in capped if id_ is not None]
+            injected_ids = [id_ for _, id_ in capped if id_ is not None and id_ not in prior_run_ids]
             if injected_ids:
                 try:
                     from agent_fox.knowledge.review_store import record_finding_injections
@@ -377,7 +448,13 @@ class FoxKnowledgeProvider:
         try:
             from agent_fox.knowledge.review_store import query_active_findings
 
-            findings = query_active_findings(conn, spec_name, task_group=task_group)
+            # Elevate pre-review (group 0) findings into primary review results
+            # when the session targets a non-zero task group so they are tracked
+            # via finding_injections and can be superseded (120-REQ-2.1, 120-REQ-2.2).
+            include_prereview = task_group is not None and task_group != "0"
+            findings = query_active_findings(
+                conn, spec_name, task_group=task_group, include_prereview=include_prereview
+            )
         except Exception:
             # Table may not exist in a fresh database (116-REQ-6.E1).
             logger.debug(
@@ -428,7 +505,11 @@ class FoxKnowledgeProvider:
         try:
             from agent_fox.knowledge.review_store import query_cross_group_findings
 
-            findings = query_cross_group_findings(conn, spec_name, task_group)
+            # Exclude pre-review (group 0) findings from cross-group results
+            # when the caller is not group 0 itself, since those findings are
+            # elevated into primary review results (120-REQ-2.3, 120-REQ-2.E2).
+            exclude_prereview = task_group != "0"
+            findings = query_cross_group_findings(conn, spec_name, task_group, exclude_prereview=exclude_prereview)
         except Exception:
             logger.debug(
                 "Could not query cross-group findings for %s",
@@ -634,7 +715,7 @@ class FoxKnowledgeProvider:
             )
             return []
 
-        return [f"[CONTEXT] (group {r.task_group}, attempt {r.attempt}) {r.summary}" for r in records]
+        return [f"[CONTEXT] ({r.archetype}, group {r.task_group}, attempt {r.attempt}) {r.summary}" for r in records]
 
     def _query_cross_spec_summaries(
         self,
@@ -661,6 +742,71 @@ class FoxKnowledgeProvider:
             return []
 
         return [f"[CROSS-SPEC] ({r.spec_name}, group {r.task_group}) {r.summary}" for r in records]
+
+    def _query_prior_run_findings(
+        self,
+        conn: Any,
+        spec_name: str,
+    ) -> tuple[list[str], set[str]]:
+        """Query prior-run findings and verdicts, formatted as [PRIOR-RUN] items.
+
+        Returns a tuple of ``(formatted_items, prior_run_ids)`` where
+        ``prior_run_ids`` is the set of finding/verdict IDs from prior runs.
+        The IDs are used by ``retrieve()`` to exclude prior-run items from
+        ``finding_injections`` tracking (120-REQ-4.4).
+
+        Returns unresolved critical/major findings and FAIL verdicts from
+        prior runs (i.e. created before the current run started).  These
+        are informational context — they are NOT tracked in
+        ``finding_injections`` (120-REQ-4.4).
+
+        When ``_run_id`` is not set, returns empty collections (no way to
+        distinguish prior from current without a run reference).
+
+        Requirements: 120-REQ-4.1, 120-REQ-4.2, 120-REQ-4.4, 120-REQ-4.5
+        """
+        if not self._run_id:
+            return [], set()
+
+        max_items = self._config.max_prior_run_items
+
+        result: list[str] = []
+        prior_ids: set[str] = set()
+
+        try:
+            from agent_fox.knowledge.review_store import query_prior_run_findings
+
+            findings = query_prior_run_findings(conn, spec_name, self._run_id, max_items=max_items)
+            for f in findings:
+                parts = [f"[{f.severity}]"]
+                if f.category:
+                    parts.append(f"{f.category}:")
+                parts.append(f.description)
+                result.append(f"[PRIOR-RUN] (spec {spec_name}) {' '.join(parts)}")
+                prior_ids.add(f.id)
+        except Exception:
+            logger.debug(
+                "Could not query prior-run findings for %s",
+                spec_name,
+            )
+
+        try:
+            from agent_fox.knowledge.review_store import query_prior_run_verdicts
+
+            verdicts = query_prior_run_verdicts(conn, spec_name, self._run_id, max_items=max_items)
+            for v in verdicts:
+                parts = [f"[FAIL] {v.requirement_id}"]
+                if v.evidence:
+                    parts.append(v.evidence)
+                result.append(f"[PRIOR-RUN] (spec {spec_name}) {' '.join(parts)}")
+                prior_ids.add(v.id)
+        except Exception:
+            logger.debug(
+                "Could not query prior-run verdicts for %s",
+                spec_name,
+            )
+
+        return result, prior_ids
 
     def _store_summary(
         self,

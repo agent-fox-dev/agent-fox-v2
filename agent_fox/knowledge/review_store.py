@@ -13,7 +13,7 @@ import logging
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 import duckdb  # noqa: F401
@@ -362,18 +362,32 @@ def query_cross_group_findings(
     conn: duckdb.DuckDBPyConnection,
     spec_name: str,
     task_group: str,
+    exclude_prereview: bool = False,
 ) -> list[ReviewFinding]:
     """Query non-superseded actionable findings from *other* task groups.
 
     Returns findings where ``task_group != ?`` — i.e. everything except the
     caller's own group.  Only ``critical`` and ``major`` findings are returned.
+
+    When *exclude_prereview* is ``True``, group ``"0"`` findings are also
+    excluded.  This prevents duplication when group 0 findings have been
+    elevated into the primary review results (120-REQ-2.3).
     """
-    rows = conn.execute(
-        f"SELECT {_FINDING_COLS} FROM review_findings "  # noqa: S608
-        "WHERE spec_name = ? AND task_group != ? AND superseded_by IS NULL "
-        "ORDER BY severity, description",
-        [spec_name, task_group],
-    ).fetchall()
+    if exclude_prereview:
+        rows = conn.execute(
+            f"SELECT {_FINDING_COLS} FROM review_findings "  # noqa: S608
+            "WHERE spec_name = ? AND task_group != ? AND task_group != '0' "
+            "AND superseded_by IS NULL "
+            "ORDER BY severity, description",
+            [spec_name, task_group],
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            f"SELECT {_FINDING_COLS} FROM review_findings "  # noqa: S608
+            "WHERE spec_name = ? AND task_group != ? AND superseded_by IS NULL "
+            "ORDER BY severity, description",
+            [spec_name, task_group],
+        ).fetchall()
     findings = [_row_to_finding(r) for r in rows if r[1] in ACTIONABLE_SEVERITIES]
     findings.sort(key=lambda f: (_SEVERITY_ORDER.get(f.severity, 99), f.description))
     return findings
@@ -401,6 +415,7 @@ def query_active_findings(
     conn: duckdb.DuckDBPyConnection,
     spec_name: str,
     task_group: str | None = None,
+    include_prereview: bool = False,
 ) -> list[ReviewFinding]:
     """Query non-superseded actionable findings for a spec.
 
@@ -408,16 +423,31 @@ def query_active_findings(
     ``observation`` rows are excluded as a defense-in-depth guard against
     any legacy rows that may have been written before issue #553 was fixed.
 
-    Requirements: 27-REQ-5.1
+    When *include_prereview* is ``True`` and *task_group* is not ``None``
+    and not ``"0"``, findings from both the requested task group and group
+    ``"0"`` (pre-review) are returned.  This elevates pre-review findings
+    into the primary review results so they are tracked via
+    ``finding_injections`` and can be superseded on session completion.
+
+    Requirements: 27-REQ-5.1, 120-REQ-2.1
     """
-    rows = _query_active(
-        conn,
-        "review_findings",
-        _FINDING_COLS,
-        spec_name,
-        task_group,
-        "severity, description",
-    )
+    if include_prereview and task_group is not None and task_group != "0":
+        # Include both the requested task group and group 0 (pre-review)
+        rows = conn.execute(
+            f"SELECT {_FINDING_COLS} FROM review_findings "  # noqa: S608
+            "WHERE spec_name = ? AND task_group IN (?, '0') AND superseded_by IS NULL "
+            "ORDER BY severity, description",
+            [spec_name, task_group],
+        ).fetchall()
+    else:
+        rows = _query_active(
+            conn,
+            "review_findings",
+            _FINDING_COLS,
+            spec_name,
+            task_group,
+            "severity, description",
+        )
     findings = [_row_to_finding(r) for r in rows if r[1] in ACTIONABLE_SEVERITIES]
     findings.sort(key=lambda f: (_SEVERITY_ORDER.get(f.severity, 99), f.description))
     return findings
@@ -588,6 +618,135 @@ def record_finding_injections(
         len(finding_ids),
         session_id,
     )
+
+
+def _get_run_start_local(
+    conn: duckdb.DuckDBPyConnection,
+    run_id: str,
+) -> datetime | None:
+    """Return the ``started_at`` of *run_id* converted to DuckDB-local time.
+
+    ``runs.started_at`` is stored as a Python-UTC ISO string (via
+    ``datetime.now(UTC).isoformat()``).  ``review_findings.created_at``
+    uses DuckDB's ``CURRENT_TIMESTAMP`` which resolves to the server's
+    local time (issue #480).  To compare the two correctly we must
+    convert the UTC value to local time in Python.
+
+    Returns ``None`` when *run_id* is not found.
+    """
+    row = conn.execute(
+        "SELECT started_at FROM runs WHERE id = ?",
+        [run_id],
+    ).fetchone()
+    if row is None:
+        return None
+
+    started_at = row[0]
+    # DuckDB returns a naive datetime (TIMESTAMP column).  The value was
+    # written by ``datetime.now(UTC).isoformat()`` so it *is* UTC, but
+    # DuckDB stripped the +00:00 on CAST.  Re-attach UTC then convert to
+    # local time and strip tzinfo so it's comparable to CURRENT_TIMESTAMP.
+    if isinstance(started_at, datetime):
+        utc_dt = started_at.replace(tzinfo=UTC)
+        local_dt = utc_dt.astimezone()  # system local timezone
+        return local_dt.replace(tzinfo=None)
+    # Fallback: if it's a string, parse it
+    dt = datetime.fromisoformat(str(started_at))
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=UTC)
+    local_dt = dt.astimezone()
+    return local_dt.replace(tzinfo=None)
+
+
+def query_prior_run_findings(
+    conn: duckdb.DuckDBPyConnection,
+    spec_name: str,
+    current_run_id: str,
+    max_items: int = 5,
+) -> list[ReviewFinding]:
+    """Query active critical/major findings from prior runs.
+
+    Returns findings that:
+    - belong to the specified spec
+    - are not superseded (``superseded_by IS NULL``)
+    - have severity ``critical`` or ``major``
+    - were created before the current run's ``started_at`` timestamp
+
+    Results are sorted by severity (critical first), then description,
+    and capped at *max_items*.
+
+    Handles missing ``review_findings`` or ``runs`` tables gracefully
+    by returning an empty list (120-REQ-4.E3).
+
+    Requirements: 120-REQ-4.1, 120-REQ-4.3, 120-REQ-4.E1, 120-REQ-4.E2, 120-REQ-4.E3
+    """
+    try:
+        cutoff = _get_run_start_local(conn, current_run_id)
+        if cutoff is None:
+            return []
+
+        rows = conn.execute(
+            f"SELECT {_FINDING_COLS} FROM review_findings "  # noqa: S608
+            "WHERE spec_name = ? "
+            "AND superseded_by IS NULL "
+            "AND severity IN ('critical', 'major') "
+            "AND created_at < ? "
+            "ORDER BY CASE severity WHEN 'critical' THEN 0 ELSE 1 END, description "
+            "LIMIT ?",
+            [spec_name, cutoff, max_items],
+        ).fetchall()
+        return [_row_to_finding(r) for r in rows]
+    except Exception:
+        logger.debug(
+            "Could not query prior-run findings for %s (table may not exist)",
+            spec_name,
+        )
+        return []
+
+
+def query_prior_run_verdicts(
+    conn: duckdb.DuckDBPyConnection,
+    spec_name: str,
+    current_run_id: str,
+    max_items: int = 5,
+) -> list[VerificationResult]:
+    """Query active FAIL verdicts from prior runs.
+
+    Returns verdicts that:
+    - belong to the specified spec
+    - are not superseded (``superseded_by IS NULL``)
+    - have verdict ``FAIL``
+    - were created before the current run's ``started_at`` timestamp
+
+    Results are sorted by requirement_id and capped at *max_items*.
+
+    Handles missing tables gracefully by returning an empty list
+    (120-REQ-4.E3).
+
+    Requirements: 120-REQ-4.5, 120-REQ-4.E1, 120-REQ-4.E3
+    """
+    try:
+        cutoff = _get_run_start_local(conn, current_run_id)
+        if cutoff is None:
+            return []
+
+        rows = conn.execute(
+            f"SELECT {_VERDICT_COLS} FROM verification_results "  # noqa: S608
+            "WHERE spec_name = ? "
+            "AND superseded_by IS NULL "
+            "AND verdict = 'FAIL' "
+            "AND created_at < ? "
+            "ORDER BY requirement_id "
+            "LIMIT ?",
+            [spec_name, cutoff, max_items],
+        ).fetchall()
+        return [_row_to_verdict(r) for r in rows]
+    except Exception:
+        logger.debug(
+            "Could not query prior-run verdicts for %s (table may not exist)",
+            spec_name,
+        )
+        return []
 
 
 def supersede_injected_findings(
