@@ -207,9 +207,9 @@ summaries, then cross-run carry-forward.
     - [x] All unit and property tests pass: `uv run pytest -q`
     - [x] No linter warnings: `uv run ruff check`
 
-- [ ] 7. Wiring verification
+- [x] 7. Wiring verification
 
-  - [ ] 7.1 Trace every execution path from design.md end-to-end
+  - [x] 7.1 Trace every execution path from design.md end-to-end
     - For each path, verify the entry point actually calls the next function
       in the chain (read the calling code, do not assume)
     - Confirm no function in the chain is a stub (`return []`, `return None`,
@@ -218,38 +218,46 @@ summaries, then cross-run carry-forward.
       satisfy this check
     - _Requirements: all_
 
-  - [ ] 7.2 Verify return values propagate correctly
+  - [x] 7.2 Verify return values propagate correctly
     - For every function in this spec that returns data consumed by a caller,
       confirm the caller receives and uses the return value
     - Grep for callers of each such function; confirm none discards the return
     - _Requirements: all_
 
-  - [ ] 7.3 Run the integration smoke tests
+  - [x] 7.3 Run the integration smoke tests
     - All `TS-120-SMOKE-*` tests pass using real components (no stub bypass)
     - _Test Spec: TS-120-SMOKE-1 through TS-120-SMOKE-3_
 
-  - [ ] 7.4 Stub / dead-code audit
+  - [x] 7.4 Stub / dead-code audit
     - Search all files touched by this spec for: `return []`, `return None`
       on non-Optional returns, `pass` in non-abstract methods, `# TODO`,
       `# stub`, `override point`, `NotImplementedError`
     - Each hit must be either: (a) justified with a comment explaining why it
       is intentional, or (b) replaced with a real implementation
     - Document any intentional stubs here with rationale
+    - All `return []` hits are in error/exception handlers or early-return
+      guards (unset run_id, missing tables). `NoOpKnowledgeProvider.retrieve`
+      returns `[]` by design. `return None` hits are in Optional-returning
+      methods or void methods. All `pass` hits are in exception-swallowing
+      blocks. No `# TODO`, `# stub`, `NotImplementedError` found.
 
-  - [ ] 7.5 Cross-spec entry point verification
+  - [x] 7.5 Cross-spec entry point verification
     - Verify that `set_run_id()` is called from production code (engine.py)
+      - Confirmed: engine.py:361 calls `self._knowledge_provider.set_run_id(self._run_id)`
     - Verify that `generate_archetype_summary()` is called from production
       code (session_lifecycle.py or result_handler.py)
+      - Confirmed: session_lifecycle.py:889,895,901 imports and calls it
     - Verify that `query_prior_run_findings()` is called from
       `_query_prior_run_findings()` in fox_provider.py
+      - Confirmed: fox_provider.py:777,779 imports and calls it
     - _Requirements: all_
 
-  - [ ] 7.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live (traceable in code)
-    - [ ] All cross-spec entry points are called from production code
-    - [ ] All existing tests still pass: `uv run pytest -q`
+  - [x] 7.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] All cross-spec entry points are called from production code
+    - [x] All existing tests still pass: `uv run pytest -q`
 
 ## Traceability
 

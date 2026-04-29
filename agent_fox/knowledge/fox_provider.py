@@ -139,9 +139,7 @@ def generate_archetype_summary(
             findings,
             key=lambda f: _SEVERITY_RANK.get(getattr(f, "severity", ""), 99),
         )
-        top_descriptions = [
-            getattr(f, "description", "") for f in sorted_findings[:3]
-        ]
+        top_descriptions = [getattr(f, "description", "") for f in sorted_findings[:3]]
         desc_str = "; ".join(top_descriptions)
         return f"Reviewer session completed with {count_str}. Top findings: {desc_str}"
 
@@ -150,11 +148,7 @@ def generate_archetype_summary(
             return "Verifier session completed with no verdicts."
         pass_count = sum(1 for v in verdicts if getattr(v, "verdict", "") == "PASS")
         fail_count = sum(1 for v in verdicts if getattr(v, "verdict", "") == "FAIL")
-        fail_req_ids = [
-            getattr(v, "requirement_id", "")
-            for v in verdicts
-            if getattr(v, "verdict", "") == "FAIL"
-        ]
+        fail_req_ids = [getattr(v, "requirement_id", "") for v in verdicts if getattr(v, "verdict", "") == "FAIL"]
         parts = [f"Verifier session completed with {pass_count} pass, {fail_count} fail."]
         if fail_req_ids:
             parts.append(f"Failed requirements: {', '.join(fail_req_ids)}")
@@ -305,10 +299,7 @@ class FoxKnowledgeProvider:
         # Cross-group items and prior-run items are NOT tracked — they are
         # informational context (120-REQ-4.4).
         if session_id:
-            injected_ids = [
-                id_ for _, id_ in capped
-                if id_ is not None and id_ not in prior_run_ids
-            ]
+            injected_ids = [id_ for _, id_ in capped if id_ is not None and id_ not in prior_run_ids]
             if injected_ids:
                 try:
                     from agent_fox.knowledge.review_store import record_finding_injections
@@ -518,9 +509,7 @@ class FoxKnowledgeProvider:
             # when the caller is not group 0 itself, since those findings are
             # elevated into primary review results (120-REQ-2.3, 120-REQ-2.E2).
             exclude_prereview = task_group != "0"
-            findings = query_cross_group_findings(
-                conn, spec_name, task_group, exclude_prereview=exclude_prereview
-            )
+            findings = query_cross_group_findings(conn, spec_name, task_group, exclude_prereview=exclude_prereview)
         except Exception:
             logger.debug(
                 "Could not query cross-group findings for %s",
@@ -726,10 +715,7 @@ class FoxKnowledgeProvider:
             )
             return []
 
-        return [
-            f"[CONTEXT] ({r.archetype}, group {r.task_group}, attempt {r.attempt}) {r.summary}"
-            for r in records
-        ]
+        return [f"[CONTEXT] ({r.archetype}, group {r.task_group}, attempt {r.attempt}) {r.summary}" for r in records]
 
     def _query_cross_spec_summaries(
         self,
