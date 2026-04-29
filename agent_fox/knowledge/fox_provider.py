@@ -281,9 +281,14 @@ class FoxKnowledgeProvider:
         result.extend(same_spec_summaries)
         result.extend(cross_spec_summaries)
 
+        # Prior-run carry-forward (120-REQ-4.1, 120-REQ-4.2).
+        # Informational context, NOT tracked in finding_injections (120-REQ-4.4).
+        prior_run_items, prior_run_ids = self._query_prior_run_findings(conn, spec_name)
+        result.extend(prior_run_items)
+
         logger.debug(
             "Retrieved %d review + %d errata + %d ADR + %d verdict + %d cross-group "
-            "+ %d context + %d cross-spec items for %s",
+            "+ %d context + %d cross-spec + %d prior-run items for %s",
             len(reviews),
             len(errata),
             len(adrs),
@@ -291,14 +296,19 @@ class FoxKnowledgeProvider:
             len(cross_group_items),
             len(same_spec_summaries),
             len(cross_spec_summaries),
+            len(prior_run_items),
             spec_name,
         )
 
         # Record which finding/verdict IDs were injected into this session so
         # that a successful ingest() can supersede them later (558-AC-1).
-        # Cross-group items are NOT tracked — they are informational context.
+        # Cross-group items and prior-run items are NOT tracked — they are
+        # informational context (120-REQ-4.4).
         if session_id:
-            injected_ids = [id_ for _, id_ in capped if id_ is not None]
+            injected_ids = [
+                id_ for _, id_ in capped
+                if id_ is not None and id_ not in prior_run_ids
+            ]
             if injected_ids:
                 try:
                     from agent_fox.knowledge.review_store import record_finding_injections
@@ -746,6 +756,71 @@ class FoxKnowledgeProvider:
             return []
 
         return [f"[CROSS-SPEC] ({r.spec_name}, group {r.task_group}) {r.summary}" for r in records]
+
+    def _query_prior_run_findings(
+        self,
+        conn: Any,
+        spec_name: str,
+    ) -> tuple[list[str], set[str]]:
+        """Query prior-run findings and verdicts, formatted as [PRIOR-RUN] items.
+
+        Returns a tuple of ``(formatted_items, prior_run_ids)`` where
+        ``prior_run_ids`` is the set of finding/verdict IDs from prior runs.
+        The IDs are used by ``retrieve()`` to exclude prior-run items from
+        ``finding_injections`` tracking (120-REQ-4.4).
+
+        Returns unresolved critical/major findings and FAIL verdicts from
+        prior runs (i.e. created before the current run started).  These
+        are informational context — they are NOT tracked in
+        ``finding_injections`` (120-REQ-4.4).
+
+        When ``_run_id`` is not set, returns empty collections (no way to
+        distinguish prior from current without a run reference).
+
+        Requirements: 120-REQ-4.1, 120-REQ-4.2, 120-REQ-4.4, 120-REQ-4.5
+        """
+        if not self._run_id:
+            return [], set()
+
+        max_items = self._config.max_prior_run_items
+
+        result: list[str] = []
+        prior_ids: set[str] = set()
+
+        try:
+            from agent_fox.knowledge.review_store import query_prior_run_findings
+
+            findings = query_prior_run_findings(conn, spec_name, self._run_id, max_items=max_items)
+            for f in findings:
+                parts = [f"[{f.severity}]"]
+                if f.category:
+                    parts.append(f"{f.category}:")
+                parts.append(f.description)
+                result.append(f"[PRIOR-RUN] (spec {spec_name}) {' '.join(parts)}")
+                prior_ids.add(f.id)
+        except Exception:
+            logger.debug(
+                "Could not query prior-run findings for %s",
+                spec_name,
+            )
+
+        try:
+            from agent_fox.knowledge.review_store import query_prior_run_verdicts
+
+            verdicts = query_prior_run_verdicts(conn, spec_name, self._run_id, max_items=max_items)
+            for v in verdicts:
+                parts = [f"[FAIL] {v.requirement_id}"]
+                if v.evidence:
+                    parts.append(v.evidence)
+                result.append(f"[PRIOR-RUN] (spec {spec_name}) {' '.join(parts)}")
+                prior_ids.add(v.id)
+        except Exception:
+            logger.debug(
+                "Could not query prior-run verdicts for %s",
+                spec_name,
+            )
+
+        return result, prior_ids
 
     def _store_summary(
         self,

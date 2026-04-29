@@ -161,34 +161,34 @@ summaries, then cross-run carry-forward.
     - [x] No linter warnings introduced: `uv run ruff check`
     - [x] Requirements 120-REQ-3.1 through 120-REQ-3.4, 120-REQ-3.E1, 120-REQ-3.E2 met
 
-- [ ] 5. Cross-run finding carry-forward (Fix 4)
-  - [ ] 5.1 Add query_prior_run_findings to review_store.py
+- [x] 5. Cross-run finding carry-forward (Fix 4)
+  - [x] 5.1 Add query_prior_run_findings to review_store.py
     - Query active critical/major findings created before current run start
     - Use the `runs` table to identify the current run's start time
     - Sort by severity, cap at max_items
     - _Requirements: 120-REQ-4.1, 120-REQ-4.3_
 
-  - [ ] 5.2 Add query_prior_run_verdicts to review_store.py
+  - [x] 5.2 Add query_prior_run_verdicts to review_store.py
     - Query active FAIL verdicts created before current run start
     - Cap at max_items
     - _Requirements: 120-REQ-4.5_
 
-  - [ ] 5.3 Add _query_prior_run_findings to fox_provider.py
+  - [x] 5.3 Add _query_prior_run_findings to fox_provider.py
     - Call query_prior_run_findings and query_prior_run_verdicts
     - Format as `[PRIOR-RUN]` items with source context
     - Append to result list WITHOUT tracking in finding_injections
     - _Requirements: 120-REQ-4.1, 120-REQ-4.2, 120-REQ-4.4_
 
-  - [ ] 5.4 Add max_prior_run_items config field
+  - [x] 5.4 Add max_prior_run_items config field
     - Add `max_prior_run_items: int = 5` to KnowledgeProviderConfig
     - _Requirements: 120-REQ-4.3_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] Spec tests pass: TS-120-11, TS-120-12, TS-120-13, TS-120-E7, TS-120-E8
-    - [ ] Property test passes: TS-120-P3
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check`
-    - [ ] Requirements 120-REQ-4.1 through 120-REQ-4.5, 120-REQ-4.E1 through 120-REQ-4.E3 met
+  - [x] 5.V Verify task group 5
+    - [x] Spec tests pass: TS-120-11, TS-120-12, TS-120-13, TS-120-E7, TS-120-E8
+    - [x] Property test passes: TS-120-P3
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check`
+    - [x] Requirements 120-REQ-4.1 through 120-REQ-4.5, 120-REQ-4.E1 through 120-REQ-4.E3 met
 
 - [ ] 6. Checkpoint - Integration Smoke Tests
   - [ ] 6.1 Create integration smoke test file
