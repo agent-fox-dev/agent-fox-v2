@@ -388,7 +388,13 @@ class FoxKnowledgeProvider:
         try:
             from agent_fox.knowledge.review_store import query_active_findings
 
-            findings = query_active_findings(conn, spec_name, task_group=task_group)
+            # Elevate pre-review (group 0) findings into primary review results
+            # when the session targets a non-zero task group so they are tracked
+            # via finding_injections and can be superseded (120-REQ-2.1, 120-REQ-2.2).
+            include_prereview = task_group is not None and task_group != "0"
+            findings = query_active_findings(
+                conn, spec_name, task_group=task_group, include_prereview=include_prereview
+            )
         except Exception:
             # Table may not exist in a fresh database (116-REQ-6.E1).
             logger.debug(
@@ -439,7 +445,13 @@ class FoxKnowledgeProvider:
         try:
             from agent_fox.knowledge.review_store import query_cross_group_findings
 
-            findings = query_cross_group_findings(conn, spec_name, task_group)
+            # Exclude pre-review (group 0) findings from cross-group results
+            # when the caller is not group 0 itself, since those findings are
+            # elevated into primary review results (120-REQ-2.3, 120-REQ-2.E2).
+            exclude_prereview = task_group != "0"
+            findings = query_cross_group_findings(
+                conn, spec_name, task_group, exclude_prereview=exclude_prereview
+            )
         except Exception:
             logger.debug(
                 "Could not query cross-group findings for %s",

@@ -362,18 +362,32 @@ def query_cross_group_findings(
     conn: duckdb.DuckDBPyConnection,
     spec_name: str,
     task_group: str,
+    exclude_prereview: bool = False,
 ) -> list[ReviewFinding]:
     """Query non-superseded actionable findings from *other* task groups.
 
     Returns findings where ``task_group != ?`` — i.e. everything except the
     caller's own group.  Only ``critical`` and ``major`` findings are returned.
+
+    When *exclude_prereview* is ``True``, group ``"0"`` findings are also
+    excluded.  This prevents duplication when group 0 findings have been
+    elevated into the primary review results (120-REQ-2.3).
     """
-    rows = conn.execute(
-        f"SELECT {_FINDING_COLS} FROM review_findings "  # noqa: S608
-        "WHERE spec_name = ? AND task_group != ? AND superseded_by IS NULL "
-        "ORDER BY severity, description",
-        [spec_name, task_group],
-    ).fetchall()
+    if exclude_prereview:
+        rows = conn.execute(
+            f"SELECT {_FINDING_COLS} FROM review_findings "  # noqa: S608
+            "WHERE spec_name = ? AND task_group != ? AND task_group != '0' "
+            "AND superseded_by IS NULL "
+            "ORDER BY severity, description",
+            [spec_name, task_group],
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            f"SELECT {_FINDING_COLS} FROM review_findings "  # noqa: S608
+            "WHERE spec_name = ? AND task_group != ? AND superseded_by IS NULL "
+            "ORDER BY severity, description",
+            [spec_name, task_group],
+        ).fetchall()
     findings = [_row_to_finding(r) for r in rows if r[1] in ACTIONABLE_SEVERITIES]
     findings.sort(key=lambda f: (_SEVERITY_ORDER.get(f.severity, 99), f.description))
     return findings
@@ -401,6 +415,7 @@ def query_active_findings(
     conn: duckdb.DuckDBPyConnection,
     spec_name: str,
     task_group: str | None = None,
+    include_prereview: bool = False,
 ) -> list[ReviewFinding]:
     """Query non-superseded actionable findings for a spec.
 
@@ -408,16 +423,31 @@ def query_active_findings(
     ``observation`` rows are excluded as a defense-in-depth guard against
     any legacy rows that may have been written before issue #553 was fixed.
 
-    Requirements: 27-REQ-5.1
+    When *include_prereview* is ``True`` and *task_group* is not ``None``
+    and not ``"0"``, findings from both the requested task group and group
+    ``"0"`` (pre-review) are returned.  This elevates pre-review findings
+    into the primary review results so they are tracked via
+    ``finding_injections`` and can be superseded on session completion.
+
+    Requirements: 27-REQ-5.1, 120-REQ-2.1
     """
-    rows = _query_active(
-        conn,
-        "review_findings",
-        _FINDING_COLS,
-        spec_name,
-        task_group,
-        "severity, description",
-    )
+    if include_prereview and task_group is not None and task_group != "0":
+        # Include both the requested task group and group 0 (pre-review)
+        rows = conn.execute(
+            f"SELECT {_FINDING_COLS} FROM review_findings "  # noqa: S608
+            "WHERE spec_name = ? AND task_group IN (?, '0') AND superseded_by IS NULL "
+            "ORDER BY severity, description",
+            [spec_name, task_group],
+        ).fetchall()
+    else:
+        rows = _query_active(
+            conn,
+            "review_findings",
+            _FINDING_COLS,
+            spec_name,
+            task_group,
+            "severity, description",
+        )
     findings = [_row_to_finding(r) for r in rows if r[1] in ACTIONABLE_SEVERITIES]
     findings.sort(key=lambda f: (_SEVERITY_ORDER.get(f.severity, 99), f.description))
     return findings

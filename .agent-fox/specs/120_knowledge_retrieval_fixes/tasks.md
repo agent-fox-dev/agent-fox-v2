@@ -101,35 +101,35 @@ summaries, then cross-run carry-forward.
     - [x] No linter warnings introduced: `uv run ruff check`
     - [x] Requirements 120-REQ-1.1 through 120-REQ-1.5, 120-REQ-1.E1, 120-REQ-1.E2 met
 
-- [ ] 3. Elevate pre-review findings (Fix 2)
-  - [ ] 3.1 Update query_active_findings to include group 0
+- [x] 3. Elevate pre-review findings (Fix 2)
+  - [x] 3.1 Update query_active_findings to include group 0
     - Add `include_prereview: bool = False` parameter
     - When `include_prereview=True` and `task_group is not None` and
       `task_group != "0"`, use `task_group IN (?, '0')` in SQL WHERE clause
     - _Requirements: 120-REQ-2.1_
 
-  - [ ] 3.2 Update _query_reviews in fox_provider.py
+  - [x] 3.2 Update _query_reviews in fox_provider.py
     - Pass `include_prereview=True` when `task_group` is not None and
       not `"0"`
     - _Requirements: 120-REQ-2.1, 120-REQ-2.2, 120-REQ-2.4_
 
-  - [ ] 3.3 Update query_cross_group_findings to exclude group 0
+  - [x] 3.3 Update query_cross_group_findings to exclude group 0
     - Change SQL from `task_group != ?` to
       `task_group != ? AND task_group != '0'` when the caller is not
       group 0 itself
     - Add `exclude_prereview: bool = False` parameter
     - _Requirements: 120-REQ-2.3_
 
-  - [ ] 3.4 Update _query_cross_group_reviews in fox_provider.py
+  - [x] 3.4 Update _query_cross_group_reviews in fox_provider.py
     - Pass `exclude_prereview=True` when `task_group != "0"`
     - _Requirements: 120-REQ-2.3, 120-REQ-2.E2_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests pass: TS-120-5, TS-120-6, TS-120-7, TS-120-E3, TS-120-E4
-    - [ ] Property test passes: TS-120-P2
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check`
-    - [ ] Requirements 120-REQ-2.1 through 120-REQ-2.4, 120-REQ-2.E1, 120-REQ-2.E2 met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests pass: TS-120-5, TS-120-6, TS-120-7, TS-120-E3, TS-120-E4
+    - [x] Property test passes: TS-120-P2
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check`
+    - [x] Requirements 120-REQ-2.1 through 120-REQ-2.4, 120-REQ-2.E1, 120-REQ-2.E2 met
 
 - [ ] 4. All-archetype summary storage (Fix 3)
   - [ ] 4.1 Add generate_archetype_summary function
