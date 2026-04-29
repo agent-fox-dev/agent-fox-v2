@@ -14,7 +14,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from agent_fox.knowledge.provider import KnowledgeProvider, NoOpKnowledgeProvider
+from agent_fox.knowledge.fox_provider import KnowledgeProvider, NoOpKnowledgeProvider
 
 
 def _make_mock_config() -> MagicMock:

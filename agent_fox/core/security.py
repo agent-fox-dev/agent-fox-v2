@@ -23,7 +23,7 @@ from typing import Any
 from agent_fox.core.config import SecurityConfig
 from agent_fox.core.errors import SecurityError  # noqa: F401
 
-logger = logging.getLogger("agent_fox.security.security")
+logger = logging.getLogger("agent_fox.core.security")
 
 # Default allowlist: ~46 standard development commands
 DEFAULT_ALLOWLIST: frozenset[str] = frozenset(

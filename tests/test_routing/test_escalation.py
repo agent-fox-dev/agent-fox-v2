@@ -12,7 +12,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from agent_fox.core.models import ModelTier
-from agent_fox.routing.escalation import EscalationLadder
+from agent_fox.core.escalation import EscalationLadder
 
 TIER_ORDER = {ModelTier.SIMPLE: 0, ModelTier.STANDARD: 1, ModelTier.ADVANCED: 2}
 

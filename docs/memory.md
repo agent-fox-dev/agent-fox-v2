@@ -1,6 +1,16 @@
 # Agent-Fox Memory
 
-_3179 facts | last updated: 2026-04-28_
+_3180 facts | last updated: 2026-04-29_
+
+**2026-04-29 Tier 1+2b code simplification:** Eliminated two single-file
+packages and merged one single-implementation protocol. Moved
+`routing/escalation.py` → `core/escalation.py` (deleted `routing/` package).
+Moved `security/security.py` → `core/security.py` (deleted `security/`
+package, updated logger name). Merged `knowledge/provider.py` (KnowledgeProvider
+protocol + NoOpKnowledgeProvider) into `knowledge/fox_provider.py` (deleted
+`provider.py`). Updated 42 files (source + tests), net -449 lines, -2
+packages, -3 files deleted, +2 files created. 4621 tests pass, `make check`
+clean.
 
 **2026-04-28 cross-group knowledge retrieval (issue #559):**
 `FoxKnowledgeProvider.retrieve()` now surfaces findings and FAIL verdicts from

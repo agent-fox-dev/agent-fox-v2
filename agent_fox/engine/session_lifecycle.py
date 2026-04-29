@@ -33,7 +33,7 @@ from agent_fox.engine.sdk_params import (
 from agent_fox.engine.state import SessionRecord
 from agent_fox.knowledge.audit import AuditEventType, AuditSeverity
 from agent_fox.knowledge.db import KnowledgeDB
-from agent_fox.knowledge.provider import KnowledgeProvider
+from agent_fox.knowledge.fox_provider import KnowledgeProvider
 from agent_fox.knowledge.sink import SessionOutcome, SinkDispatcher
 from agent_fox.session.prompt import (
     assemble_context,
@@ -223,7 +223,7 @@ class NodeSessionRunner:
         if knowledge_provider is not None:
             self._knowledge_provider = knowledge_provider
         else:
-            from agent_fox.knowledge.provider import NoOpKnowledgeProvider
+            from agent_fox.knowledge.fox_provider import NoOpKnowledgeProvider
 
             self._knowledge_provider = NoOpKnowledgeProvider()
         parsed = parse_node_id(node_id)

@@ -1,8 +1,8 @@
-"""Concrete KnowledgeProvider: review carry-forward + ADR retrieval.
+"""KnowledgeProvider protocol and concrete implementation.
 
-Implements the KnowledgeProvider protocol (spec 114) with review-only
-retrieval and ADR ingestion/retrieval. Gotcha extraction, errata indexing,
-and blocking history have been removed (spec 116).
+Defines the KnowledgeProvider protocol (the clean boundary between the
+engine and any knowledge implementation) and the concrete
+FoxKnowledgeProvider (review carry-forward + ADR retrieval).
 
 Requirements: 116-REQ-1.3, 116-REQ-1.4, 116-REQ-2.2,
               116-REQ-6.1, 116-REQ-6.2, 116-REQ-6.3, 116-REQ-6.E1,
@@ -13,13 +13,70 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
 from agent_fox.core.config import KnowledgeProviderConfig
 from agent_fox.core.errors import KnowledgeStoreError
 from agent_fox.knowledge.db import KnowledgeDB
 
 logger = logging.getLogger(__name__)
+
+
+@runtime_checkable
+class KnowledgeProvider(Protocol):
+    """Protocol defining the interface between the engine and a knowledge implementation.
+
+    Any class that implements both ``ingest`` and ``retrieve`` with the
+    correct signatures satisfies this protocol at runtime (``isinstance``
+    check) thanks to the ``@runtime_checkable`` decorator.
+    """
+
+    def ingest(
+        self,
+        session_id: str,
+        spec_name: str,
+        context: dict[str, Any],
+    ) -> None:
+        """Ingest knowledge from a completed session."""
+        ...
+
+    def retrieve(
+        self,
+        spec_name: str,
+        task_description: str,
+        task_group: str | None = None,
+        session_id: str | None = None,
+    ) -> list[str]:
+        """Retrieve knowledge context for an upcoming session."""
+        ...
+
+
+class NoOpKnowledgeProvider:
+    """Knowledge provider that does nothing.
+
+    Default implementation used when no knowledge system is configured.
+    ``ingest()`` is a no-op and ``retrieve()`` always returns an empty list.
+    """
+
+    def ingest(
+        self,
+        session_id: str,
+        spec_name: str,
+        context: dict[str, Any],
+    ) -> None:
+        """Accept and discard session knowledge context."""
+        return None
+
+    def retrieve(
+        self,
+        spec_name: str,
+        task_description: str,
+        task_group: str | None = None,
+        session_id: str | None = None,
+    ) -> list[str]:
+        """Return an empty list --- no knowledge is available."""
+        return []
+
 
 # Severity ordering for sorting — lower value = higher priority.
 _SEVERITY_RANK: dict[str, int] = {"critical": 0, "major": 1, "minor": 2, "observation": 3}

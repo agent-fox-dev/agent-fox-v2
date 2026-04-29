@@ -134,7 +134,7 @@ class TestStandardEscalatesToAdvanced:
     """TS-57-7: A STANDARD-starting ladder escalates to ADVANCED after retries."""
 
     def test_standard_escalates_to_advanced(self) -> None:
-        from agent_fox.routing.escalation import EscalationLadder
+        from agent_fox.core.escalation import EscalationLadder
 
         ladder = EscalationLadder(
             starting_tier=ModelTier.STANDARD,
@@ -158,7 +158,7 @@ class TestAdvancedBlocksAfterExhaustion:
     """TS-57-8: An ADVANCED-starting ladder exhausts without escalation."""
 
     def test_advanced_blocks_after_exhaustion(self) -> None:
-        from agent_fox.routing.escalation import EscalationLadder
+        from agent_fox.core.escalation import EscalationLadder
 
         ladder = EscalationLadder(
             starting_tier=ModelTier.ADVANCED,

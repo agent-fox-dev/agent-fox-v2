@@ -154,7 +154,7 @@ class TestEscalationLadderConsistency:
     )
     def test_ladder_state_matches_reference(self, n: int, retries_before: int) -> None:
         from agent_fox.core.models import ModelTier
-        from agent_fox.routing.escalation import EscalationLadder
+        from agent_fox.core.escalation import EscalationLadder
 
         ref_ladder = EscalationLadder(
             starting_tier=ModelTier.STANDARD,

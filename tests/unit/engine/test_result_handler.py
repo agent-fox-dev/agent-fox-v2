@@ -10,7 +10,7 @@ from agent_fox.core.models import ModelTier
 from agent_fox.engine.graph_sync import GraphSync
 from agent_fox.engine.result_handler import SessionResultHandler
 from agent_fox.engine.state import ExecutionState, SessionRecord
-from agent_fox.routing.escalation import EscalationLadder
+from agent_fox.core.escalation import EscalationLadder
 
 
 class TestNonRetryableImmediateBlock:

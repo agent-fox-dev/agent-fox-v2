@@ -269,7 +269,7 @@ class SessionResultHandler:
         Returns True if the coder was permanently blocked (ladder exhausted),
         False if converted to a retry.
         """
-        from agent_fox.routing.escalation import EscalationLadder
+        from agent_fox.core.escalation import EscalationLadder
 
         coder_node_id = decision.coder_node_id
 
@@ -761,7 +761,7 @@ class SessionResultHandler:
                 )
 
         # 58-REQ-1.1: Record failure on predecessor's escalation ladder
-        from agent_fox.routing.escalation import EscalationLadder
+        from agent_fox.core.escalation import EscalationLadder
 
         pred_ladder = self._routing_ladders.get(pred_id)
         if pred_ladder is None:

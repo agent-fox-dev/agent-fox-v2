@@ -45,8 +45,8 @@ class CoderReviewerLoop:
         workspace: WorkspaceInfo,
     ) -> bool:
         """Run the coder-reviewer loop. Returns True on PASS, False on exhaustion."""
+        from agent_fox.core.escalation import EscalationLadder
         from agent_fox.core.models import ModelTier, resolve_model
-        from agent_fox.routing.escalation import EscalationLadder
 
         p = self._pipeline
 

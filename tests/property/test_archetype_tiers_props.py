@@ -17,7 +17,7 @@ except ImportError:
     HAS_HYPOTHESIS = False
 
 from agent_fox.core.models import ModelTier
-from agent_fox.routing.escalation import EscalationLadder
+from agent_fox.core.escalation import EscalationLadder
 
 _TIER_ORDER: dict[ModelTier, int] = {
     ModelTier.SIMPLE: 0,
