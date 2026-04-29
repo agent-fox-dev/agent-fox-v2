@@ -39,7 +39,6 @@ _EXPECTED_HIDDEN_SECTIONS = {
     "knowledge",
     "pricing",
     "planning",
-    "blocking",
     "night_shift",
 }
 
@@ -494,6 +493,8 @@ _CONFIG_REFERENCE_PATH = (
 )
 
 _ALL_CONFIG_SECTIONS = [
+    "paths",
+    "workspace",
     "orchestrator",
     "routing",
     "models",
@@ -504,8 +505,8 @@ _ALL_CONFIG_SECTIONS = [
     "archetypes",
     "pricing",
     "planning",
-    "blocking",
     "night_shift",
+    "caching",
 ]
 
 
