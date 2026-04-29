@@ -27,8 +27,8 @@ summaries, then cross-run carry-forward.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create test file for run_id wiring tests
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create test file for run_id wiring tests
     - Create `tests/unit/knowledge/test_run_id_wiring.py`
     - Implement TS-120-1 (set_run_id stores run ID)
     - Implement TS-120-2 (summaries retrieved after set_run_id)
@@ -37,7 +37,7 @@ summaries, then cross-run carry-forward.
     - Implement TS-120-E2 (set_run_id with empty string)
     - _Test Spec: TS-120-1, TS-120-2, TS-120-3, TS-120-E1, TS-120-E2_
 
-  - [ ] 1.2 Create test file for pre-review elevation tests
+  - [x] 1.2 Create test file for pre-review elevation tests
     - Create `tests/unit/knowledge/test_prereview_elevation.py`
     - Implement TS-120-5 (pre-review in primary review results)
     - Implement TS-120-6 (pre-review tracked in finding_injections)
@@ -46,7 +46,7 @@ summaries, then cross-run carry-forward.
     - Implement TS-120-E4 (group 0 session no self-inject)
     - _Test Spec: TS-120-5, TS-120-6, TS-120-7, TS-120-E3, TS-120-E4_
 
-  - [ ] 1.3 Create test file for archetype summary tests
+  - [x] 1.3 Create test file for archetype summary tests
     - Create `tests/unit/knowledge/test_archetype_summaries.py`
     - Implement TS-120-8 (reviewer summary generated)
     - Implement TS-120-9 (verifier summary generated)
@@ -55,7 +55,7 @@ summaries, then cross-run carry-forward.
     - Implement TS-120-E6 (verifier zero verdicts)
     - _Test Spec: TS-120-8, TS-120-9, TS-120-10, TS-120-E5, TS-120-E6_
 
-  - [ ] 1.4 Create test file for cross-run carry-forward tests
+  - [x] 1.4 Create test file for cross-run carry-forward tests
     - Create `tests/unit/knowledge/test_cross_run_carryforward.py`
     - Implement TS-120-11 (prior-run findings surfaced)
     - Implement TS-120-12 (prior-run findings capped)
@@ -64,7 +64,7 @@ summaries, then cross-run carry-forward.
     - Implement TS-120-E8 (all prior superseded)
     - _Test Spec: TS-120-11, TS-120-12, TS-120-13, TS-120-E7, TS-120-E8_
 
-  - [ ] 1.5 Create property test file
+  - [x] 1.5 Create property test file
     - Create `tests/property/knowledge/test_retrieval_fix_props.py`
     - Implement TS-120-P1 (run_id gating)
     - Implement TS-120-P2 (no duplication review/cross-group)
@@ -72,15 +72,15 @@ summaries, then cross-run carry-forward.
     - Implement TS-120-P4 (archetype summary completeness)
     - _Test Spec: TS-120-P1, TS-120-P2, TS-120-P3, TS-120-P4_
 
-  - [ ] 1.6 Create engine wiring test
+  - [x] 1.6 Create engine wiring test
     - Add test to `tests/unit/engine/` for TS-120-4
     - Verify engine calls set_run_id on provider
     - _Test Spec: TS-120-4_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) -- no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) -- no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check`
 
 - [ ] 2. Fix run_id wiring (Fix 1)
   - [ ] 2.1 Add set_run_id method to FoxKnowledgeProvider
