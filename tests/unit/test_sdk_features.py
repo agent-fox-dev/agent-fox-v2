@@ -103,12 +103,12 @@ class TestFallbackModelEmptyNoFallback:
     """Verify empty fallback_model results in None."""
 
     def test_empty_fallback_resolves_to_none(self) -> None:
-        """TS-56-11: Empty fallback_model resolves to None."""
+        """TS-56-11: Empty routing.fallback_model resolves to None."""
         from agent_fox.core.config import AgentFoxConfig
         from agent_fox.engine.sdk_params import resolve_fallback_model
 
         config = AgentFoxConfig(
-            models={"fallback_model": ""},  # type: ignore[arg-type]
+            routing={"fallback_model": ""},  # type: ignore[arg-type]
         )
         result = resolve_fallback_model(config)
         assert result is None
@@ -362,12 +362,12 @@ class TestUnknownFallbackModelWarns:
     """Verify unknown fallback model logs warning but doesn't fail."""
 
     def test_unknown_fallback_model_warns(self, caplog: Any) -> None:
-        """TS-56-E4: Unknown fallback model logs warning, no exception."""
+        """TS-56-E4: Unknown routing.fallback_model logs warning, no exception."""
         from agent_fox.core.config import AgentFoxConfig
         from agent_fox.engine.sdk_params import resolve_fallback_model
 
         config = AgentFoxConfig(
-            models={"fallback_model": "unknown-model-99"},  # type: ignore[arg-type]
+            routing={"fallback_model": "unknown-model-99"},  # type: ignore[arg-type]
         )
         with caplog.at_level(logging.WARNING):
             result = resolve_fallback_model(config)

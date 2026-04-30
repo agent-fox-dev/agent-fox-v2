@@ -21,6 +21,7 @@ from typing import Any
 from agent_fox.core.config import AgentFoxConfig
 from agent_fox.core.models import resolve_model
 from agent_fox.core.security import make_pre_tool_use_hook
+from agent_fox.engine.sdk_params import resolve_model_tier
 from agent_fox.knowledge.audit import (
     AuditEvent,
     AuditEventType,
@@ -101,7 +102,7 @@ async def run_session(
         backend: ClaudeBackend instance to use. Defaults to a new ClaudeBackend.
         activity_callback: Optional callback for UI activity events.
         model_id: Optional model tier or model ID override. When set,
-            overrides ``config.models.coding`` for this session.
+            overrides the archetype's resolved model tier for this session.
         security_config: Optional SecurityConfig override for the allowlist.
             When set, overrides ``config.security`` for this session.
         max_turns: Optional maximum turn count to pass to the backend.
@@ -117,7 +118,8 @@ async def run_session(
     Requirements: 26-REQ-1.E1, 26-REQ-2.4, 26-REQ-3.4, 26-REQ-4.4
     """
     # Resolve the coding model (archetype override or config default)
-    model_entry = resolve_model(model_id or config.models.coding)
+    effective_archetype = archetype or "coder"
+    model_entry = resolve_model(model_id or resolve_model_tier(config, effective_archetype))
 
     # Resolve security config (archetype override or config default)
     effective_security = security_config if security_config is not None else config.security

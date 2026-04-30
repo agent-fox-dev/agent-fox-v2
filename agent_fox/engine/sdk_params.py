@@ -112,6 +112,7 @@ def resolve_thinking(config: AgentFoxConfig, archetype: str, *, mode: str | None
 def resolve_fallback_model(config: AgentFoxConfig) -> str | None:
     """Resolve the fallback model ID from config.
 
+    Reads from ``config.routing.fallback_model`` (the canonical location).
     Returns None when the configured value is empty.
     Logs a warning when the model is not in the local model registry.
 
@@ -119,7 +120,7 @@ def resolve_fallback_model(config: AgentFoxConfig) -> str | None:
     """
     from agent_fox.core.models import MODEL_REGISTRY
 
-    model = config.models.fallback_model
+    model = config.routing.fallback_model
     if not model:
         return None
     if model not in MODEL_REGISTRY:
@@ -219,11 +220,18 @@ def resolve_model_tier(config: AgentFoxConfig, archetype: str, *, mode: str | No
     if config_override:
         return config_override
 
-    # 4. Global [models] config section
+    # 4. Global [models] config section (deprecated)
     model_key = _ARCHETYPE_MODEL_KEYS.get(archetype)
     if model_key is not None:
         global_tier = getattr(config.models, model_key, None)
         if global_tier:
+            logger.warning(
+                "[models] %s is deprecated and will be removed in a future release. "
+                "Use [archetypes.overrides.%s] model_tier = %r instead.",
+                model_key,
+                archetype,
+                global_tier,
+            )
             return global_tier
 
     # 5. Fall back to archetype registry default (via mode-resolved effective config)
