@@ -362,24 +362,6 @@ class ArchetypeInstancesConfig(BaseModel):
         return 1
 
 
-class AuditorConfig(BaseModel):
-    """Auditor-specific configuration.
-
-    Requirements: 46-REQ-2.3, 46-REQ-2.4
-    """
-
-    model_config = ConfigDict(extra="ignore")
-
-    min_ts_entries: Annotated[int, Clamped(ge=1, cast=int)] = Field(
-        default=5, description="Minimum TS entries to trigger auditor injection"
-    )
-    max_retries: Annotated[int, Clamped(ge=0, cast=int)] = Field(
-        default=2, description="Maximum auditor-coder retry iterations"
-    )
-
-    _auto_clamp = _auto_clamp_validator()
-
-
 class ReviewerConfig(BaseModel):
     """Reviewer-specific configuration, replacing SkepticConfig + OracleSettings + AuditorConfig.
 
@@ -625,15 +607,6 @@ class PlanningConfig(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    duration_ordering: bool = Field(default=True, description="Sort ready tasks by predicted duration")
-    min_outcomes_for_historical: Annotated[int, Clamped(ge=1, le=1000, cast=int)] = Field(
-        default=10,
-        description="Minimum outcomes before using historical duration data",
-    )
-    min_outcomes_for_regression: Annotated[int, Clamped(ge=5, le=10000, cast=int)] = Field(
-        default=30,
-        description="Minimum outcomes before training duration regression model",
-    )
     file_conflict_detection: bool = Field(
         default=False,
         description="Detect file conflicts between parallel tasks",
@@ -730,11 +703,6 @@ class NightShiftConfig(BaseModel):
         default=["specs", "fixes", "hunts"],
         description="List of enabled work stream config names",
     )
-    merge_strategy: str = Field(
-        default="direct",
-        description="Merge strategy: 'direct' or 'pr'",
-    )
-
     # --- Fix branch push (spec 93) ---
 
     push_fix_branch: bool = Field(

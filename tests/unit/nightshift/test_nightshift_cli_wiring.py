@@ -21,7 +21,6 @@ def _make_config() -> MagicMock:
     config.max_budget_usd = 10.0
     ns = MagicMock()
     ns.enabled_streams = ["specs", "fixes", "hunts"]
-    ns.merge_strategy = "direct"
     ns.spec_interval = 60
     ns.issue_check_interval = 900
     ns.hunt_scan_interval = 14400

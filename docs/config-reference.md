@@ -433,18 +433,13 @@ Controls task scheduling, duration prediction, and file-conflict detection.
 
 | Field | Type | Default | Bounds | Description |
 |-------|------|---------|--------|-------------|
-| `duration_ordering` | bool | `true` | -- | Sort ready tasks by predicted duration (shortest first) |
-| `min_outcomes_for_historical` | int | `10` | 1--1000 | Minimum session outcomes before using historical duration data |
-| `min_outcomes_for_regression` | int | `30` | 5--10000 | Minimum outcomes before training the duration regression model |
 | `file_conflict_detection` | bool | `false` | -- | Detect and defer tasks that edit the same files in parallel |
 
 **Example:**
 
 ```toml
 [planning]
-duration_ordering = true
 file_conflict_detection = true
-min_outcomes_for_historical = 15
 ```
 
 ---
@@ -465,7 +460,6 @@ stale dependencies, TODO debt, and linter violations.
 | `categories` | table | (all enabled) | -- | Per-category enable/disable toggles |
 | `spec_interval` | int | `300` | >= 10 | Seconds between spec executor cycles |
 | `enabled_streams` | list | `["specs","fixes","hunts"]` | -- | List of enabled work stream names (empty = all enabled) |
-| `merge_strategy` | string | `"direct"` | -- | Merge strategy: `direct` or `pr` |
 | `push_fix_branch` | bool | `false` | -- | Push fix branches to origin before harvest |
 | `similarity_threshold` | float | `0.85` | 0.0--1.0 | Cosine similarity threshold for duplicate/ignore detection. Higher = stricter matching (fewer suppressed findings). Lower = more aggressive dedup. |
 

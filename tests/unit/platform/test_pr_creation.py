@@ -1,7 +1,7 @@
 """Unit tests for PullRequestResult and create_pull_request.
 
-Test Spec: TS-85-23, TS-85-24, TS-85-25, TS-85-E12
-Requirements: 85-REQ-8.2, 85-REQ-8.3, 85-REQ-8.4, 85-REQ-8.E1
+Test Spec: TS-85-23, TS-85-24, TS-85-25
+Requirements: 85-REQ-8.2, 85-REQ-8.3, 85-REQ-8.4
 """
 
 from __future__ import annotations
@@ -136,33 +136,3 @@ class TestGitHubPlatformCreatePR:
         assert requests_made[0]["json"]["draft"] is True
 
 
-# ---------------------------------------------------------------------------
-# TS-85-E12: create_pull_request failure fallback
-# Requirement: 85-REQ-8.E1
-# ---------------------------------------------------------------------------
-
-
-class TestPrCreationFailure:
-    """Verify PR creation failure logs error and posts branch name comment."""
-
-    async def test_failure_posts_comment(self) -> None:
-        """On PR creation failure, comment with branch name is posted."""
-        from agent_fox.core.errors import IntegrationError  # noqa: I001
-        from agent_fox.nightshift.daemon import handle_merge_strategy
-
-        platform = MagicMock()
-        platform.create_pull_request = AsyncMock(side_effect=IntegrationError("API error"))
-        platform.add_issue_comment = AsyncMock()
-
-        await handle_merge_strategy(
-            platform=platform,
-            issue_number=42,
-            branch="fix/42",
-            strategy="pr",
-            title="Fix bug",
-            body="body",
-        )
-
-        assert platform.add_issue_comment.call_count == 1
-        comment_body = platform.add_issue_comment.call_args[0][1]
-        assert "fix/42" in comment_body

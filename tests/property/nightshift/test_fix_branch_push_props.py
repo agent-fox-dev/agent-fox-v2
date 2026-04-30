@@ -42,12 +42,11 @@ def _make_issue(number: int = 1, title: str = "test") -> IssueResult:
     )
 
 
-def _make_pipeline(*, push_fix_branch: bool, merge_strategy: str = "direct") -> FixPipeline:
+def _make_pipeline(*, push_fix_branch: bool) -> FixPipeline:
     """Create a FixPipeline with mocked dependencies."""
 
     config = MagicMock()
     config.night_shift.push_fix_branch = push_fix_branch
-    config.night_shift.merge_strategy = merge_strategy
     config.orchestrator.retries_before_escalation = 1
     config.orchestrator.max_retries = 1
 

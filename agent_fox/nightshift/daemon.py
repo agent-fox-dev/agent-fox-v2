@@ -1,11 +1,11 @@
-"""DaemonRunner, SharedBudget, DaemonState, and merge strategy helpers.
+"""DaemonRunner, SharedBudget, and DaemonState.
 
-Provides the core daemon infrastructure: lifecycle management, cost
-budget tracking, and merge strategy resolution.
+Provides the core daemon infrastructure: lifecycle management and cost
+budget tracking.
 
 Requirements: 85-REQ-1.2, 85-REQ-2.1, 85-REQ-2.2, 85-REQ-2.3,
               85-REQ-2.4, 85-REQ-2.5, 85-REQ-5.1, 85-REQ-5.2,
-              85-REQ-5.E1, 85-REQ-8.E1, 85-REQ-8.E2
+              85-REQ-5.E1
 """
 
 from __future__ import annotations
@@ -424,78 +424,3 @@ class DaemonRunner:
         )
 
         return state
-
-
-# ---------------------------------------------------------------------------
-# Merge strategy helpers
-# ---------------------------------------------------------------------------
-
-
-def resolve_merge_strategy(strategy: str) -> str:
-    """Resolve merge strategy, falling back to 'direct' for unknown values.
-
-    Requirements: 85-REQ-8.E2
-    """
-    valid = {"direct", "pr"}
-    if strategy in valid:
-        return strategy
-    logger.warning(
-        "Unknown merge_strategy %r, falling back to 'direct'",
-        strategy,
-    )
-    return "direct"
-
-
-async def handle_merge_strategy(
-    *,
-    platform: PlatformProtocol,
-    issue_number: int,
-    branch: str,
-    strategy: str,
-    title: str,
-    body: str,
-    base: str = "develop",
-) -> None:
-    """Handle post-session merge according to the configured strategy.
-
-    For strategy='pr', creates a draft pull request. On failure, posts
-    a comment with the branch name for manual PR creation.
-
-    Requirements: 85-REQ-8.1, 85-REQ-8.2, 85-REQ-8.E1
-    """
-    effective = resolve_merge_strategy(strategy)
-
-    if effective == "direct":
-        # Direct merge is handled by existing engine logic.
-        return
-
-    # PR strategy
-    try:
-        result = await platform.create_pull_request(
-            title=title,
-            body=body,
-            head=branch,
-            base=base,
-            draft=True,
-        )
-        logger.info(
-            "Created draft PR #%d: %s",
-            result.number,
-            result.html_url,
-        )
-    except Exception:
-        logger.exception(
-            "Failed to create PR from branch %r for issue #%d",
-            branch,
-            issue_number,
-        )
-        try:
-            await platform.add_issue_comment(
-                issue_number,
-                f"Failed to create PR automatically. Please create a PR manually from branch `{branch}`.",
-            )
-        except Exception:
-            logger.exception(
-                "Failed to post fallback comment on issue #%d",
-                issue_number,
-            )

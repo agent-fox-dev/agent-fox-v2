@@ -45,10 +45,9 @@ def _make_issue(number: int = 1, title: str = "test issue") -> IssueResult:
     )
 
 
-def _make_config(*, push_fix_branch: bool = False, merge_strategy: str = "direct") -> MagicMock:
+def _make_config(*, push_fix_branch: bool = False) -> MagicMock:
     config = MagicMock()
     config.night_shift.push_fix_branch = push_fix_branch
-    config.night_shift.merge_strategy = merge_strategy
     config.orchestrator.retries_before_escalation = 1
     config.orchestrator.max_retries = 1
     return config
@@ -240,46 +239,6 @@ class TestPushFailureContinues:
         mock_harvest.assert_awaited_once()
         # Warning must mention the failure reason
         assert "network error" in caplog.text
-
-
-# ---------------------------------------------------------------------------
-# TS-93-8: Independence from merge_strategy
-# Requirement: 93-REQ-4.1
-# ---------------------------------------------------------------------------
-
-
-class TestIndependenceFromMergeStrategy:
-    """Verify push_fix_branch works regardless of merge_strategy."""
-
-    @pytest.mark.asyncio
-    async def test_independence_from_merge_strategy(self) -> None:
-        """push_to_remote called with force=True for both 'direct' and 'pr' strategies."""
-        from agent_fox.nightshift.fix_pipeline import FixPipeline
-
-        for strategy in ("direct", "pr"):
-            config = _make_config(push_fix_branch=True, merge_strategy=strategy)
-            mock_platform = AsyncMock()
-            mock_platform.add_issue_comment = AsyncMock()
-            mock_platform.close_issue = AsyncMock()
-            mock_platform.remove_label = AsyncMock()
-
-            push_upstream = AsyncMock(return_value=True)
-
-            pipeline = FixPipeline(config=config, platform=mock_platform)
-            pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
-            pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
-            pipeline._harvest_and_push = AsyncMock(return_value="merged")  # type: ignore[method-assign]
-            pipeline._coder_review_loop = AsyncMock(return_value=True)  # type: ignore[method-assign]
-            pipeline._run_triage = AsyncMock(  # type: ignore[method-assign]
-                return_value=MagicMock(criteria=[], summary="ok")
-            )
-            pipeline._push_fix_branch_upstream = push_upstream  # type: ignore[method-assign]
-
-            await pipeline.process_issue(_make_issue(), issue_body="fix this")
-
-            push_upstream.assert_awaited_once()
-            assert push_upstream.await_count == 1, f"push not called for strategy={strategy}"
-            push_upstream.reset_mock()
 
 
 # ---------------------------------------------------------------------------
