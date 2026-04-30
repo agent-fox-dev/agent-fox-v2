@@ -1021,7 +1021,7 @@ class FixPipeline:
                     spec.branch_name,
                 )
                 return "no_changes"
-            await post_harvest_integrate(repo_root, workspace)
+            await post_harvest_integrate(repo_root, workspace, push_already_done=True)
         except Exception as exc:
             logger.warning(
                 "Harvest/push failed for issue #%d on branch %s: %s",

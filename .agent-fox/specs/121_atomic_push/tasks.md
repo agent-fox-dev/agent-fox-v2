@@ -181,9 +181,9 @@ git primitives first, then retry orchestration, then caller integration.
     - [x] No linter warnings introduced: `make check`
     - [x] Requirements 121-REQ-4.* acceptance criteria met
 
-- [ ] 6. Wiring verification
+- [x] 6. Wiring verification
 
-  - [ ] 6.1 Trace every execution path from design.md end-to-end
+  - [x] 6.1 Trace every execution path from design.md end-to-end
     - For each path (1-4), verify the entry point actually calls the next function
       in the chain (read the calling code, do not assume)
     - Path 1: `session_lifecycle._harvest_and_integrate` → `harvest(push=True)` → `_harvest_under_lock` → `_push_with_retry` → `push_to_remote` → return `list[str]`
@@ -194,37 +194,41 @@ git primitives first, then retry orchestration, then caller integration.
     - Every path must be live in production code
     - _Requirements: all_
 
-  - [ ] 6.2 Verify return values propagate correctly
+  - [x] 6.2 Verify return values propagate correctly
     - `_push_with_retry` returns `bool` — verify `_harvest_under_lock` uses the return value (or logs it)
     - `harvest()` returns `list[str]` — verify `_harvest_and_integrate` uses it
     - `fetch_remote` returns `bool` — verify `_push_with_retry` uses it to gate rebase
     - Grep for callers of each function; confirm none discards the return
     - _Requirements: all_
 
-  - [ ] 6.3 Run the integration smoke tests
+  - [x] 6.3 Run the integration smoke tests
     - All `TS-121-SMOKE-*` tests pass using real components (no stub bypass)
     - _Test Spec: TS-121-SMOKE-1, TS-121-SMOKE-2_
 
-  - [ ] 6.4 Stub / dead-code audit
+  - [x] 6.4 Stub / dead-code audit
     - Search all files touched by this spec for: `return []`, `return None`
       on non-Optional returns, `pass` in non-abstract methods, `# TODO`,
       `# stub`, `override point`, `NotImplementedError`
     - Each hit must be either: (a) justified with a comment explaining why it
       is intentional, or (b) replaced with a real implementation
     - Document any intentional stubs here with rationale
+    - All hits verified as intentional: harvest.py:91 (no-op for no new commits),
+      develop.py:141/206/285 (error/no-op returns), git.py:634 (no remote configured)
 
-  - [ ] 6.5 Cross-spec entry point verification
+  - [x] 6.5 Cross-spec entry point verification
     - Verify `_harvest_and_integrate` (session_lifecycle.py) calls `harvest()` with new parameters
     - Verify `post_harvest_integrate` is called with `push_already_done=True`
     - Grep codebase for all callers of `harvest()` and `post_harvest_integrate()` to confirm backward compatibility
+    - Fixed: fix_pipeline.py was calling `post_harvest_integrate()` without `push_already_done=True`,
+      causing a double push. Updated to pass `push_already_done=True`.
     - _Requirements: all_
 
-  - [ ] 6.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live (traceable in code)
-    - [ ] All cross-spec entry points are called from production code
-    - [ ] All existing tests still pass: `uv run pytest -q`
+  - [x] 6.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] All cross-spec entry points are called from production code
+    - [x] All existing tests still pass: `uv run pytest -q`
 
 ### Checkbox States
 
