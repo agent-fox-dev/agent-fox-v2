@@ -77,13 +77,6 @@ For full archetype details, see the
 [Archetypes section](architecture/03-execution-and-archetypes.md#agent-archetypes)
 in the Architecture Guide.
 
-### Quality Fixes
-
-When quality checks are failing, run `agent-fox fix` to auto-detect available
-tools (pytest, ruff, mypy, etc.), cluster failures by root cause using AI,
-generate fix specs, and dispatch coding agents to resolve each cluster. Use
-`--auto` for iterative improvement passes after the initial repair.
-
 ### Night Shift
 
 For ongoing codebase health, `agent-fox night-shift` runs as a continuously

@@ -41,13 +41,11 @@ def _make_mock_stream(
 
 def _make_config(
     enabled_streams: list[str] | None = None,
-    merge_strategy: str = "direct",
 ) -> MagicMock:
     """Create a mock config for DaemonRunner."""
     config = MagicMock()
     ns = MagicMock()
     ns.enabled_streams = enabled_streams or ["specs", "fixes", "hunts"]
-    ns.merge_strategy = merge_strategy
     config.night_shift = ns
     return config
 

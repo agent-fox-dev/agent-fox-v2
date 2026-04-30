@@ -15,6 +15,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from agent_fox.engine.barrier import (
+    _format_progress_line,
     run_sync_barrier_sequence,
     sync_develop_bidirectional,
     verify_worktrees,
@@ -369,3 +370,181 @@ class TestCompactionCalledDuringBarrier:
                 sync_plan_fn=MagicMock(),
                 barrier_callback=None,
             )
+
+
+# ---------------------------------------------------------------------------
+# Progress line during sync barrier (issue #588)
+# ---------------------------------------------------------------------------
+
+
+class TestFormatProgressLine:
+    """Unit tests for _format_progress_line()."""
+
+    def test_single_status(self) -> None:
+        """Only the present status appears in the output."""
+        node_states = {"s:1": "completed", "s:2": "completed"}
+        line = _format_progress_line(node_states)
+        assert "completed: 2" in line
+        assert "pending" not in line
+
+    def test_multiple_statuses(self) -> None:
+        """All present statuses appear, absent ones are omitted."""
+        node_states = {
+            "s:1": "completed",
+            "s:2": "completed",
+            "s:3": "pending",
+            "s:4": "blocked",
+        }
+        line = _format_progress_line(node_states)
+        assert "completed: 2" in line
+        assert "pending: 1" in line
+        assert "blocked: 1" in line
+        assert "failed" not in line
+
+    def test_empty_states_returns_no_tasks(self) -> None:
+        """Empty node_states returns 'no tasks'."""
+        assert _format_progress_line({}) == "no tasks"
+
+    def test_output_is_single_line(self) -> None:
+        """No embedded newlines in the formatted line."""
+        node_states = {"s:1": "completed", "s:2": "in_progress", "s:3": "failed"}
+        line = _format_progress_line(node_states)
+        assert "\n" not in line
+
+
+class TestBarrierProgressPrint:
+    """Tests for the progress line printed by run_sync_barrier_sequence (issue #588)."""
+
+    def _barrier_kwargs(self, state: ExecutionState, tmp_path: Path) -> dict:
+        return {
+            "state": state,
+            "sync_interval": 5,
+            "repo_root": tmp_path,
+            "emit_audit": MagicMock(),
+            "specs_dir": None,
+            "hot_load_enabled": False,
+            "hot_load_fn": AsyncMock(),
+            "sync_plan_fn": MagicMock(),
+            "barrier_callback": None,
+        }
+
+    @pytest.mark.asyncio
+    async def test_progress_line_printed_to_stdout(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        """AC-1: A progress line is printed to stdout when the barrier fires."""
+        state = ExecutionState(
+            plan_hash="test",
+            node_states={
+                "s:1": "completed",
+                "s:2": "completed",
+                "s:3": "pending",
+                "s:4": "blocked",
+            },
+            session_history=[],
+            total_cost=0.0,
+            total_sessions=2,
+            started_at="2026-04-01T00:00:00Z",
+            updated_at="2026-04-01T00:00:01Z",
+        )
+        with (
+            patch("agent_fox.engine.barrier.verify_worktrees", return_value=[]),
+            patch(
+                "agent_fox.engine.barrier.sync_develop_bidirectional",
+                new_callable=AsyncMock,
+            ),
+        ):
+            await run_sync_barrier_sequence(**self._barrier_kwargs(state, tmp_path))
+
+        captured = capsys.readouterr().out
+        assert "completed" in captured
+        assert "2" in captured  # completed count
+
+    @pytest.mark.asyncio
+    async def test_progress_line_is_single_line(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        """AC-2: The printed output is exactly one line."""
+        state = ExecutionState(
+            plan_hash="test",
+            node_states={"s:1": "completed", "s:2": "pending"},
+            session_history=[],
+            total_cost=0.0,
+            total_sessions=1,
+            started_at="2026-04-01T00:00:00Z",
+            updated_at="2026-04-01T00:00:01Z",
+        )
+        with (
+            patch("agent_fox.engine.barrier.verify_worktrees", return_value=[]),
+            patch(
+                "agent_fox.engine.barrier.sync_develop_bidirectional",
+                new_callable=AsyncMock,
+            ),
+        ):
+            await run_sync_barrier_sequence(**self._barrier_kwargs(state, tmp_path))
+
+        captured = capsys.readouterr().out
+        lines = [ln for ln in captured.split("\n") if ln.strip()]
+        assert len(lines) == 1
+
+    @pytest.mark.asyncio
+    async def test_progress_line_contains_all_present_statuses(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture
+    ) -> None:
+        """AC-3: Counts for all present statuses appear in the output."""
+        state = ExecutionState(
+            plan_hash="test",
+            node_states={
+                "s:1": "completed",
+                "s:2": "completed",
+                "s:3": "pending",
+                "s:4": "blocked",
+            },
+            session_history=[],
+            total_cost=0.0,
+            total_sessions=2,
+            started_at="2026-04-01T00:00:00Z",
+            updated_at="2026-04-01T00:00:01Z",
+        )
+        with (
+            patch("agent_fox.engine.barrier.verify_worktrees", return_value=[]),
+            patch(
+                "agent_fox.engine.barrier.sync_develop_bidirectional",
+                new_callable=AsyncMock,
+            ),
+        ):
+            await run_sync_barrier_sequence(**self._barrier_kwargs(state, tmp_path))
+
+        captured = capsys.readouterr().out
+        assert "completed: 2" in captured
+        assert "pending: 1" in captured
+        assert "blocked: 1" in captured
+
+    @pytest.mark.asyncio
+    async def test_broken_pipe_does_not_abort_barrier(self, tmp_path: Path) -> None:
+        """AC-5: OSError from print is suppressed; sync_develop_bidirectional still called."""
+        sync_called = False
+
+        async def _mock_sync(repo_root: Path) -> None:
+            nonlocal sync_called
+            sync_called = True
+
+        state = _make_barrier_state()
+        with (
+            patch("agent_fox.engine.barrier.verify_worktrees", return_value=[]),
+            patch(
+                "agent_fox.engine.barrier.sync_develop_bidirectional",
+                side_effect=_mock_sync,
+            ),
+            patch("builtins.print", side_effect=OSError("broken pipe")),
+        ):
+            # Must not raise despite print failing
+            await run_sync_barrier_sequence(
+                state=state,
+                sync_interval=5,
+                repo_root=tmp_path,
+                emit_audit=MagicMock(),
+                specs_dir=None,
+                hot_load_enabled=False,
+                hot_load_fn=AsyncMock(),
+                sync_plan_fn=MagicMock(),
+                barrier_callback=None,
+            )
+
+        assert sync_called, "sync_develop_bidirectional must still be called after print failure"

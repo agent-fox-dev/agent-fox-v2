@@ -120,7 +120,7 @@ class TestFallbackModelPassthrough:
         from agent_fox.engine.sdk_params import resolve_fallback_model
 
         config = AgentFoxConfig(
-            models={"fallback_model": model_id},  # type: ignore[arg-type]
+            routing={"fallback_model": model_id},  # type: ignore[arg-type]
         )
         result = resolve_fallback_model(config)
         # Non-empty model ID should pass through (possibly with a warning)

@@ -47,7 +47,6 @@ def _make_config(enabled_streams: list[str] | None = None) -> MagicMock:
     config = MagicMock()
     ns = MagicMock()
     ns.enabled_streams = enabled_streams or ["specs", "fixes", "hunts"]
-    ns.merge_strategy = "direct"
     config.night_shift = ns
     return config
 
@@ -265,7 +264,6 @@ class TestPlatformDegradation:
         config.platform.type = "none"
         ns = MagicMock()
         ns.enabled_streams = ["specs", "fixes", "hunts"]
-        ns.merge_strategy = "direct"
         ns.spec_interval = 60
         ns.issue_check_interval = 900
         ns.hunt_scan_interval = 14400
@@ -326,7 +324,6 @@ class TestEnabledStreamFiltering:
         ns = MagicMock()
         # Empty list means all enabled per 85-REQ-9.E2
         ns.enabled_streams = config_enabled if config_enabled else []
-        ns.merge_strategy = "direct"
         ns.spec_interval = 60
         ns.issue_check_interval = 900
         ns.hunt_scan_interval = 14400

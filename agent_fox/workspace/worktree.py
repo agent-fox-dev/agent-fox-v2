@@ -19,6 +19,20 @@ from agent_fox.workspace.git import (
 logger = logging.getLogger(__name__)
 
 
+def _safe_rmtree(path: Path) -> None:
+    """Remove a directory tree without following symlinks to external targets.
+
+    Unlinks any symlinks found inside *path* (removing the link itself, not the
+    target) before delegating to ``shutil.rmtree``.  This prevents CWE-59
+    (Improper Link Resolution) where a symlink inside the worktree could cause
+    ``shutil.rmtree`` to delete files outside the repository.
+    """
+    for item in path.rglob("*"):
+        if item.is_symlink():
+            item.unlink()  # remove the link itself, not the target
+    shutil.rmtree(path, ignore_errors=True)
+
+
 @dataclass(frozen=True)
 class WorkspaceInfo:
     """Metadata about a created workspace."""
@@ -122,7 +136,7 @@ async def create_worktree(
         )
         # If git worktree remove didn't fully clean up, remove manually
         if worktree_path.exists():
-            shutil.rmtree(worktree_path, ignore_errors=True)
+            _safe_rmtree(worktree_path)
 
         # Clean up empty ancestor directories from the stale removal (80-REQ-3.2)
         _cleanup_empty_ancestors(worktree_path, worktrees_root)
@@ -200,7 +214,7 @@ async def destroy_worktree(
         )
         # If git worktree remove didn't fully clean up, remove manually
         if workspace.path.exists():
-            shutil.rmtree(workspace.path, ignore_errors=True)
+            _safe_rmtree(workspace.path)
 
     # Prune worktree registry
     await run_git(["worktree", "prune"], cwd=repo_root, check=False)

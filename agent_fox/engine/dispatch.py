@@ -184,9 +184,10 @@ class SerialDispatcher:
             timeout_override: int | None = None
             max_turns_override: int | None = None
             if orch._result_handler is not None:
-                timeout_override = orch._result_handler._node_timeout.get(node_id)
-                if node_id in orch._result_handler._node_max_turns:
-                    max_turns_override = orch._result_handler._node_max_turns[node_id]
+                timeout_override = orch._result_handler.get_timeout_override(node_id)
+                has_mt, mt_val = orch._result_handler.get_max_turns_override(node_id)
+                if has_mt:
+                    max_turns_override = mt_val
 
             record = await orch._dispatch_mgr.serial_runner.execute(
                 node_id,
@@ -352,9 +353,10 @@ class ParallelDispatcher:
             timeout_override_p: int | None = None
             max_turns_override_p: int | None = None
             if orch._result_handler is not None:
-                timeout_override_p = orch._result_handler._node_timeout.get(node_id)
-                if node_id in orch._result_handler._node_max_turns:
-                    max_turns_override_p = orch._result_handler._node_max_turns[node_id]
+                timeout_override_p = orch._result_handler.get_timeout_override(node_id)
+                has_mt_p, mt_val_p = orch._result_handler.get_max_turns_override(node_id)
+                if has_mt_p:
+                    max_turns_override_p = mt_val_p
 
             task = asyncio.create_task(
                 orch._dispatch_mgr.parallel_runner.execute_one(

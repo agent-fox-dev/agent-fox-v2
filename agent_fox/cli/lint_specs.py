@@ -11,14 +11,13 @@ from __future__ import annotations
 
 import json
 import logging
-import subprocess
 from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 
 import click
 
-from agent_fox.core.errors import PlanError
+from agent_fox.core.errors import AgentFoxError, PlanError
 from agent_fox.spec.lint import run_lint_specs
 from agent_fox.spec.validators import (
     SEVERITY_ERROR,
@@ -26,6 +25,7 @@ from agent_fox.spec.validators import (
     SEVERITY_WARNING,
     Finding,
 )
+from agent_fox.workspace.git import run_git_sync
 
 logger = logging.getLogger(__name__)
 
@@ -125,37 +125,28 @@ def _format_fix_summary(fix_results: list) -> str:
     return f"Fixed: {', '.join(parts)}"
 
 
-def _git_run(*args: str) -> str:
-    """Run a git command and return stdout. Raises on failure."""
-    result = subprocess.run(
-        ["git", *args],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    return result.stdout.strip()
-
-
 def _git_current_branch() -> str:
     """Return the name of the current git branch."""
-    return _git_run("rev-parse", "--abbrev-ref", "HEAD")
+    _, out, _ = run_git_sync(["rev-parse", "--abbrev-ref", "HEAD"], cwd=Path.cwd(), check=True)
+    return out.strip()
 
 
 def _create_fix_branch() -> str:
     """Create and checkout a feature branch for lint-specs fixes."""
     ts = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
     branch = f"lint-spec/fix-{ts}"
-    _git_run("checkout", "-b", branch)
+    run_git_sync(["checkout", "-b", branch], cwd=Path.cwd(), check=True)
     return branch
 
 
 def _commit_fixes(fix_summary: str, specs_dir: Path | None = None) -> None:
     """Stage spec directory changes and commit with a descriptive message."""
-    _git_run("add", str(specs_dir) + "/" if specs_dir else ".specs/")
-    _git_run(
-        "commit",
-        "-m",
-        f"fix(specs): lint-spec auto-fix\n\n{fix_summary}",
+    cwd = Path.cwd()
+    run_git_sync(["add", str(specs_dir) + "/" if specs_dir else ".specs/"], cwd=cwd, check=True)
+    run_git_sync(
+        ["commit", "-m", f"fix(specs): lint-spec auto-fix\n\n{fix_summary}"],
+        cwd=cwd,
+        check=True,
     )
 
 
@@ -208,7 +199,7 @@ def lint_specs_cmd(ctx: click.Context, ai: bool, fix: bool, lint_all: bool) -> N
             original_branch = _git_current_branch()
             branch = _create_fix_branch()
             _commit_fixes(summary, specs_dir=specs_dir)
-            _git_run("checkout", original_branch)
+            run_git_sync(["checkout", original_branch], cwd=Path.cwd(), check=True)
             click.echo(
                 f"Fixes committed to branch '{branch}'. "
                 f"Review and merge when ready:\n"
@@ -216,10 +207,10 @@ def lint_specs_cmd(ctx: click.Context, ai: bool, fix: bool, lint_all: bool) -> N
                 f"  git merge {branch}",
                 err=True,
             )
-        except subprocess.CalledProcessError as exc:
+        except AgentFoxError as exc:
             logger.warning(
                 "Failed to commit fixes to branch: %s",
-                exc.stderr or exc,
+                exc,
             )
             click.echo(
                 "Warning: fixes applied but could not be committed to a branch. Changes are in your working tree.",

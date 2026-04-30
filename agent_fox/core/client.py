@@ -67,11 +67,6 @@ _CACHE_CONTROL: dict[CachePolicy, dict[str, Any] | None] = {
 # ---------------------------------------------------------------------------
 
 
-def _estimate_tokens(text: str) -> int:
-    """Rough token estimate: len(text) // 4."""
-    return len(text) // 4
-
-
 def _estimate_tokens_from_len(length: int) -> int:
     """Rough token estimate from character count."""
     return length // 4

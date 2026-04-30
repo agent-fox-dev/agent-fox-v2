@@ -25,6 +25,27 @@ _DEFAULT_PROFILES_DIR: Path = Path(__file__).resolve().parent.parent / "_templat
 # Regex to match YAML frontmatter at the very start of a file.
 _FRONTMATTER_RE = re.compile(r"\A---\s*\n.*?\n---\s*\n", re.DOTALL)
 
+# Regex that allowlists safe profile name characters (alphanumeric, hyphens, underscores).
+# Rejects path separators, dots, and other characters that could enable path traversal.
+_SAFE_NAME_RE = re.compile(r"^[a-zA-Z0-9_-]+$")
+
+
+def _validate_profile_name(name: str, param: str) -> None:
+    """Raise ValueError if *name* contains characters unsafe for filesystem paths.
+
+    Accepts only alphanumeric characters, hyphens, and underscores.  Rejects
+    anything else (dots, slashes, etc.) to prevent CWE-22 path traversal.
+
+    Args:
+        name: The value to validate.
+        param: The parameter name used in the error message.
+
+    Raises:
+        ValueError: If *name* contains unsafe characters.
+    """
+    if not _SAFE_NAME_RE.match(name):
+        raise ValueError(f"Invalid {param}: {name!r}")
+
 
 def _strip_frontmatter(content: str) -> str:
     """Strip YAML frontmatter block from profile content.
@@ -69,6 +90,11 @@ def load_profile(
     Requirements: 99-REQ-5.1, 99-REQ-5.2, 99-REQ-5.3, 99-REQ-5.E1,
                   99-REQ-1.E2
     """
+    # Validate inputs before constructing any filesystem paths (CWE-22).
+    _validate_profile_name(archetype, "archetype")
+    if mode is not None:
+        _validate_profile_name(mode, "mode")
+
     # Build candidate filenames in priority order.
     candidates: list[Path] = []
 
@@ -88,6 +114,10 @@ def load_profile(
     candidates.append(_DEFAULT_PROFILES_DIR / base_filename)
 
     for candidate in candidates:
+        # Security: reject symlinks to prevent content injection (CWE-59)
+        if candidate.is_symlink():
+            logger.warning("Skipping symlink profile candidate: %s", candidate)
+            continue
         if candidate.exists():
             logger.debug(
                 "Loading profile for %r (mode=%r) from: %s",
@@ -116,5 +146,7 @@ def has_custom_profile(name: str, project_dir: Path) -> bool:
 
     Requirement: 99-REQ-4.1
     """
+    # Validate before constructing any filesystem path (CWE-22).
+    _validate_profile_name(name, "name")
     profile_path = project_dir / ".agent-fox" / "profiles" / f"{name}.md"
     return profile_path.exists()

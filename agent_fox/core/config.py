@@ -113,6 +113,10 @@ class RoutingConfig(BaseModel):
         default=2.0,
         description=("Maximum session_timeout as a factor of the original configured value"),
     )
+    fallback_model: str = Field(
+        default="claude-sonnet-4-6",
+        description="Fallback model ID when primary is unavailable",
+    )
 
     _auto_clamp = _auto_clamp_validator()
 
@@ -179,14 +183,34 @@ class OrchestratorConfig(BaseModel):
 
 
 class ModelConfig(BaseModel):
+    """Deprecated top-level model configuration.
+
+    .. deprecated::
+        The ``[models]`` section is deprecated.  Migrate as follows:
+
+        - ``fallback_model`` → ``[routing] fallback_model``
+        - ``coding``         → ``[archetypes.overrides.coder] model_tier``
+    """
+
     model_config = ConfigDict(extra="ignore")
 
-    coding: str = Field(default="ADVANCED", description="Model tier for coding tasks")
+    coding: str = Field(default="ADVANCED", description="Model tier for coding tasks (deprecated)")
     memory_extraction: str = Field(default="SIMPLE", description="Model tier for memory extraction")
     fallback_model: str = Field(
         default="claude-sonnet-4-6",
-        description="Fallback model ID when primary is unavailable",
+        description="Fallback model ID when primary is unavailable (deprecated; use routing.fallback_model instead)",
     )
+
+    @model_validator(mode="after")
+    def _warn_deprecated_coding(self) -> Self:
+        """Emit a deprecation warning when models.coding is set to a non-default value."""
+        if self.coding != "ADVANCED":
+            logger.warning(
+                "[models] coding is deprecated and will be removed in a future release. "
+                "Use [archetypes.overrides.coder] model_tier = %r instead.",
+                self.coding,
+            )
+        return self
 
 
 class SecurityConfig(BaseModel):
@@ -360,24 +384,6 @@ class ArchetypeInstancesConfig(BaseModel):
                 v,
             )
         return 1
-
-
-class AuditorConfig(BaseModel):
-    """Auditor-specific configuration.
-
-    Requirements: 46-REQ-2.3, 46-REQ-2.4
-    """
-
-    model_config = ConfigDict(extra="ignore")
-
-    min_ts_entries: Annotated[int, Clamped(ge=1, cast=int)] = Field(
-        default=5, description="Minimum TS entries to trigger auditor injection"
-    )
-    max_retries: Annotated[int, Clamped(ge=0, cast=int)] = Field(
-        default=2, description="Maximum auditor-coder retry iterations"
-    )
-
-    _auto_clamp = _auto_clamp_validator()
 
 
 class ReviewerConfig(BaseModel):
@@ -625,15 +631,6 @@ class PlanningConfig(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    duration_ordering: bool = Field(default=True, description="Sort ready tasks by predicted duration")
-    min_outcomes_for_historical: Annotated[int, Clamped(ge=1, le=1000, cast=int)] = Field(
-        default=10,
-        description="Minimum outcomes before using historical duration data",
-    )
-    min_outcomes_for_regression: Annotated[int, Clamped(ge=5, le=10000, cast=int)] = Field(
-        default=30,
-        description="Minimum outcomes before training duration regression model",
-    )
     file_conflict_detection: bool = Field(
         default=False,
         description="Detect file conflicts between parallel tasks",
@@ -730,11 +727,6 @@ class NightShiftConfig(BaseModel):
         default=["specs", "fixes", "hunts"],
         description="List of enabled work stream config names",
     )
-    merge_strategy: str = Field(
-        default="direct",
-        description="Merge strategy: 'direct' or 'pr'",
-    )
-
     # --- Fix branch push (spec 93) ---
 
     push_fix_branch: bool = Field(

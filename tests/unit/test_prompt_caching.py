@@ -19,7 +19,7 @@ import pytest
 from pydantic import ValidationError
 
 from agent_fox.core.client import (
-    _estimate_tokens,
+    _estimate_tokens_from_len,
     cached_messages_create,
 )
 from agent_fox.core.config import AgentFoxConfig, CachePolicy, CachingConfig
@@ -280,7 +280,7 @@ class TestAuxiliaryModulesUseHelper:
 
 
 class TestTokenThresholdEstimation:
-    """TS-77-9: _estimate_tokens uses characters ÷ 4 heuristic."""
+    """TS-77-9: _estimate_tokens_from_len uses characters ÷ 4 heuristic."""
 
     @pytest.mark.parametrize(
         ("chars", "expected_tokens"),
@@ -293,8 +293,7 @@ class TestTokenThresholdEstimation:
     )
     def test_token_threshold_estimation(self, chars: int, expected_tokens: int) -> None:
         """77-REQ-4.3: len(text) // 4 gives expected token estimate."""
-        text = "x" * chars
-        assert _estimate_tokens(text) == expected_tokens
+        assert _estimate_tokens_from_len(chars) == expected_tokens
 
 
 # ---------------------------------------------------------------------------

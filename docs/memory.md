@@ -1,6 +1,28 @@
 # Agent-Fox Memory
 
-_3182 facts | last updated: 2026-04-29_
+_3184 facts | last updated: 2026-04-30_
+
+**2026-04-30 Tier 3 consolidate `_NodeRetryState` in `result_handler.py`:**
+Replaced 6 parallel `dict[str, ...]` fields (`_timeout_retries`,
+`_node_max_turns`, `_node_timeout`, `_original_node_timeout`,
+`_audit_retry_counts`, `_coverage_baselines`) in `SessionResultHandler` with a
+single `_node_retry_states: dict[str, _NodeRetryState]` backed by a
+`@dataclass`. Added `_get_node_state()` lazy-init helper and two public
+accessors `get_timeout_override()` / `get_max_turns_override()` used by
+`dispatch.py`. The `has_max_turns: bool` flag distinguishes "not set" from
+"set to None (unlimited)". Updated 7 test files (unit, property, integration)
+to use `_get_node_state()` instead of direct dict access. 4750 tests pass.
+
+**2026-04-30 Tier 1+2 code simplification (round 2):** Removed 3 dead functions
+(`_estimate_tokens`, `_table_exists`, `_column_exists`). Extracted
+`_resolve_github_remote()` helper in `nightshift/platform_factory.py` to
+eliminate duplicated git-remote resolution. Added `run_git_sync()` to
+`workspace/git.py` and migrated sync callers in `cli/lint_specs.py`,
+`fix/improve.py`, and `platform_factory.py`. Inlined `engine/assessment.py`
+(63-line single-consumer module) into `engine/engine.py`. Extracted shared
+`_render_criteria_section()` and `_render_verdict_section()` helpers in
+`nightshift/fix_pipeline.py` to deduplicate comment formatting. 14 files
+changed, net -33 lines, -1 file deleted. 4750 tests pass.
 
 **2026-04-29 Audit-reviewer grades design quality (issue #568):**
 `reviewer_audit-review.md` profile was conflating test pass/fail status with

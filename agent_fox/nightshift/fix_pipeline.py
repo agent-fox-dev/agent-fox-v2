@@ -459,6 +459,38 @@ class FixPipeline:
     # Comment formatting (82-REQ-3.1, 82-REQ-6.1)
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _render_criteria_section(
+        criteria: list,
+        *,
+        bold: bool = False,
+    ) -> list[str]:
+        """Render criteria items as markdown lines.
+
+        When *bold* is True, field labels use ``**bold**`` (for issue comments).
+        """
+        lines: list[str] = []
+        fmt = "**{}:** {}" if bold else "{}: {}"
+        for c in criteria:
+            lines.append(f"### {c.id}: {c.description}")
+            lines.append(f"- {fmt.format('Preconditions', c.preconditions)}")
+            lines.append(f"- {fmt.format('Expected', c.expected)}")
+            lines.append(f"- {fmt.format('Assertion', c.assertion)}")
+            lines.append("")
+        return lines
+
+    @staticmethod
+    def _render_verdict_section(verdicts: list) -> list[str]:
+        """Render per-criterion verdicts as markdown lines."""
+        lines: list[str] = []
+        for v in verdicts:
+            icon = "\u2705" if v.verdict == "PASS" else "\u274c"
+            lines.append(f"- {icon} **{v.criterion_id}**: {v.verdict}")
+            lines.append(f"  - Evidence: {v.evidence}")
+        if lines:
+            lines.append("")
+        return lines
+
     def _format_triage_comment(self, triage: TriageResult) -> str:
         """Render TriageResult as markdown for issue comment.
 
@@ -476,12 +508,7 @@ class FixPipeline:
         if triage.criteria:
             lines.append("## Acceptance Criteria")
             lines.append("")
-            for c in triage.criteria:
-                lines.append(f"### {c.id}: {c.description}")
-                lines.append(f"- **Preconditions:** {c.preconditions}")
-                lines.append(f"- **Expected:** {c.expected}")
-                lines.append(f"- **Assertion:** {c.assertion}")
-                lines.append("")
+            lines.extend(self._render_criteria_section(triage.criteria, bold=True))
         return "\n".join(lines)
 
     def _format_review_comment(self, review: FixReviewResult) -> str:
@@ -501,11 +528,7 @@ class FixPipeline:
         if review.verdicts:
             lines.append("### Per-criterion verdicts")
             lines.append("")
-            for v in review.verdicts:
-                icon = "\u2705" if v.verdict == "PASS" else "\u274c"
-                lines.append(f"- {icon} **{v.criterion_id}**: {v.verdict}")
-                lines.append(f"  - Evidence: {v.evidence}")
-            lines.append("")
+            lines.extend(self._render_verdict_section(review.verdicts))
         return "\n".join(lines)
 
     # ------------------------------------------------------------------
@@ -589,12 +612,7 @@ class FixPipeline:
             return ""
 
         lines: list[str] = ["## Acceptance Criteria from Triage", ""]
-        for c in triage.criteria:
-            lines.append(f"### {c.id}: {c.description}")
-            lines.append(f"- Preconditions: {c.preconditions}")
-            lines.append(f"- Expected: {c.expected}")
-            lines.append(f"- Assertion: {c.assertion}")
-            lines.append("")
+        lines.extend(self._render_criteria_section(triage.criteria))
         return "\n".join(lines)
 
     def _render_review_feedback(self, review: FixReviewResult) -> str:
@@ -848,9 +866,12 @@ class FixPipeline:
 
         except Exception as exc:
             # 61-REQ-6.E1: post comment on failure
+            # Use only the exception class name to avoid leaking sensitive details
+            # (file paths, config values) into the public GitHub comment (CWE-209).
+            safe_exc_name = type(exc).__name__
             await self._post_comment(
                 issue.number,
-                f"Fix session failed: {exc}\n\nBranch: `{spec.branch_name}` (run: `{self._run_id}`)",
+                f"Fix session failed: {safe_exc_name}\n\nBranch: `{spec.branch_name}` (run: `{self._run_id}`)",
             )
             logger.warning(
                 "Fix session failed for issue #%d: %s",

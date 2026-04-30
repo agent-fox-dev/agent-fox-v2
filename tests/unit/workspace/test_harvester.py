@@ -647,3 +647,86 @@ class TestHarvestErrorDiagnostics:
         assert "src/foo.py" in msg
         assert "git clean" in msg
         assert "--force-clean" in msg
+
+
+class TestCleanConflictingUntrackedSymlinkEscape:
+    """AC-2 (issue #579): _clean_conflicting_untracked skips symlink escapes.
+
+    A symlink inside repo_root that points to a directory outside the repo
+    must not allow deletion of files in that external directory.
+    """
+
+    @pytest.mark.asyncio
+    async def test_symlink_target_not_deleted(
+        self,
+        tmp_path: Path,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """_clean_conflicting_untracked does not delete via symlink escape."""
+        # Set up an external directory with a target file
+        outside_dir = tmp_path / "outside_dir"
+        outside_dir.mkdir()
+        target_file = outside_dir / "target.txt"
+        target_file.write_text("must survive\n")
+
+        # Set up a minimal git repo (needs HEAD to satisfy run_git)
+        repo_root = tmp_path / "repo"
+        repo_root.mkdir()
+        import subprocess
+
+        subprocess.run(["git", "init"], cwd=repo_root, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.email", "t@t.com"],
+            cwd=repo_root,
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "T"],
+            cwd=repo_root,
+            check=True,
+            capture_output=True,
+        )
+        (repo_root / "README.md").write_text("init\n")
+        subprocess.run(
+            ["git", "add", "."],
+            cwd=repo_root,
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "commit", "-m", "init"],
+            cwd=repo_root,
+            check=True,
+            capture_output=True,
+        )
+
+        # Create a symlink inside repo_root pointing to outside_dir
+        slink = repo_root / "slink"
+        slink.symlink_to(outside_dir)
+
+        # Mock run_git: ls-files returns the symlink-escaped path,
+        # and diff returns it as an incoming file from the feature branch.
+        async def mock_run_git(args, **kwargs):
+            if args[0] == "ls-files":
+                return (0, "slink/target.txt\n", "")
+            if args[0] == "diff":
+                return (0, "slink/target.txt\n", "")
+            # git show — return matching content so it'd be "safe" if allowed
+            if args[0] == "show":
+                return (0, "must survive\n", "")
+            return (0, "", "")
+
+        with caplog.at_level(logging.WARNING, logger="agent_fox.workspace.harvest"):
+            with patch(
+                "agent_fox.workspace.harvest.run_git",
+                side_effect=mock_run_git,
+            ):
+                await _clean_conflicting_untracked(repo_root, "feature")
+
+        # The external file must NOT have been deleted
+        assert target_file.exists(), "symlink target must not be deleted"
+
+        # A WARNING must have been logged about skipping the path
+        messages = " ".join(r.message for r in caplog.records)
+        assert "outside repo root" in messages or "skipping" in messages.lower()

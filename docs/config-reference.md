@@ -109,6 +109,7 @@ to a more capable model tier based on past session outcomes.
 | `max_timeout_retries` | int | `2` | >= 0 | Maximum timeout retries before falling through to escalation (0 = disable timeout handling) |
 | `timeout_multiplier` | float | `1.5` | >= 1.0 | Factor by which `max_turns` and `session_timeout` are extended on each timeout retry |
 | `timeout_ceiling_factor` | float | `2.0` | >= 1.0 | Maximum `session_timeout` as a multiple of the original configured value |
+| `fallback_model` | str | `"claude-sonnet-4-6"` | -- | Fallback model ID when the primary model is unavailable |
 
 **Example:**
 
@@ -118,28 +119,44 @@ retries_before_escalation = 2
 max_timeout_retries = 3
 timeout_multiplier = 1.5
 timeout_ceiling_factor = 2.0
+fallback_model = "claude-sonnet-4-6"
 ```
 
 ---
 
 ## models
 
+> **Deprecated:** The `[models]` section is deprecated and will be removed in a future release.
+> Migrate to the following locations:
+>
+> | Old field | New location |
+> |-----------|-------------|
+> | `fallback_model` | `[routing] fallback_model` |
+> | `coding` | `[archetypes.overrides.coder] model_tier` |
+
 Selects the model tier for each task category. Valid tier values are
 `"SIMPLE"`, `"STANDARD"`, and `"ADVANCED"`.
 
 | Field | Type | Default | Bounds | Description |
 |-------|------|---------|--------|-------------|
-| `coding` | str | `"ADVANCED"` | -- | Model tier for coding tasks: SIMPLE, STANDARD, or ADVANCED |
+| `coding` | str | `"ADVANCED"` | -- | **Deprecated.** Model tier for coding tasks. Use `[archetypes.overrides.coder] model_tier` instead. |
 | `memory_extraction` | str | `"SIMPLE"` | -- | Model tier for memory/fact extraction |
-| `fallback_model` | str | `"claude-sonnet-4-6"` | -- | Fallback model ID when the primary model is unavailable |
+| `fallback_model` | str | `"claude-sonnet-4-6"` | -- | **Deprecated.** Fallback model ID. Use `[routing] fallback_model` instead. |
 
-**Example:**
+**Migration example:**
 
 ```toml
+# Before (deprecated):
 [models]
 coding = "ADVANCED"
-memory_extraction = "SIMPLE"
 fallback_model = "claude-sonnet-4-6"
+
+# After (preferred):
+[routing]
+fallback_model = "claude-sonnet-4-6"
+
+[archetypes.overrides.coder]
+model_tier = "ADVANCED"
 ```
 
 ---
@@ -354,6 +371,10 @@ Each override is keyed by archetype name and supports:
 **Example:**
 
 ```toml
+# Override the coder archetype model tier (replaces deprecated [models] coding):
+[archetypes.overrides.coder]
+model_tier = "ADVANCED"
+
 [archetypes.overrides.reviewer]
 model_tier = "ADVANCED"
 max_turns = 120
@@ -433,18 +454,13 @@ Controls task scheduling, duration prediction, and file-conflict detection.
 
 | Field | Type | Default | Bounds | Description |
 |-------|------|---------|--------|-------------|
-| `duration_ordering` | bool | `true` | -- | Sort ready tasks by predicted duration (shortest first) |
-| `min_outcomes_for_historical` | int | `10` | 1--1000 | Minimum session outcomes before using historical duration data |
-| `min_outcomes_for_regression` | int | `30` | 5--10000 | Minimum outcomes before training the duration regression model |
 | `file_conflict_detection` | bool | `false` | -- | Detect and defer tasks that edit the same files in parallel |
 
 **Example:**
 
 ```toml
 [planning]
-duration_ordering = true
 file_conflict_detection = true
-min_outcomes_for_historical = 15
 ```
 
 ---
@@ -465,7 +481,6 @@ stale dependencies, TODO debt, and linter violations.
 | `categories` | table | (all enabled) | -- | Per-category enable/disable toggles |
 | `spec_interval` | int | `300` | >= 10 | Seconds between spec executor cycles |
 | `enabled_streams` | list | `["specs","fixes","hunts"]` | -- | List of enabled work stream names (empty = all enabled) |
-| `merge_strategy` | string | `"direct"` | -- | Merge strategy: `direct` or `pr` |
 | `push_fix_branch` | bool | `false` | -- | Push fix branches to origin before harvest |
 | `similarity_threshold` | float | `0.85` | 0.0--1.0 | Cosine similarity threshold for duplicate/ignore detection. Higher = stricter matching (fewer suppressed findings). Lower = more aggressive dedup. |
 

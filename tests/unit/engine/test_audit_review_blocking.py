@@ -509,7 +509,7 @@ class TestAC5ExhaustedLadderBlocksPermanently:
         handler, state, block_task_fn = _make_audit_review_handler(audit_conn)
 
         # Pre-exhaust the audit retry counter (audit_max_retries=2)
-        handler._audit_retry_counts["foo:2"] = 2
+        handler._get_node_state("foo:2").audit_retry_count = 2
 
         record = _make_audit_review_record(node_id="foo:2:reviewer:audit-review")
         handler.check_skeptic_blocking(record, state)

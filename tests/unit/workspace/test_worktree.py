@@ -18,6 +18,7 @@ from agent_fox.workspace import (
     create_worktree,
     destroy_worktree,
 )
+from agent_fox.workspace.worktree import _safe_rmtree
 
 from .conftest import add_commit_to_branch, get_branch_tip, list_branches
 
@@ -281,6 +282,38 @@ class TestHyphenatedSpecName:
         ws = await create_worktree(tmp_worktree_repo, "fix-issue-42", 0)
         assert ws.spec_name == "fix-issue-42"
         assert ws.path.is_dir()
+
+
+class TestSafeRmtree:
+    """AC-4, AC-5: _safe_rmtree does not follow symlinks to external targets."""
+
+    def test_removes_directory_without_symlinks(self, tmp_path: Path) -> None:
+        """AC-5: _safe_rmtree fully removes a plain directory tree."""
+        worktree_dir = tmp_path / "worktree"
+        sub = worktree_dir / "sub"
+        sub.mkdir(parents=True)
+        (sub / "file.txt").write_text("content")
+
+        _safe_rmtree(worktree_dir)
+
+        assert not worktree_dir.exists()
+
+    def test_does_not_delete_symlink_target(self, tmp_path: Path) -> None:
+        """AC-4: _safe_rmtree removes the symlink but not the external target file."""
+        # External file that must survive cleanup
+        external_file = tmp_path / "external.txt"
+        external_file.write_text("keep me")
+
+        # Worktree containing a symlink to the external file
+        worktree_dir = tmp_path / "worktree"
+        worktree_dir.mkdir()
+        (worktree_dir / "link").symlink_to(external_file)
+
+        _safe_rmtree(worktree_dir)
+
+        assert not worktree_dir.exists()
+        assert external_file.exists()
+        assert external_file.read_text() == "keep me"
 
 
 class TestWorktreeCleanupOnFailure:

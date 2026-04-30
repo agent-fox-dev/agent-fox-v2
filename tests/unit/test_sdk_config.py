@@ -5,6 +5,8 @@ Test Spec: TS-56-1, TS-56-3, TS-56-5, TS-56-7, TS-56-8, TS-56-10,
 Requirements: 56-REQ-1.1, 56-REQ-1.3, 56-REQ-2.1, 56-REQ-2.3,
               56-REQ-3.1, 56-REQ-3.3, 56-REQ-4.1, 56-REQ-4.3,
               56-REQ-1.E1, 56-REQ-2.E2, 56-REQ-4.E1, 56-REQ-4.E2
+
+AC-1, AC-2, AC-3: fallback_model migrated to [routing]; models.coding deprecated.
 """
 
 from __future__ import annotations
@@ -103,13 +105,21 @@ class TestBudgetDefault:
 
 
 class TestFallbackModelParsing:
-    """Verify fallback_model is parsed from config."""
+    """Verify fallback_model is parsed from [routing] config (AC-1, AC-2)."""
 
-    def test_fallback_model_parsed_from_toml(self, tmp_path: Path) -> None:
-        """TS-56-8: fallback_model is parsed from config TOML."""
+    def test_fallback_model_parsed_from_routing_toml(self, tmp_path: Path) -> None:
+        """AC-1/TS-56-8: fallback_model is parsed from [routing] section."""
+        config_file = tmp_path / "config.toml"
+        config_file.write_text('[routing]\nfallback_model = "claude-haiku-4-5"\n')
+        config = load_config(path=config_file)
+        assert config.routing.fallback_model == "claude-haiku-4-5"
+
+    def test_fallback_model_legacy_models_section_still_parsed(self, tmp_path: Path) -> None:
+        """Backward compat: [models] fallback_model still parses (but is not used by resolver)."""
         config_file = tmp_path / "config.toml"
         config_file.write_text('[models]\nfallback_model = "claude-haiku-4-5"\n')
         config = load_config(path=config_file)
+        # models.fallback_model is still stored but routing.fallback_model is the canonical source
         assert config.models.fallback_model == "claude-haiku-4-5"
 
 
@@ -120,12 +130,97 @@ class TestFallbackModelParsing:
 
 
 class TestFallbackModelDefault:
-    """Verify default fallback_model is 'claude-sonnet-4-6'."""
+    """Verify default fallback_model is 'claude-sonnet-4-6' in [routing] (AC-1)."""
 
-    def test_default_fallback_model(self) -> None:
-        """TS-56-10: Default fallback_model is 'claude-sonnet-4-6'."""
+    def test_default_fallback_model_in_routing(self) -> None:
+        """AC-1/TS-56-10: Default routing.fallback_model is 'claude-sonnet-4-6'."""
         config = AgentFoxConfig()
-        assert config.models.fallback_model == "claude-sonnet-4-6"
+        assert config.routing.fallback_model == "claude-sonnet-4-6"
+
+
+# ---------------------------------------------------------------------------
+# AC-2: resolve_fallback_model reads from routing.fallback_model
+# ---------------------------------------------------------------------------
+
+
+class TestResolveFallbackModelReadsRouting:
+    """Verify resolve_fallback_model uses config.routing.fallback_model (AC-2)."""
+
+    def test_resolve_fallback_model_from_routing(self) -> None:
+        """AC-2: resolve_fallback_model returns routing.fallback_model value."""
+        from agent_fox.engine.sdk_params import resolve_fallback_model
+
+        config = AgentFoxConfig(routing={"fallback_model": "claude-haiku-4-5"})
+        assert resolve_fallback_model(config) == "claude-haiku-4-5"
+
+    def test_resolve_fallback_model_default(self) -> None:
+        """AC-2: resolve_fallback_model returns routing default when not overridden."""
+        from agent_fox.engine.sdk_params import resolve_fallback_model
+
+        config = AgentFoxConfig()
+        assert resolve_fallback_model(config) == "claude-sonnet-4-6"
+
+    def test_resolve_fallback_model_not_affected_by_models_section(self) -> None:
+        """AC-2: Setting only models.fallback_model does not affect resolve_fallback_model."""
+        from agent_fox.engine.sdk_params import resolve_fallback_model
+
+        # routing.fallback_model is default; models.fallback_model is legacy
+        config = AgentFoxConfig(
+            routing={"fallback_model": "claude-sonnet-4-6"},
+            models={"fallback_model": "claude-haiku-4-5"},
+        )
+        # The resolver reads from routing, not models
+        assert resolve_fallback_model(config) == "claude-sonnet-4-6"
+
+
+# ---------------------------------------------------------------------------
+# AC-3: models.coding deprecation warning
+# ---------------------------------------------------------------------------
+
+
+class TestModelsCodingDeprecationWarning:
+    """Verify deprecation warning for [models] coding field (AC-3)."""
+
+    def test_deprecation_warning_emitted_when_coding_non_default(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """AC-3: Loading config with models.coding != 'ADVANCED' emits a deprecation warning."""
+        import logging
+
+        config_file = tmp_path / "config.toml"
+        config_file.write_text('[models]\ncoding = "STANDARD"\n')
+        with caplog.at_level(logging.WARNING, logger="agent_fox.core.config"):
+            load_config(path=config_file)
+        warning_texts = " ".join(caplog.messages)
+        assert "deprecated" in warning_texts.lower()
+        assert "archetypes.overrides.coder" in warning_texts
+
+    def test_no_deprecation_warning_when_coding_is_default(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """AC-3: No deprecation warning when models.coding is the default 'ADVANCED'."""
+        import logging
+
+        config_file = tmp_path / "config.toml"
+        config_file.write_text('[models]\ncoding = "ADVANCED"\n')
+        with caplog.at_level(logging.WARNING, logger="agent_fox.core.config"):
+            load_config(path=config_file)
+        # No deprecation warning for the default value
+        assert not any("archetypes.overrides.coder" in m for m in caplog.messages)
+
+    def test_archetypes_overrides_coder_takes_precedence_over_models_coding(
+        self, tmp_path: Path
+    ) -> None:
+        """AC-3: archetypes.overrides.coder.model_tier takes precedence over models.coding."""
+        from agent_fox.engine.sdk_params import resolve_model_tier
+
+        config_file = tmp_path / "config.toml"
+        config_file.write_text(
+            '[models]\ncoding = "STANDARD"\n'
+            '[archetypes.overrides.coder]\nmodel_tier = "SIMPLE"\n'
+        )
+        config = load_config(path=config_file)
+        assert resolve_model_tier(config, "coder") == "SIMPLE"
 
 
 # ---------------------------------------------------------------------------

@@ -17,6 +17,22 @@ logger = logging.getLogger(__name__)
 _SUPPORTED_PLATFORMS = {"github"}
 
 
+def _resolve_github_remote(project_root: Path) -> tuple[str, str]:
+    """Detect owner/repo from ``git remote get-url origin``.
+
+    Returns ``(owner, repo)`` on success, ``("owner", "repo")`` as fallback.
+    """
+    from agent_fox.workspace.git import run_git_sync
+
+    owner, repo = "owner", "repo"
+    rc, stdout, _ = run_git_sync(["remote", "get-url", "origin"], cwd=project_root)
+    if rc == 0:
+        parsed = parse_github_remote(stdout.strip())
+        if parsed:
+            owner, repo = parsed
+    return owner, repo
+
+
 def create_platform(config: object, project_root: Path) -> GitHubPlatform:
     """Create a platform instance from configuration.
 
@@ -42,23 +58,7 @@ def create_platform(config: object, project_root: Path) -> GitHubPlatform:
         logger.error("GITHUB_PAT environment variable is required")
         sys.exit(1)
 
-    # Try to detect owner/repo from git remote
-    owner, repo = "owner", "repo"
-    try:
-        import subprocess
-
-        result = subprocess.run(
-            ["git", "remote", "get-url", "origin"],
-            capture_output=True,
-            text=True,
-            cwd=str(project_root),
-        )
-        if result.returncode == 0:
-            parsed = parse_github_remote(result.stdout.strip())
-            if parsed:
-                owner, repo = parsed
-    except Exception:
-        pass
+    owner, repo = _resolve_github_remote(project_root)
 
     url = getattr(platform_cfg, "url", "") or "github.com"
     return GitHubPlatform(owner=owner, repo=repo, token=token, url=url)
@@ -92,23 +92,7 @@ def create_platform_safe(config: object, project_root: Path) -> GitHubPlatform |
         logger.debug("create_platform_safe: GITHUB_PAT not set; returning None")
         return None
 
-    # Try to detect owner/repo from git remote
-    owner, repo = "owner", "repo"
-    try:
-        import subprocess
-
-        result = subprocess.run(
-            ["git", "remote", "get-url", "origin"],
-            capture_output=True,
-            text=True,
-            cwd=str(project_root),
-        )
-        if result.returncode == 0:
-            parsed = parse_github_remote(result.stdout.strip())
-            if parsed:
-                owner, repo = parsed
-    except Exception:
-        pass
+    owner, repo = _resolve_github_remote(project_root)
 
     url = getattr(platform_cfg, "url", "") or "github.com"
     return GitHubPlatform(owner=owner, repo=repo, token=token, url=url)

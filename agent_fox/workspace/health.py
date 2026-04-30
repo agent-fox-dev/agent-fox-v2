@@ -117,8 +117,16 @@ async def force_clean_workspace(
     failed_untracked: list[str] = []
 
     # Remove untracked files
+    resolved_root = repo_root.resolve()
     for rel_path in report.untracked_files:
         abs_path = repo_root / rel_path
+        resolved = abs_path.resolve()
+        if not resolved.is_relative_to(resolved_root):
+            logger.warning(
+                "Force-clean: skipping path outside repo root: %s", rel_path
+            )
+            failed_untracked.append(rel_path)
+            continue
         try:
             abs_path.unlink()
             logger.warning("Force-clean: removed untracked file %s", rel_path)

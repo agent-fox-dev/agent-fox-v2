@@ -124,7 +124,6 @@ def main(ctx: click.Context, verbose: bool, quiet: bool, trace: bool, json_mode:
 # Import and register subcommands
 from agent_fox.cli.code import code_cmd  # noqa: E402
 from agent_fox.cli.findings import findings_cmd  # noqa: E402
-from agent_fox.cli.fix import fix_cmd  # noqa: E402
 from agent_fox.cli.init import init_cmd  # noqa: E402
 from agent_fox.cli.lint_specs import lint_specs_cmd  # noqa: E402
 from agent_fox.cli.nightshift import night_shift_cmd  # noqa: E402
@@ -134,7 +133,6 @@ from agent_fox.cli.standup import standup_cmd  # noqa: E402
 
 main.add_command(code_cmd, name="code")
 main.add_command(findings_cmd, name="insights")
-main.add_command(fix_cmd, name="fix")
 main.add_command(init_cmd, name="init")
 main.add_command(lint_specs_cmd, name="lint-specs")
 main.add_command(night_shift_cmd, name="night-shift")

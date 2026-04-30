@@ -145,3 +145,117 @@ def test_mode_none_loads_base_profile() -> None:
     without_mode = load_profile("coder")
 
     assert with_mode == without_mode
+
+
+# ---------------------------------------------------------------------------
+# Symlink rejection (issue #586, CWE-59)
+# ---------------------------------------------------------------------------
+
+
+def test_symlinked_project_profile_is_skipped(tmp_path: Path) -> None:
+    """AC-1: load_profile() skips a project-level profile that is a symlink.
+
+    A symlink pointing outside the repo must never be read; the function
+    must fall through to the package-embedded fallback instead.
+    """
+    from agent_fox.session.profiles import load_profile
+
+    # Create a sensitive file OUTSIDE the project tree.
+    external_file = tmp_path / "external_secret.md"
+    external_file.write_text("SECRET")
+
+    profiles_dir = tmp_path / "project" / ".agent-fox" / "profiles"
+    profiles_dir.mkdir(parents=True)
+    symlink = profiles_dir / "coder.md"
+    symlink.symlink_to(external_file)
+
+    project_dir = tmp_path / "project"
+    result = load_profile("coder", project_dir=project_dir)
+
+    assert "SECRET" not in result
+    # Fell back to the package default, which has real content.
+    assert len(result) > 0
+
+
+def test_symlinked_project_profile_logs_warning(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """AC-2: load_profile() emits a WARNING when it skips a symlinked candidate."""
+    from agent_fox.session.profiles import load_profile
+
+    external_file = tmp_path / "external.md"
+    external_file.write_text("SENSITIVE")
+
+    profiles_dir = tmp_path / "project" / ".agent-fox" / "profiles"
+    profiles_dir.mkdir(parents=True)
+    symlink = profiles_dir / "coder.md"
+    symlink.symlink_to(external_file)
+
+    project_dir = tmp_path / "project"
+    with caplog.at_level(logging.WARNING):
+        load_profile("coder", project_dir=project_dir)
+
+    warning_messages = [r.message for r in caplog.records if r.levelno >= logging.WARNING]
+    assert any("symlink" in msg.lower() for msg in warning_messages)
+    assert any(str(symlink) in msg for msg in warning_messages)
+
+
+def test_regular_project_profile_still_loads(tmp_path: Path) -> None:
+    """AC-5 (profiles): Non-symlinked project profiles load correctly after the fix."""
+    from agent_fox.session.profiles import load_profile
+
+    profiles_dir = tmp_path / ".agent-fox" / "profiles"
+    profiles_dir.mkdir(parents=True)
+    (profiles_dir / "coder.md").write_text("custom-directive")
+
+    result = load_profile("coder", project_dir=tmp_path)
+
+    assert "custom-directive" in result
+
+
+# ---------------------------------------------------------------------------
+# Path traversal rejection (issue #585, CWE-22)
+# ---------------------------------------------------------------------------
+
+
+def test_load_profile_rejects_path_traversal_in_archetype() -> None:
+    """AC-1: load_profile() raises ValueError for path traversal in archetype."""
+    from agent_fox.session.profiles import load_profile
+
+    with pytest.raises(ValueError, match="archetype"):
+        load_profile("../../etc/passwd")
+
+
+def test_load_profile_rejects_path_traversal_in_mode() -> None:
+    """AC-2: load_profile() raises ValueError for path traversal in mode."""
+    from agent_fox.session.profiles import load_profile
+
+    with pytest.raises(ValueError, match="mode"):
+        load_profile("coder", mode="../secret")
+
+
+def test_has_custom_profile_rejects_path_traversal(tmp_path: Path) -> None:
+    """AC-3: has_custom_profile() raises ValueError for path traversal in name."""
+    from agent_fox.session.profiles import has_custom_profile
+
+    with pytest.raises(ValueError, match="name"):
+        has_custom_profile("../../etc", tmp_path)
+
+
+def test_load_profile_safe_names_accepted() -> None:
+    """AC-4: load_profile() accepts valid alphanumeric/hyphen/underscore names."""
+    from agent_fox.session.profiles import load_profile
+
+    # Should not raise — both are safe names.
+    result = load_profile("coder", mode="fix")
+    assert isinstance(result, str)
+    assert len(result) > 0
+
+
+def test_has_custom_profile_safe_name_accepted(tmp_path: Path) -> None:
+    """AC-4: has_custom_profile() accepts a valid name without raising."""
+    from agent_fox.session.profiles import has_custom_profile
+
+    # Should not raise; returns a boolean.
+    result = has_custom_profile("coder", tmp_path)
+    assert isinstance(result, bool)

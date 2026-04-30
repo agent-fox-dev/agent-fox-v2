@@ -10,7 +10,6 @@ Complete reference for all `agent-fox` commands, options, and configuration.
 | `agent-fox plan` | Build execution plan from `.agent-fox/specs/` |
 | `agent-fox code` | Execute the task plan via orchestrator |
 | `agent-fox standup` | Generate daily activity report |
-| `agent-fox fix` | Detect and auto-fix quality check failures |
 | `agent-fox night-shift` | Run autonomous maintenance daemon (hunt scans + issue fixes) |
 | `agent-fox reset` | Reset failed/blocked tasks for retry |
 | `agent-fox lint-specs` | Validate specification files |
@@ -42,7 +41,7 @@ designed for agent-to-agent and script-driven workflows.
 
 - **Banner suppressed:** No ASCII art or version line on stdout.
 - **Structured output:** Batch commands emit a single JSON object; streaming
-  commands (`code`, `fix`) emit JSONL (one JSON object per line).
+  commands (`code`) emit JSONL (one JSON object per line).
 - **Error envelopes:** Failures emit `{"error": "<message>"}` to stdout with
   the original non-zero exit code preserved.
 - **Logging to stderr:** All log messages go to stderr only -- stdout contains
@@ -243,39 +242,6 @@ between agent and human work, and queue status (ready/pending/blocked tasks).
 Use `agent-fox --json standup` for structured JSON output.
 
 **Exit codes:** `0` success.
-
----
-
-### fix
-
-Detect and auto-fix quality check failures.
-
-```
-agent-fox fix [OPTIONS]
-```
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `--max-passes N` | int | 3 | Maximum fix iterations (min 1) |
-| `--dry-run` | flag | off | Generate fix specs only, skip sessions |
-| `--auto` | flag | off | After repair, run iterative improvement passes |
-| `--improve-passes N` | int | 3 | Maximum improvement passes (requires `--auto`) |
-
-Runs quality checks (pytest, ruff, mypy, npm test, cargo test, etc.), clusters
-failures by root cause using AI, generates fix specifications, and runs coding
-sessions to resolve them. Iterates until all checks pass or max passes reached.
-
-With `--auto`, after all checks pass, enters an improvement phase that uses an
-analyzer-coder-verifier pipeline to iteratively improve the codebase. The
-verifier validates each improvement; failures are rolled back. The phase ends
-when the analyzer converges (no further improvements) or `--improve-passes`
-is exhausted.
-
-Detects checks by inspecting `pyproject.toml`, `package.json`, `Makefile`, and
-`Cargo.toml`.
-
-**Exit codes:** `0` all checks fixed (or improved), `1` checks remain,
-none detected, or verifier failure.
 
 ---
 
