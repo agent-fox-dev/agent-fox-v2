@@ -614,7 +614,11 @@ async def _push_with_retry(
 # ---------------------------------------------------------------------------
 
 
-async def _push_develop_if_pushable(repo_root: Path) -> None:
+async def _push_develop_if_pushable(
+    repo_root: Path,
+    *,
+    _lock_held: bool = False,
+) -> None:
     """Push develop to origin, but only if the push won't be rejected.
 
     Checks whether origin/develop has commits not on local develop
@@ -623,7 +627,13 @@ async def _push_develop_if_pushable(repo_root: Path) -> None:
     If fetch fails during reconciliation, skips reconciliation and attempts
     push as-is.
 
-    Requirements: 36-REQ-2.1, 36-REQ-2.2, 36-REQ-2.E1, 36-REQ-2.E2
+    Args:
+        _lock_held: When True, pass through to _sync_develop_with_remote
+            so it skips lock acquisition (the caller already holds the
+            merge lock). Requirements: 121-REQ-4.1
+
+    Requirements: 36-REQ-2.1, 36-REQ-2.2, 36-REQ-2.E1, 36-REQ-2.E2,
+                  121-REQ-4.1
     """
     _rc, remote_ahead_str, _ = await run_git(
         ["rev-list", "--count", "develop..origin/develop"],
@@ -638,7 +648,7 @@ async def _push_develop_if_pushable(repo_root: Path) -> None:
             remote_ahead,
         )
         try:
-            await _sync_develop_with_remote(repo_root)
+            await _sync_develop_with_remote(repo_root, _lock_held=_lock_held)
         except Exception as e:
             # If reconciliation fails (e.g., fetch failed), skip and attempt
             # push as-is (36-REQ-2.E2)

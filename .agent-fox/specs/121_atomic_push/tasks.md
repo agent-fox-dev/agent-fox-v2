@@ -163,23 +163,23 @@ git primitives first, then retry orchestration, then caller integration.
     - [x] No linter warnings introduced: `make check`
     - [x] Requirements 121-REQ-1.*, 121-REQ-5.* acceptance criteria met
 
-- [ ] 5. Lock reentrancy for sync
-  - [ ] 5.1 Modify `_sync_develop_with_remote()` in `agent_fox/workspace/develop.py`
+- [x] 5. Lock reentrancy for sync
+  - [x] 5.1 Modify `_sync_develop_with_remote()` in `agent_fox/workspace/develop.py`
     - Add parameter: `_lock_held: bool = False`
     - When `_lock_held=True`, call `_sync_develop_under_lock()` directly without acquiring `MergeLock`
     - When `_lock_held=False` (default), acquire lock as before — no behavioral change for existing callers
     - _Requirements: 121-REQ-4.1, 121-REQ-4.2, 121-REQ-4.E1_
 
-  - [ ] 5.2 Update callers of `_sync_develop_with_remote` in harvest.py
+  - [x] 5.2 Update callers of `_sync_develop_with_remote` in harvest.py
     - In `_push_develop_if_pushable()`, if called from within lock scope, pass `_lock_held=True`
     - Ensure no deadlock in the harvest → push → sync path
     - _Requirements: 121-REQ-4.1_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] Spec tests pass: `uv run pytest -q tests/workspace/test_atomic_push.py -k "test_sync_under or test_external_caller"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `make check`
-    - [ ] Requirements 121-REQ-4.* acceptance criteria met
+  - [x] 5.V Verify task group 5
+    - [x] Spec tests pass: `uv run pytest -q tests/workspace/test_atomic_push.py -k "test_sync_under or test_external_caller"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `make check`
+    - [x] Requirements 121-REQ-4.* acceptance criteria met
 
 - [ ] 6. Wiring verification
 

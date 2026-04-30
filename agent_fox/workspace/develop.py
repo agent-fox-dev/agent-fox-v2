@@ -91,7 +91,11 @@ async def ensure_develop(repo_root: Path) -> None:
     logger.info("Created local develop branch from '%s'", default_branch)
 
 
-async def _sync_develop_with_remote(repo_root: Path) -> str | None:
+async def _sync_develop_with_remote(
+    repo_root: Path,
+    *,
+    _lock_held: bool = False,
+) -> str | None:
     """Synchronize local develop with origin/develop.
 
     Checks commit counts to determine if local is behind, ahead,
@@ -101,12 +105,21 @@ async def _sync_develop_with_remote(repo_root: Path) -> str | None:
     The merge lock is only acquired when actual changes are needed
     (45-REQ-3.2).
 
+    Args:
+        _lock_held: When True, skip lock acquisition because the caller
+            already holds the merge lock. This prevents deadlocking when
+            called from within a lock scope (e.g. during harvest push
+            reconciliation). When False (default), the lock is acquired
+            as normal — no behavioral change for existing callers.
+            Requirements: 121-REQ-4.1, 121-REQ-4.2, 121-REQ-4.E1
+
     Returns the sync method used on success ('fast-forward', 'rebase',
     'merge', or 'merge-agent'), or None when no sync was needed or it
     failed.
 
     Requirements: 19-REQ-1.6, 19-REQ-1.E1, 19-REQ-1.E4,
-                  45-REQ-3.2, 45-REQ-5.1, 45-REQ-5.2, 45-REQ-5.E1, 45-REQ-6.2
+                  45-REQ-3.2, 45-REQ-5.1, 45-REQ-5.2, 45-REQ-5.E1, 45-REQ-6.2,
+                  121-REQ-4.1, 121-REQ-4.2, 121-REQ-4.E1
     """
     # Read-only divergence checks — no lock needed
     _rc, remote_ahead_str, _stderr = await run_git(
@@ -126,6 +139,11 @@ async def _sync_develop_with_remote(repo_root: Path) -> str | None:
     if remote_ahead == 0:
         # Local is up-to-date or ahead — nothing to do (19-REQ-1.E1)
         return None
+
+    if _lock_held:
+        # Caller already holds the merge lock — call sync logic directly
+        # to avoid deadlocking (121-REQ-4.1).
+        return await _sync_develop_under_lock(repo_root, remote_ahead, local_ahead)
 
     # Remote has new commits — acquire lock before making changes (45-REQ-3.2)
     lock = MergeLock(repo_root)
