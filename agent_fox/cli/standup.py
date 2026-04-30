@@ -21,7 +21,6 @@ from agent_fox.core.paths import DEFAULT_DB_PATH
 from agent_fox.reporting.formatters import (
     OutputFormat,
     get_formatter,
-    write_output,
 )
 from agent_fox.reporting.standup import generate_standup
 
@@ -35,15 +34,9 @@ logger = logging.getLogger(__name__)
     default=24,
     help="Reporting window in hours (default: 24)",
 )
-@click.option(
-    "--output",
-    type=click.Path(),
-    default=None,
-    help="Write report to file instead of stdout",
-)
 @click.pass_context
 @handle_agent_fox_errors
-def standup_cmd(ctx: click.Context, hours: int, output: str | None) -> None:
+def standup_cmd(ctx: click.Context, hours: int) -> None:
     """Generate daily activity report."""
     json_mode = ctx.obj.get("json", False)
     project_root = Path.cwd()
@@ -76,5 +69,4 @@ def standup_cmd(ctx: click.Context, hours: int, output: str | None) -> None:
         formatter = get_formatter(OutputFormat.TABLE, console=console)
         content = formatter.format_standup(report)
 
-        output_path = Path(output) if output else None
-        write_output(content, output_path=output_path, console=console)
+        console.print(content, end="")
