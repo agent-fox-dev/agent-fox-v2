@@ -1,6 +1,17 @@
 # Agent-Fox Memory
 
-_3182 facts | last updated: 2026-04-29_
+_3183 facts | last updated: 2026-04-30_
+
+**2026-04-30 Tier 1+2 code simplification (round 2):** Removed 3 dead functions
+(`_estimate_tokens`, `_table_exists`, `_column_exists`). Extracted
+`_resolve_github_remote()` helper in `nightshift/platform_factory.py` to
+eliminate duplicated git-remote resolution. Added `run_git_sync()` to
+`workspace/git.py` and migrated sync callers in `cli/lint_specs.py`,
+`fix/improve.py`, and `platform_factory.py`. Inlined `engine/assessment.py`
+(63-line single-consumer module) into `engine/engine.py`. Extracted shared
+`_render_criteria_section()` and `_render_verdict_section()` helpers in
+`nightshift/fix_pipeline.py` to deduplicate comment formatting. 14 files
+changed, net -33 lines, -1 file deleted. 4750 tests pass.
 
 **2026-04-29 Audit-reviewer grades design quality (issue #568):**
 `reviewer_audit-review.md` profile was conflating test pass/fail status with

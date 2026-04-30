@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import json
 import logging
-import subprocess
 from collections import Counter
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
@@ -27,6 +26,7 @@ from agent_fox.fix.analyzer import (
 )
 from agent_fox.fix.checks import CheckDescriptor
 from agent_fox.fix.events import FixProgressCallback, make_progress_emitter
+from agent_fox.workspace.git import run_git_sync
 
 logger = logging.getLogger(__name__)
 
@@ -136,14 +136,9 @@ def rollback_improvement_pass(project_root: Path) -> None:
 
     Requirements: 31-REQ-7.1, 31-REQ-7.3, 31-REQ-7.E1
     """
-    result = subprocess.run(
-        ["git", "reset", "--hard", "HEAD~1"],
-        cwd=project_root,
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        msg = f"git reset --hard HEAD~1 failed (exit {result.returncode}): {result.stderr}"
+    rc, _, stderr = run_git_sync(["reset", "--hard", "HEAD~1"], cwd=project_root)
+    if rc != 0:
+        msg = f"git reset --hard HEAD~1 failed (exit {rc}): {stderr}"
         logger.error(msg)
         raise RuntimeError(msg)
 
@@ -157,16 +152,11 @@ def discard_partial_changes(project_root: Path) -> None:
 
     Requirements: 31-REQ-5.E1
     """
-    try:
-        subprocess.run(
-            ["git", "checkout", "--", "."],
-            cwd=project_root,
-            capture_output=True,
-            text=True,
-        )
+    rc, _, _ = run_git_sync(["checkout", "--", "."], cwd=project_root)
+    if rc == 0:
         logger.info("Discarded partial changes: git checkout -- .")
-    except Exception:
-        logger.warning("Failed to discard partial changes", exc_info=True)
+    else:
+        logger.warning("Failed to discard partial changes")
 
 
 def _create_commit(project_root: Path, pass_number: int, summary: str) -> None:
@@ -174,24 +164,12 @@ def _create_commit(project_root: Path, pass_number: int, summary: str) -> None:
 
     Requirements: 31-REQ-5.4
     """
-    # Stage changes
-    subprocess.run(
-        ["git", "add", "-A"],
-        cwd=project_root,
-        capture_output=True,
-        text=True,
-    )
+    run_git_sync(["add", "-A"], cwd=project_root)
 
-    # Truncate summary for commit message
     short_summary = summary[:72] if len(summary) > 72 else summary
     message = f"refactor: auto-improve pass {pass_number} - {short_summary}"
 
-    subprocess.run(
-        ["git", "commit", "-m", message, "--allow-empty"],
-        cwd=project_root,
-        capture_output=True,
-        text=True,
-    )
+    run_git_sync(["commit", "-m", message, "--allow-empty"], cwd=project_root)
 
 
 # ---------------------------------------------------------------------------

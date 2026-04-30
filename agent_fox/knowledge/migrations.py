@@ -28,28 +28,6 @@ def _sanitize_embedding_dim(dim: int) -> int:
 MigrationFn = Callable[[duckdb.DuckDBPyConnection], "bool | None"]
 
 
-def _table_exists(conn: duckdb.DuckDBPyConnection, table_name: str) -> bool:
-    """Check whether a table exists in the current schema."""
-    row = conn.execute(
-        "SELECT 1 FROM information_schema.tables WHERE table_schema = 'main' AND table_name = ?",
-        [table_name],
-    ).fetchone()
-    return row is not None
-
-
-def _column_exists(
-    conn: duckdb.DuckDBPyConnection,
-    table_name: str,
-    column_name: str,
-) -> bool:
-    """Check whether a column exists on a table."""
-    row = conn.execute(
-        "SELECT 1 FROM information_schema.columns WHERE table_name = ? AND column_name = ?",
-        [table_name, column_name],
-    ).fetchone()
-    return row is not None
-
-
 @dataclass(frozen=True)
 class Migration:
     """A forward-only schema migration."""
