@@ -106,7 +106,7 @@ def _make_pipeline(
     from agent_fox.nightshift.fix_pipeline import FixPipeline
 
     config = MagicMock()
-    config.orchestrator.retries_before_escalation = retries_before_escalation
+    config.routing.retries_before_escalation = retries_before_escalation
     config.orchestrator.max_retries = max_retries
 
     mock_platform = AsyncMock()
@@ -521,3 +521,90 @@ class TestReviewerNoTriageCriteria:
         # Should reference issue description or contain the issue context
         prompt_lower = system_prompt.lower()
         assert "issue" in prompt_lower or spec.system_context in system_prompt
+
+
+# ---------------------------------------------------------------------------
+# AC-1: CoderReviewerLoop reads retries_before_escalation from routing config
+# ---------------------------------------------------------------------------
+
+
+class TestCoderReviewerLoopReadsRoutingConfig:
+    """AC-1: EscalationLadder is initialised with config.routing.retries_before_escalation.
+
+    Construct CoderReviewerLoop with a real AgentFoxConfig that has
+    routing.retries_before_escalation=2 and orchestrator.max_retries=3,
+    then assert the EscalationLadder is built with retries_before_escalation=2
+    (not the getattr fallback of 1).
+
+    Requirement: 589-AC-1
+    """
+
+    @pytest.mark.asyncio
+    async def test_escalation_ladder_uses_routing_retries_not_orchestrator(self) -> None:
+        """EscalationLadder receives retries_before_escalation from routing, not orchestrator."""
+        from unittest.mock import patch
+
+        from agent_fox.core.config import AgentFoxConfig, OrchestratorConfig, RoutingConfig
+        from agent_fox.core.escalation import EscalationLadder
+        from agent_fox.core.models import ModelTier
+        from agent_fox.nightshift.coder_reviewer import CoderReviewerLoop
+
+        full_config = AgentFoxConfig(
+            orchestrator=OrchestratorConfig(max_retries=3),
+            routing=RoutingConfig(retries_before_escalation=2),
+        )
+
+        pipeline = MagicMock()
+        pipeline._config = full_config
+        pipeline._run_id = "test-run"
+        pipeline._task_callback = None
+        pipeline._sink = None
+
+        captured: dict[str, int] = {}
+        original_init = EscalationLadder.__init__
+
+        def _capture_init(
+            self: EscalationLadder,
+            starting_tier: ModelTier,
+            tier_ceiling: ModelTier,
+            retries_before_escalation: int,
+        ) -> None:
+            captured["retries_before_escalation"] = retries_before_escalation
+            original_init(self, starting_tier, tier_ceiling, retries_before_escalation)
+
+        from agent_fox.nightshift.fix_pipeline import FixReviewResult
+        from agent_fox.nightshift.spec_builder import InMemorySpec
+
+        spec = MagicMock(spec=InMemorySpec)
+        spec.issue_number = 1
+
+        passing_review = MagicMock(spec=FixReviewResult)
+        passing_review.overall_verdict = "PASS"
+        passing_review.is_parse_failure = False
+
+        coder_outcome = MagicMock()
+        coder_outcome.cost_usd = 0.0
+
+        loop = CoderReviewerLoop(pipeline)
+
+        with (
+            patch.object(EscalationLadder, "__init__", _capture_init),
+            patch(
+                "agent_fox.nightshift.coder_reviewer.CoderReviewerLoop._run_reviewer_phase",
+                new=AsyncMock(return_value=passing_review),
+            ),
+            patch(
+                "agent_fox.nightshift.coder_reviewer.CoderReviewerLoop._run_coder_phase",
+                new=AsyncMock(return_value=coder_outcome),
+            ),
+        ):
+            pipeline._format_review_comment = MagicMock(return_value="LGTM")
+            pipeline._post_comment = AsyncMock()
+            result = await loop.run(spec, MagicMock(), MagicMock(), _mock_workspace())
+
+        assert result is True, "Expected PASS on first attempt"
+        assert "retries_before_escalation" in captured, "EscalationLadder.__init__ was not called"
+        assert captured["retries_before_escalation"] == 2, (
+            f"Expected retries_before_escalation=2 (from routing config), "
+            f"got {captured['retries_before_escalation']}"
+        )

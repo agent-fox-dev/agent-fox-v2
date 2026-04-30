@@ -34,7 +34,7 @@ def _make_config() -> MagicMock:
     config.platform.type = "github"
     config.orchestrator.max_cost = None
     config.orchestrator.max_sessions = None
-    config.orchestrator.retries_before_escalation = 1
+    config.routing.retries_before_escalation = 1
     config.orchestrator.max_retries = 3
     config.archetypes = None
     config.pricing = MagicMock()

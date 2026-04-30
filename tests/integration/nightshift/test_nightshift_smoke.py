@@ -91,7 +91,7 @@ class TestFixSessionActivityDisplay:
 
         issue = _make_issue(number=42)
         config = _make_config()
-        config.orchestrator.retries_before_escalation = 1
+        config.routing.retries_before_escalation = 1
         config.orchestrator.max_retries = 3
         platform = AsyncMock()
 

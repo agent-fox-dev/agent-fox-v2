@@ -583,6 +583,40 @@ async def push_to_remote(
     return True
 
 
+async def fetch_remote(
+    repo_root: Path,
+    remote: str = "origin",
+    branch: str | None = None,
+) -> bool:
+    """Fetch from a remote. Returns True on success, False on failure.
+
+    When *branch* is specified, only that branch is fetched. Otherwise,
+    fetches all branches from the remote.
+
+    Does not raise — logs a warning on failure.
+
+    Requirements: 121-REQ-2.1, 121-REQ-2.E1
+    """
+    args = ["fetch", remote]
+    if branch:
+        validate_ref_name(branch)
+        args.append(branch)
+    rc, _stdout, stderr = await run_git(
+        args,
+        cwd=repo_root,
+        check=False,
+    )
+    if rc != 0:
+        logger.warning(
+            "Failed to fetch '%s' from '%s': %s",
+            branch or "(all)",
+            remote,
+            stderr.strip(),
+        )
+        return False
+    return True
+
+
 async def get_remote_url(
     repo_root: Path,
     remote: str = "origin",

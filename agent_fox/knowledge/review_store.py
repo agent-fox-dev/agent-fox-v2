@@ -749,6 +749,104 @@ def query_prior_run_verdicts(
         return []
 
 
+def dismiss_finding_by_id(
+    conn: duckdb.DuckDBPyConnection,
+    finding_id: str,
+    reason: str,
+) -> str | None:
+    """Manually supersede a finding by ID across all three finding tables.
+
+    Sets ``superseded_by`` to ``dismissed:<ISO-timestamp>`` on the matching
+    active row (``superseded_by IS NULL``) in ``review_findings``,
+    ``drift_findings``, or ``verification_results``, whichever contains the
+    record.  Only active rows are dismissed; already-superseded rows are
+    treated as "not found".
+
+    Args:
+        conn: DuckDB connection.
+        finding_id: String representation of the finding UUID.
+        reason: Human-readable reason for dismissal (logged but not stored
+            in the DB schema — the ``dismissed:`` marker in ``superseded_by``
+            encodes the action and timestamp).
+
+    Returns:
+        A human-readable description of the dismissed finding (e.g.
+        ``"[critical] Missing error handling"``), or ``None`` if the ID is
+        not found as an active row in any table.
+
+    Requirements: 592-AC-1, 592-AC-2
+    """
+    marker = f"dismissed:{datetime.now(UTC).isoformat()}"
+
+    # Try review_findings (skeptic archetype)
+    row = conn.execute(
+        "SELECT description, severity FROM review_findings "  # noqa: S608
+        "WHERE id::VARCHAR = ? AND superseded_by IS NULL",
+        [finding_id],
+    ).fetchone()
+    if row is not None:
+        description, severity = row
+        conn.execute(
+            "UPDATE review_findings SET superseded_by = ? "
+            "WHERE id::VARCHAR = ? AND superseded_by IS NULL",
+            [marker, finding_id],
+        )
+        logger.info(
+            "Dismissed review finding %s (%s): %s [reason: %s]",
+            finding_id,
+            severity,
+            description,
+            reason,
+        )
+        return f"[{severity}] {description}"
+
+    # Try drift_findings (oracle archetype)
+    row = conn.execute(
+        "SELECT description, severity FROM drift_findings "  # noqa: S608
+        "WHERE id::VARCHAR = ? AND superseded_by IS NULL",
+        [finding_id],
+    ).fetchone()
+    if row is not None:
+        description, severity = row
+        conn.execute(
+            "UPDATE drift_findings SET superseded_by = ? "
+            "WHERE id::VARCHAR = ? AND superseded_by IS NULL",
+            [marker, finding_id],
+        )
+        logger.info(
+            "Dismissed drift finding %s (%s): %s [reason: %s]",
+            finding_id,
+            severity,
+            description,
+            reason,
+        )
+        return f"[{severity}] {description}"
+
+    # Try verification_results (verifier archetype)
+    row = conn.execute(
+        "SELECT requirement_id, verdict FROM verification_results "  # noqa: S608
+        "WHERE id::VARCHAR = ? AND superseded_by IS NULL",
+        [finding_id],
+    ).fetchone()
+    if row is not None:
+        requirement_id, verdict = row
+        conn.execute(
+            "UPDATE verification_results SET superseded_by = ? "
+            "WHERE id::VARCHAR = ? AND superseded_by IS NULL",
+            [marker, finding_id],
+        )
+        logger.info(
+            "Dismissed verification result %s (%s): %s [reason: %s]",
+            finding_id,
+            verdict,
+            requirement_id,
+            reason,
+        )
+        return f"[{verdict}] {requirement_id}"
+
+    return None
+
+
 def supersede_injected_findings(
     conn: duckdb.DuckDBPyConnection,
     session_id: str,

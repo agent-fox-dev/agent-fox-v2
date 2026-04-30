@@ -50,7 +50,7 @@ class CoderReviewerLoop:
 
         p = self._pipeline
 
-        retries_before = getattr(p._config.orchestrator, "retries_before_escalation", 1)
+        retries_before = getattr(p._config.routing, "retries_before_escalation", 1)
         max_retries = getattr(p._config.orchestrator, "max_retries", 3)
 
         ladder = EscalationLadder(

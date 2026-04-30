@@ -479,11 +479,16 @@ class NodeSessionRunner:
             return status, error_message, touched_files, is_non_retryable
 
         # 03-REQ-7.1: Harvest changes into develop on success
+        # 121-REQ-1.1: Push inside the merge lock (atomic merge+push)
         try:
             touched_files = await harvest(
                 repo_root,
                 workspace,
                 force_clean=self._config.workspace.force_clean,
+                push=True,
+                audit_sink=self._sink,
+                run_id=self._run_id,
+                node_id=node_id,
             )
             # 40-REQ-11.1: Emit git.merge after successful harvest
             if touched_files:
@@ -538,11 +543,13 @@ class NodeSessionRunner:
 
         # 35-REQ-1.1: Capture develop HEAD SHA after successful harvest
         # 19-REQ-3.4: Post-harvest remote integration
+        # 121-REQ-5.E1: Skip push in post_harvest — harvest already pushed
         if touched_files:
             try:
                 await post_harvest_integrate(
                     repo_root=repo_root,
                     workspace=workspace,
+                    push_already_done=True,
                 )
             except Exception as exc:
                 logger.warning(

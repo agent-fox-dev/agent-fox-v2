@@ -106,7 +106,7 @@ class TestFullPipelineHappyPath:
         mock_platform.close_issue = AsyncMock()
 
         config = MagicMock()
-        config.orchestrator.retries_before_escalation = 1
+        config.routing.retries_before_escalation = 1
         config.orchestrator.max_retries = 3
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
@@ -171,7 +171,7 @@ class TestRetryLoopWithEscalation:
         mock_platform.close_issue = AsyncMock()
 
         config = MagicMock()
-        config.orchestrator.retries_before_escalation = 1
+        config.routing.retries_before_escalation = 1
         config.orchestrator.max_retries = 3
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
@@ -239,7 +239,7 @@ class TestTriageFailureFallback:
         mock_platform.close_issue = AsyncMock()
 
         config = MagicMock()
-        config.orchestrator.retries_before_escalation = 1
+        config.routing.retries_before_escalation = 1
         config.orchestrator.max_retries = 3
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
@@ -297,7 +297,7 @@ class TestRunIdInExhaustionComment:
         mock_platform.close_issue = AsyncMock()
 
         config = MagicMock()
-        config.orchestrator.retries_before_escalation = 1
+        config.routing.retries_before_escalation = 1
         config.orchestrator.max_retries = 1
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
@@ -341,7 +341,7 @@ class TestRunIdInFailureComment:
         mock_platform.close_issue = AsyncMock()
 
         config = MagicMock()
-        config.orchestrator.retries_before_escalation = 1
+        config.routing.retries_before_escalation = 1
         config.orchestrator.max_retries = 3
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
@@ -383,7 +383,7 @@ class TestRunIdInTriageComment:
         mock_platform.close_issue = AsyncMock()
 
         config = MagicMock()
-        config.orchestrator.retries_before_escalation = 1
+        config.routing.retries_before_escalation = 1
         config.orchestrator.max_retries = 3
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
@@ -428,7 +428,7 @@ class TestRunIdInReviewComment:
         mock_platform.close_issue = AsyncMock()
 
         config = MagicMock()
-        config.orchestrator.retries_before_escalation = 1
+        config.routing.retries_before_escalation = 1
         config.orchestrator.max_retries = 3
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
@@ -473,7 +473,7 @@ class TestRunIdInMergeFailureComment:
         mock_platform.close_issue = AsyncMock()
 
         config = MagicMock()
-        config.orchestrator.retries_before_escalation = 1
+        config.routing.retries_before_escalation = 1
         config.orchestrator.max_retries = 3
 
         pipeline = FixPipeline(config=config, platform=mock_platform)

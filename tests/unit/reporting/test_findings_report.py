@@ -14,15 +14,19 @@ import json
 import uuid
 
 import duckdb
+import pytest
 
 from agent_fox.knowledge.review_store import (
+    DriftFinding,
     ReviewFinding,
     VerificationResult,
+    insert_drift_findings,
     insert_findings,
     insert_verdicts,
 )
 from agent_fox.reporting.findings import (
     format_findings_table,
+    lookup_finding_by_id,
     query_findings,
     query_findings_summary,
 )
@@ -111,7 +115,7 @@ class TestQueryFindings:
         rows = query_findings(knowledge_conn)
         table = format_findings_table(rows)
         assert "critical" in table
-        assert "skeptic" in table
+        assert "reviewer/pre-review" in table
 
 
 class TestQueryFindingsBySpec:
@@ -166,12 +170,12 @@ class TestQueryFindingsByArchetype:
         rows = query_findings(knowledge_conn, archetype="verifier")
         assert all(r.archetype == "verifier" for r in rows)
 
-    def test_archetype_filter_skeptic(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
-        """Verify --archetype skeptic returns only skeptic findings."""
+    def test_archetype_filter_reviewer_pre_review(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
+        """Verify --archetype reviewer/pre-review returns only pre-review findings."""
         _insert_test_findings(knowledge_conn, severities=["critical"])
 
-        rows = query_findings(knowledge_conn, archetype="skeptic")
-        assert all(r.archetype == "skeptic" for r in rows)
+        rows = query_findings(knowledge_conn, archetype="reviewer/pre-review")
+        assert all(r.archetype == "reviewer/pre-review" for r in rows)
 
 
 class TestQueryFindingsByRunId:
@@ -254,3 +258,160 @@ class TestStatusFindingsDbFailure:
         """Verify summary is empty when DB connection is None."""
         summary = query_findings_summary(None)  # type: ignore[arg-type]
         assert summary == []
+
+
+def _insert_drift_finding(
+    conn: duckdb.DuckDBPyConnection,
+    *,
+    spec_name: str = "my_spec",
+    task_group: str = "1",
+    session_id: str = "my_spec:1:1",
+    severity: str = "major",
+) -> DriftFinding:
+    """Insert a single DriftFinding for testing."""
+    finding = DriftFinding(
+        id=str(uuid.uuid4()),
+        severity=severity,
+        description=f"Drift finding {severity} for {spec_name}",
+        spec_ref="84-REQ-1.1",
+        artifact_ref="agent_fox/cli/findings.py",
+        spec_name=spec_name,
+        task_group=task_group,
+        session_id=session_id,
+    )
+    insert_drift_findings(conn, [finding])
+    return finding
+
+
+class TestArchetypeLabelsCurrentNames:
+    """591-AC-1 / 591-AC-2: Verify current archetype labels on FindingRow objects."""
+
+    def test_review_findings_labelled_reviewer_pre_review(
+        self, knowledge_conn: duckdb.DuckDBPyConnection
+    ) -> None:
+        """AC-1: review_findings rows have archetype='reviewer/pre-review'."""
+        _insert_test_findings(knowledge_conn, severities=["critical"])
+
+        rows = query_findings(knowledge_conn)
+        review_rows = [r for r in rows if r.spec_name == "my_spec"]
+        assert len(review_rows) > 0
+        assert all(r.archetype == "reviewer/pre-review" for r in review_rows)
+
+    def test_drift_findings_labelled_reviewer_drift_review(
+        self, knowledge_conn: duckdb.DuckDBPyConnection
+    ) -> None:
+        """AC-2: drift_findings rows have archetype='reviewer/drift-review'."""
+        _insert_drift_finding(knowledge_conn)
+
+        rows = query_findings(knowledge_conn)
+        drift_rows = [r for r in rows if r.archetype == "reviewer/drift-review"]
+        assert len(drift_rows) > 0
+
+    def test_lookup_review_finding_labelled_reviewer_pre_review(
+        self, knowledge_conn: duckdb.DuckDBPyConnection
+    ) -> None:
+        """AC-1: lookup_finding_by_id returns archetype='reviewer/pre-review' for review_findings."""
+        findings = _insert_test_findings(knowledge_conn, severities=["critical"])
+        fid = findings[0].id
+
+        result = lookup_finding_by_id(knowledge_conn, fid)
+
+        assert result is not None
+        assert result.archetype == "reviewer/pre-review"
+
+    def test_lookup_drift_finding_labelled_reviewer_drift_review(
+        self, knowledge_conn: duckdb.DuckDBPyConnection
+    ) -> None:
+        """AC-2: lookup_finding_by_id returns archetype='reviewer/drift-review' for drift_findings."""
+        finding = _insert_drift_finding(knowledge_conn)
+
+        result = lookup_finding_by_id(knowledge_conn, finding.id)
+
+        assert result is not None
+        assert result.archetype == "reviewer/drift-review"
+
+
+class TestArchetypeFilterCurrentNames:
+    """591-AC-3: Archetype filter accepts reviewer, reviewer/pre-review, reviewer/drift-review."""
+
+    def test_reviewer_filter_returns_both_review_and_drift(
+        self, knowledge_conn: duckdb.DuckDBPyConnection
+    ) -> None:
+        """AC-3: archetype='reviewer' returns rows from both review_findings and drift_findings."""
+        _insert_test_findings(
+            knowledge_conn, severities=["critical"], session_id="my_spec:1:review"
+        )
+        _insert_drift_finding(knowledge_conn, session_id="my_spec:1:drift")
+
+        rows = query_findings(knowledge_conn, archetype="reviewer")
+
+        assert len(rows) == 2
+        archetypes = {r.archetype for r in rows}
+        assert "reviewer/pre-review" in archetypes
+        assert "reviewer/drift-review" in archetypes
+
+    def test_reviewer_pre_review_filter_returns_only_review_findings(
+        self, knowledge_conn: duckdb.DuckDBPyConnection
+    ) -> None:
+        """AC-3: archetype='reviewer/pre-review' returns only review_findings rows."""
+        _insert_test_findings(
+            knowledge_conn, severities=["critical"], session_id="my_spec:1:review"
+        )
+        _insert_drift_finding(knowledge_conn, session_id="my_spec:1:drift")
+
+        rows = query_findings(knowledge_conn, archetype="reviewer/pre-review")
+
+        assert len(rows) == 1
+        assert rows[0].archetype == "reviewer/pre-review"
+
+    def test_reviewer_drift_review_filter_returns_only_drift_findings(
+        self, knowledge_conn: duckdb.DuckDBPyConnection
+    ) -> None:
+        """AC-3: archetype='reviewer/drift-review' returns only drift_findings rows."""
+        _insert_test_findings(
+            knowledge_conn, severities=["critical"], session_id="my_spec:1:review"
+        )
+        _insert_drift_finding(knowledge_conn, session_id="my_spec:1:drift")
+
+        rows = query_findings(knowledge_conn, archetype="reviewer/drift-review")
+
+        assert len(rows) == 1
+        assert rows[0].archetype == "reviewer/drift-review"
+
+
+class TestLegacyArchetypeNamesRejected:
+    """591-AC-4: Legacy archetype names 'skeptic' and 'oracle' raise ValueError."""
+
+    def test_skeptic_raises_value_error(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
+        """AC-4: query_findings(archetype='skeptic') raises ValueError."""
+        _insert_test_findings(knowledge_conn, severities=["critical"])
+
+        with pytest.raises(ValueError, match="skeptic"):
+            query_findings(knowledge_conn, archetype="skeptic")
+
+    def test_oracle_raises_value_error(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
+        """AC-4: query_findings(archetype='oracle') raises ValueError."""
+        _insert_drift_finding(knowledge_conn)
+
+        with pytest.raises(ValueError, match="oracle"):
+            query_findings(knowledge_conn, archetype="oracle")
+
+
+class TestCliHelpTextCurrentNames:
+    """591-AC-5: CLI help text uses current archetype names, not legacy ones."""
+
+    def test_help_text_has_no_legacy_names(self) -> None:
+        """AC-5: The --archetype option help string does not mention 'skeptic' or 'oracle'."""
+        from agent_fox.cli.findings import findings_cmd
+
+        # Inspect the option's help text directly
+        archetype_option = next(
+            (p for p in findings_cmd.params if p.name == "archetype"),
+            None,
+        )
+        assert archetype_option is not None, "--archetype option not found"
+        help_text = archetype_option.help or ""
+        assert "skeptic" not in help_text, f"Legacy name 'skeptic' found in help: {help_text!r}"
+        assert "oracle" not in help_text, f"Legacy name 'oracle' found in help: {help_text!r}"
+        assert "reviewer" in help_text, f"Expected 'reviewer' in help: {help_text!r}"
+        assert "verifier" in help_text, f"Expected 'verifier' in help: {help_text!r}"

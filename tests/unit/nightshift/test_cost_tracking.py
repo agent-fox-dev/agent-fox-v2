@@ -28,7 +28,7 @@ def _make_config() -> MagicMock:
     config.platform.type = "github"
     config.orchestrator.max_cost = None
     config.orchestrator.max_sessions = None
-    config.orchestrator.retries_before_escalation = 1
+    config.routing.retries_before_escalation = 1
     config.orchestrator.max_retries = 3
     config.orchestrator.max_budget_usd = 0.0
     # Use empty dicts so resolve_model_tier and other sdk_params resolvers
