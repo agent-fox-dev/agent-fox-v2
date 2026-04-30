@@ -15,13 +15,17 @@ import logging
 from pathlib import Path
 
 from agent_fox.core.errors import IntegrationError
+from agent_fox.knowledge.audit import AuditEvent, AuditEventType
 from agent_fox.workspace import (
     WorkspaceInfo,
     _sync_develop_with_remote,
+    abort_rebase,
     checkout_branch,
+    fetch_remote,
     get_changed_files,
     has_new_commits,
     push_to_remote,
+    rebase_onto,
     run_git,
 )
 from agent_fox.workspace.merge_agent import run_merge_agent
@@ -157,9 +161,7 @@ async def _clean_conflicting_untracked(
         # or literal traversal segments (e.g. '../').
         resolved_path = (repo_root / path).resolve()
         if not resolved_path.is_relative_to(resolved_root):
-            logger.warning(
-                "Skipping path outside repo root: %s", path
-            )
+            logger.warning("Skipping path outside repo root: %s", path)
             unverifiable.append(path)
             continue
 
@@ -389,6 +391,179 @@ async def _harvest_under_lock(
         dev_branch,
     )
     return changed_files
+
+
+# ---------------------------------------------------------------------------
+# Push with retry logic
+# ---------------------------------------------------------------------------
+
+# Non-retryable push error patterns — these indicate the push cannot
+# succeed on retry (authentication, permissions, network issues).
+_NON_RETRYABLE_PUSH_PATTERNS = (
+    "authentication failed",
+    "permission denied",
+    "could not resolve host",
+    "connection refused",
+    "connection timed out",
+    "repository not found",
+)
+
+
+def _is_non_retryable_push_error(stderr: str) -> bool:
+    """Check if a push error is non-retryable.
+
+    Returns True for errors like authentication failures or network issues
+    that cannot be resolved by rebasing.  Returns False for non-fast-forward
+    rejections and other potentially transient errors.
+
+    Requirements: 121-REQ-2.E3
+    """
+    lower = stderr.lower()
+    return any(pattern in lower for pattern in _NON_RETRYABLE_PUSH_PATTERNS)
+
+
+def _emit_audit_safe(
+    audit_sink: object | None,
+    event: AuditEvent,
+) -> None:
+    """Emit an audit event, catching and logging any sink errors.
+
+    Requirements: 121-REQ-3.E1
+    """
+    if audit_sink is None:
+        return
+    try:
+        audit_sink.emit_audit_event(event)  # type: ignore[union-attr]
+    except Exception:
+        logger.warning(
+            "Failed to emit audit event %s: %s",
+            event.event_type,
+            event.payload,
+        )
+
+
+async def _push_with_retry(
+    repo_root: Path,
+    branch: str = "develop",
+    remote: str = "origin",
+    max_retries: int = 3,
+    audit_sink: object | None = None,
+    run_id: str | None = None,
+    node_id: str | None = None,
+) -> bool:
+    """Push branch to remote with fetch-rebase retry on non-ff rejection.
+
+    Returns True if push succeeded (possibly after retries), False if all
+    attempts failed.  Never raises — push failures are best-effort.
+
+    Requirements: 121-REQ-2.1, 121-REQ-2.2, 121-REQ-2.3, 121-REQ-2.4,
+                  121-REQ-2.E1, 121-REQ-2.E2, 121-REQ-2.E3,
+                  121-REQ-3.1, 121-REQ-3.2, 121-REQ-3.3, 121-REQ-3.4,
+                  121-REQ-3.E1
+    """
+    max_attempts = max_retries + 1
+
+    for attempt in range(1, max_attempts + 1):
+        # Attempt push (121-REQ-2.1)
+        success = await push_to_remote(repo_root, branch, remote)
+
+        if success:
+            if attempt > 1:
+                # Successful retry — log INFO and emit audit
+                # (121-REQ-2.3, 121-REQ-3.4)
+                logger.info(
+                    "Push to %s/%s succeeded on attempt %d",
+                    remote,
+                    branch,
+                    attempt,
+                )
+                _emit_audit_safe(
+                    audit_sink,
+                    AuditEvent(
+                        run_id=run_id or "",
+                        event_type=AuditEventType.GIT_PUSH_RETRY_SUCCESS,
+                        node_id=node_id or "",
+                        payload={
+                            "branch": branch,
+                            "remote": remote,
+                            "total_attempts": attempt,
+                        },
+                    ),
+                )
+            return True
+
+        # Push failed — probe the error to classify it (121-REQ-2.E3).
+        # push_to_remote only returns bool, so we run a dry-run push via
+        # run_git to capture stderr for error classification.
+        _rc, _, stderr = await run_git(
+            ["push", "--dry-run", remote, branch],
+            cwd=repo_root,
+            check=False,
+        )
+
+        is_retryable = not _is_non_retryable_push_error(stderr)
+        will_retry = is_retryable and attempt < max_attempts
+        retries_exhausted = is_retryable and attempt == max_attempts
+
+        # Emit push_failed audit event (121-REQ-3.1, 121-REQ-3.2)
+        _emit_audit_safe(
+            audit_sink,
+            AuditEvent(
+                run_id=run_id or "",
+                event_type=AuditEventType.GIT_PUSH_FAILED,
+                node_id=node_id or "",
+                payload={
+                    "branch": branch,
+                    "remote": remote,
+                    "attempt": attempt,
+                    "max_attempts": max_attempts,
+                    "error": stderr.strip() or "push failed",
+                    "will_retry": will_retry,
+                    "retries_exhausted": retries_exhausted,
+                    "rebase_conflict": False,
+                },
+            ),
+        )
+
+        if not is_retryable:
+            # Non-retryable error — stop immediately (121-REQ-2.E3)
+            logger.warning(
+                "Push to %s/%s failed with non-retryable error: %s",
+                remote,
+                branch,
+                stderr.strip(),
+            )
+            return False
+
+        if retries_exhausted:
+            # All retries exhausted (121-REQ-2.4, 121-REQ-3.3)
+            logger.warning(
+                "Push to %s/%s failed after %d attempts, retries exhausted",
+                remote,
+                branch,
+                max_attempts,
+            )
+            return False
+
+        # Fetch and rebase for retry (121-REQ-2.1)
+        fetch_ok = await fetch_remote(repo_root, remote, branch)
+
+        if fetch_ok:
+            # Attempt rebase onto remote branch
+            try:
+                await rebase_onto(repo_root, branch, f"{remote}/{branch}")
+            except IntegrationError:
+                # Rebase conflict — abort and stop retrying (121-REQ-2.E2)
+                await abort_rebase(repo_root)
+                logger.warning(
+                    "Rebase conflict during push retry for %s/%s, aborting retries",
+                    remote,
+                    branch,
+                )
+                return False
+        # If fetch failed, skip rebase and retry push as-is (121-REQ-2.E1)
+
+    return False  # Safety fallback (should not be reached)
 
 
 # ---------------------------------------------------------------------------

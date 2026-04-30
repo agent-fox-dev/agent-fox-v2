@@ -107,8 +107,8 @@ git primitives first, then retry orchestration, then caller integration.
     - [x] All existing tests still pass: `uv run pytest -q`
     - [x] No linter warnings introduced: `make check`
 
-- [ ] 3. Implement `_push_with_retry` in harvest.py
-  - [ ] 3.1 Add `_push_with_retry` function to `agent_fox/workspace/harvest.py`
+- [x] 3. Implement `_push_with_retry` in harvest.py
+  - [x] 3.1 Add `_push_with_retry` function to `agent_fox/workspace/harvest.py`
     - Signature: `async def _push_with_retry(repo_root, branch="develop", remote="origin", max_retries=3, audit_sink=None, run_id=None, node_id=None) -> bool`
     - Initial push attempt via `push_to_remote()`
     - On failure: classify error as retryable (non-fast-forward) vs non-retryable
@@ -122,17 +122,17 @@ git primitives first, then retry orchestration, then caller integration.
     - _Requirements: 121-REQ-2.1, 121-REQ-2.2, 121-REQ-2.3, 121-REQ-2.4, 121-REQ-2.E1, 121-REQ-2.E2, 121-REQ-2.E3_
     - _Requirements: 121-REQ-3.1, 121-REQ-3.2, 121-REQ-3.3, 121-REQ-3.4, 121-REQ-3.E1_
 
-  - [ ] 3.2 Add push error classification logic
+  - [x] 3.2 Add push error classification logic
     - Detect non-fast-forward rejection from git push stderr
     - Detect authentication/network errors (non-retryable)
     - Need to read stderr from `push_to_remote` or use `run_git` directly
     - _Requirements: 121-REQ-2.E3_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests pass: `uv run pytest -q tests/workspace/test_atomic_push.py -k "test_retry or test_maximum or test_exhausted or test_successful_retry_logs or test_push_failure_emits or test_audit_payload or test_retries_exhausted_emits or test_successful_retry_emits or test_fetch_fails or test_rebase_conflict or test_non_retryable or test_audit_sink"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `make check`
-    - [ ] Requirements 121-REQ-2.*, 121-REQ-3.* acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests pass: `uv run pytest -q tests/workspace/test_atomic_push.py -k "test_retry or test_maximum or test_exhausted or test_successful_retry_logs or test_push_failure_emits or test_audit_payload or test_retries_exhausted_emits or test_successful_retry_emits or test_fetch_fails or test_rebase_conflict or test_non_retryable or test_audit_sink"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `make check`
+    - [x] Requirements 121-REQ-2.*, 121-REQ-3.* acceptance criteria met
 
 - [ ] 4. Wire atomic push into harvest and session lifecycle
   - [ ] 4.1 Modify `harvest()` signature in `agent_fox/workspace/harvest.py`

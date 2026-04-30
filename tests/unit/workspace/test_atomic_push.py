@@ -13,7 +13,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from hypothesis import assume, given, settings
+from hypothesis import HealthCheck, assume, given, settings
 from hypothesis import strategies as st
 
 from agent_fox.core.errors import IntegrationError
@@ -1294,7 +1294,11 @@ class TestPropertyBoundedRetryCount:
         max_retries=st.integers(min_value=0, max_value=10),
         outcomes=st.lists(st.booleans(), min_size=1, max_size=15),
     )
-    @settings(max_examples=50, deadline=5000)
+    @settings(
+        max_examples=50,
+        deadline=5000,
+        suppress_health_check=[HealthCheck.function_scoped_fixture],
+    )
     def test_property_bounded_retry_count(
         self,
         max_retries: int,
@@ -1361,7 +1365,11 @@ class TestPropertyAuditEventCompleteness:
     @given(
         outcomes=st.lists(st.booleans(), min_size=1, max_size=5),
     )
-    @settings(max_examples=50, deadline=5000)
+    @settings(
+        max_examples=50,
+        deadline=5000,
+        suppress_health_check=[HealthCheck.function_scoped_fixture],
+    )
     def test_property_audit_event_completeness(
         self,
         outcomes: list[bool],
@@ -1443,7 +1451,11 @@ class TestPropertyNoDoublePush:
 
     @pytest.mark.property
     @given(push_flag=st.booleans())
-    @settings(max_examples=10, deadline=5000)
+    @settings(
+        max_examples=10,
+        deadline=5000,
+        suppress_health_check=[HealthCheck.function_scoped_fixture],
+    )
     def test_property_no_double_push(
         self,
         push_flag: bool,
