@@ -131,7 +131,7 @@ class TestFixPipelinePassesCallback:
 
         activity_cb = MagicMock()
         config = _make_config()
-        config.orchestrator.retries_before_escalation = 1
+        config.routing.retries_before_escalation = 1
         config.orchestrator.max_retries = 3
         platform = AsyncMock()
 
@@ -207,7 +207,7 @@ class TestFixPipelinePassesCallback:
         from agent_fox.nightshift.fix_pipeline import FixPipeline
 
         config = _make_config()
-        config.orchestrator.retries_before_escalation = 1
+        config.routing.retries_before_escalation = 1
         config.orchestrator.max_retries = 3
         platform = AsyncMock()
 
@@ -286,7 +286,7 @@ class TestFixPipelineTaskEvents:
 
         events: list[TaskEvent] = []
         config = _make_config()
-        config.orchestrator.retries_before_escalation = 1
+        config.routing.retries_before_escalation = 1
         config.orchestrator.max_retries = 3
         platform = AsyncMock()
 
@@ -353,7 +353,7 @@ class TestFixPipelineTaskEvents:
 
         events: list[TaskEvent] = []
         config = _make_config()
-        config.orchestrator.retries_before_escalation = 1
+        config.routing.retries_before_escalation = 1
         config.orchestrator.max_retries = 3
         platform = AsyncMock()
 
@@ -417,7 +417,7 @@ class TestFixPipelineTaskEvents:
 
         events: list[TaskEvent] = []
         config = _make_config()
-        config.orchestrator.retries_before_escalation = 1
+        config.routing.retries_before_escalation = 1
         config.orchestrator.max_retries = 3
         platform = AsyncMock()
 
@@ -477,7 +477,7 @@ class TestFixPipelineTaskEvents:
         from agent_fox.nightshift.fix_pipeline import FixPipeline
 
         config = _make_config()
-        config.orchestrator.retries_before_escalation = 1
+        config.routing.retries_before_escalation = 1
         config.orchestrator.max_retries = 3
         platform = AsyncMock()
 
@@ -546,7 +546,7 @@ class TestActivityEventForwarded:
 
         events: list[ActivityEvent] = []
         config = _make_config()
-        config.orchestrator.retries_before_escalation = 1
+        config.routing.retries_before_escalation = 1
         config.orchestrator.max_retries = 3
         platform = AsyncMock()
 
@@ -850,7 +850,7 @@ class TestSpinnerCallbackFixPipelinePhases:
 
         spinner_texts: list[str] = []
         config = _make_config()
-        config.orchestrator.retries_before_escalation = 1
+        config.routing.retries_before_escalation = 1
         config.orchestrator.max_retries = 3
         platform = AsyncMock()
 
@@ -923,7 +923,7 @@ class TestSpinnerCallbackFixPipelinePhases:
 
         spinner_texts: list[str] = []
         config = _make_config()
-        config.orchestrator.retries_before_escalation = 1
+        config.routing.retries_before_escalation = 1
         config.orchestrator.max_retries = 3
         platform = AsyncMock()
 
@@ -986,7 +986,7 @@ class TestSpinnerCallbackFixPipelinePhases:
         from agent_fox.nightshift.fix_pipeline import FixPipeline
 
         config = _make_config()
-        config.orchestrator.retries_before_escalation = 1
+        config.routing.retries_before_escalation = 1
         config.orchestrator.max_retries = 3
         platform = AsyncMock()
 
@@ -1042,7 +1042,7 @@ class TestSpinnerCallbackFixPipelinePhases:
 
         spinner_texts: list[str] = []
         config = _make_config()
-        config.orchestrator.retries_before_escalation = 1
+        config.routing.retries_before_escalation = 1
         config.orchestrator.max_retries = 3
         platform = AsyncMock()
 

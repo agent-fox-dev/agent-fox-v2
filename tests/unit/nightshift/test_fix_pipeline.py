@@ -286,7 +286,7 @@ class TestSuccessfulFixHarvestsAndCloses:
         from agent_fox.platform.protocol import IssueResult
 
         config = MagicMock()
-        config.orchestrator.retries_before_escalation = 1
+        config.routing.retries_before_escalation = 1
         config.orchestrator.max_retries = 3
         mock_platform = AsyncMock()
 
@@ -352,7 +352,7 @@ class TestSuccessfulFixHarvestsAndCloses:
         from agent_fox.platform.protocol import IssueResult
 
         config = MagicMock()
-        config.orchestrator.retries_before_escalation = 1
+        config.routing.retries_before_escalation = 1
         config.orchestrator.max_retries = 3
         mock_platform = AsyncMock()
 
@@ -426,7 +426,7 @@ class TestSuccessfulFixHarvestsAndCloses:
         from agent_fox.platform.protocol import IssueResult
 
         config = MagicMock()
-        config.orchestrator.retries_before_escalation = 1
+        config.routing.retries_before_escalation = 1
         config.orchestrator.max_retries = 3
         mock_platform = AsyncMock()
 
@@ -778,7 +778,7 @@ class TestReviewerRetryOnParseFailure:
         from agent_fox.platform.protocol import IssueResult
 
         config = MagicMock()
-        config.orchestrator.retries_before_escalation = 1
+        config.routing.retries_before_escalation = 1
         config.orchestrator.max_retries = 3
         mock_platform = AsyncMock()
 
@@ -853,7 +853,7 @@ class TestReviewerRetryOnParseFailure:
         from agent_fox.platform.protocol import IssueResult
 
         config = MagicMock()
-        config.orchestrator.retries_before_escalation = 1
+        config.routing.retries_before_escalation = 1
         config.orchestrator.max_retries = 0  # No coder retries — exhaust immediately
         mock_platform = AsyncMock()
 
@@ -925,7 +925,7 @@ class TestFixPipelineDbTelemetry:
         from agent_fox.platform.protocol import IssueResult
 
         config = MagicMock()
-        config.orchestrator.retries_before_escalation = 1
+        config.routing.retries_before_escalation = 1
         config.orchestrator.max_retries = 3
         mock_platform = AsyncMock()
 
@@ -1046,7 +1046,7 @@ class TestFixPipelineDbTelemetry:
         from agent_fox.platform.protocol import IssueResult
 
         config = MagicMock()
-        config.orchestrator.retries_before_escalation = 1
+        config.routing.retries_before_escalation = 1
         config.orchestrator.max_retries = 3
         mock_platform = AsyncMock()
         mock_conn = MagicMock()
@@ -1133,7 +1133,7 @@ class TestFixPipelineDbTelemetry:
         from agent_fox.platform.protocol import IssueResult
 
         config = MagicMock()
-        config.orchestrator.retries_before_escalation = 1
+        config.routing.retries_before_escalation = 1
         config.orchestrator.max_retries = 3
         mock_platform = AsyncMock()
 

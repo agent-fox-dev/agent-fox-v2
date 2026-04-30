@@ -47,7 +47,7 @@ def _make_pipeline(*, push_fix_branch: bool) -> FixPipeline:
 
     config = MagicMock()
     config.night_shift.push_fix_branch = push_fix_branch
-    config.orchestrator.retries_before_escalation = 1
+    config.routing.retries_before_escalation = 1
     config.orchestrator.max_retries = 1
 
     mock_platform = AsyncMock()
@@ -238,7 +238,7 @@ class TestForcePushSemantics:
 
         config = MagicMock()
         config.night_shift.push_fix_branch = True
-        config.orchestrator.retries_before_escalation = 1
+        config.routing.retries_before_escalation = 1
         config.orchestrator.max_retries = 1
 
         mock_platform = AsyncMock()

@@ -58,7 +58,7 @@ class TestArchetypePipeline:
         from agent_fox.nightshift.fix_pipeline import FixPipeline
 
         config = MagicMock()
-        config.orchestrator.retries_before_escalation = 1
+        config.routing.retries_before_escalation = 1
         config.orchestrator.max_retries = 3
         mock_platform = AsyncMock()
         mock_platform.add_issue_comment = AsyncMock()

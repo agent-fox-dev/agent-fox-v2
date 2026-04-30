@@ -8,9 +8,19 @@ Requirements: 04-REQ-2.E1, 04-REQ-5.1, 04-REQ-5.2, 04-REQ-5.3
 
 from __future__ import annotations
 
-from agent_fox.core.config import OrchestratorConfig
+import logging
+from pathlib import Path
+from typing import TYPE_CHECKING
+from unittest.mock import AsyncMock
+
+import pytest
+
+from agent_fox.core.config import OrchestratorConfig, RoutingConfig
 from agent_fox.engine.circuit import CircuitBreaker
 from agent_fox.engine.state import ExecutionState
+
+if TYPE_CHECKING:
+    from agent_fox.engine.engine import Orchestrator
 
 # -- Helpers ------------------------------------------------------------------
 
@@ -219,3 +229,80 @@ class TestRetryLimitEnforcement:
         decision = circuit.check_launch("A", attempt=4, state=state)
 
         assert decision.allowed is False
+
+
+# ---------------------------------------------------------------------------
+# AC-2: Orchestrator._resolve_retries_before_escalation deprecation
+# ---------------------------------------------------------------------------
+
+
+class TestResolveRetriesBeforeEscalation:
+    """AC-2: _resolve_retries_before_escalation logs a deprecation warning when
+    orchestrator.max_retries is used as a fallback for the escalation ladder.
+
+    Requirement: 589-AC-2
+    """
+
+    @staticmethod
+    def _make_orchestrator(
+        orchestrator_config: OrchestratorConfig,
+        routing_config: RoutingConfig,
+    ) -> Orchestrator:
+        from agent_fox.engine.engine import Orchestrator
+
+        def _null_runner(*args: object, **kwargs: object) -> object:  # type: ignore[return]
+            return AsyncMock()
+
+        return Orchestrator(
+            config=orchestrator_config,
+            session_runner_factory=_null_runner,
+            routing_config=routing_config,
+            agent_dir=Path("/tmp"),
+            specs_dir=Path("/tmp"),
+        )
+
+    def test_returns_routing_value_when_non_default(self) -> None:
+        """Returns routing.retries_before_escalation directly when it is non-default."""
+        orch = self._make_orchestrator(
+            OrchestratorConfig(max_retries=5),
+            RoutingConfig(retries_before_escalation=2),
+        )
+        result = orch._resolve_retries_before_escalation(RoutingConfig(retries_before_escalation=2))
+        assert result == 2
+
+    def test_returns_routing_default_when_both_default(self) -> None:
+        """Returns routing default (1) when neither value is customised."""
+        orch = self._make_orchestrator(OrchestratorConfig(), RoutingConfig())
+        result = orch._resolve_retries_before_escalation(RoutingConfig())
+        assert result == 1
+
+    def test_deprecation_warning_and_capped_return(
+        self,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Logs 'orchestrator.max_retries is deprecated' and returns min(5, 3)=3
+        when orchestrator.max_retries=5 and routing.retries_before_escalation is
+        at its default of 1.
+        """
+        orch = self._make_orchestrator(OrchestratorConfig(max_retries=5), RoutingConfig())
+
+        with caplog.at_level(logging.WARNING):
+            result = orch._resolve_retries_before_escalation(RoutingConfig())
+
+        assert result == 3, f"Expected min(5, 3)=3, got {result}"
+        warnings = [r for r in caplog.records if "orchestrator.max_retries is deprecated" in r.message]
+        assert warnings, "Expected deprecation WARNING but none was emitted"
+
+    def test_no_deprecation_warning_when_max_retries_is_default(
+        self,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """No deprecation warning when orchestrator.max_retries is at its default (2)."""
+        orch = self._make_orchestrator(OrchestratorConfig(), RoutingConfig())
+
+        with caplog.at_level(logging.WARNING):
+            result = orch._resolve_retries_before_escalation(RoutingConfig())
+
+        assert result == 1
+        warnings = [r for r in caplog.records if "orchestrator.max_retries is deprecated" in r.message]
+        assert not warnings, "Unexpected deprecation warning when max_retries is at default"
