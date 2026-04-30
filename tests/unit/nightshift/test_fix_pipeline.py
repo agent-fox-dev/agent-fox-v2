@@ -1353,3 +1353,136 @@ class TestScanCounterIncrement:
             await engine._run_issue_check()
 
         assert engine.state.hunt_scans_completed == 3
+
+
+# ---------------------------------------------------------------------------
+# Issue #583: Exception details must not leak to GitHub issue comments
+# CWE-209: Generation of Error Message Containing Sensitive Information
+# ---------------------------------------------------------------------------
+
+
+class TestExceptionSanitizationInFailureComment:
+    """Verify that fix session failure comments only expose the exception class name."""
+
+    @pytest.mark.asyncio
+    async def test_failure_comment_omits_exception_message(self, caplog: pytest.LogCaptureFixture) -> None:
+        """AC-1/AC-2: Comment contains class name only; full message goes to the log."""
+        import logging
+        from unittest.mock import AsyncMock, MagicMock
+
+        from agent_fox.nightshift.fix_pipeline import FixPipeline
+        from agent_fox.platform.protocol import IssueResult
+
+        config = MagicMock()
+        mock_platform = AsyncMock()
+
+        pipeline = FixPipeline(config=config, platform=mock_platform)
+        pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+        pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
+
+        sensitive_path = "/home/runner/.agent-fox/db/runs.duckdb is locked"
+        pipeline._run_session = AsyncMock(  # type: ignore[method-assign]
+            side_effect=RuntimeError(sensitive_path)
+        )
+
+        issue = IssueResult(
+            number=42,
+            title="Fix something",
+            html_url="https://github.com/test/repo/issues/42",
+        )
+
+        with caplog.at_level(logging.WARNING, logger="agent_fox.nightshift.fix_pipeline"):
+            await pipeline.process_issue(issue, issue_body="Something is broken.")
+
+        # Collect all text posted via add_issue_comment
+        posted_comments = [str(call) for call in mock_platform.add_issue_comment.call_args_list]
+
+        # AC-1: No raw exception message in any posted comment
+        for comment in posted_comments:
+            assert sensitive_path not in comment, (
+                f"Sensitive path leaked into comment: {comment!r}"
+            )
+
+        # AC-1: The class name IS present in the failure comment
+        assert any("RuntimeError" in c for c in posted_comments), (
+            f"Expected 'RuntimeError' in comments, got: {posted_comments}"
+        )
+
+        # AC-2: Full message still appears in the internal log
+        log_messages = [r.getMessage() for r in caplog.records]
+        assert any(sensitive_path in msg for msg in log_messages), (
+            f"Expected sensitive path in log, got: {log_messages}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_failure_comment_includes_branch_and_run_id(self) -> None:
+        """AC-3: Branch name and run ID are still included in the sanitized failure comment."""
+        from unittest.mock import AsyncMock, MagicMock
+
+        from agent_fox.nightshift.fix_pipeline import FixPipeline
+        from agent_fox.platform.protocol import IssueResult
+
+        config = MagicMock()
+        mock_platform = AsyncMock()
+
+        pipeline = FixPipeline(config=config, platform=mock_platform)
+        pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+        pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
+        pipeline._run_session = AsyncMock(  # type: ignore[method-assign]
+            side_effect=RuntimeError("some internal error")
+        )
+
+        issue = IssueResult(
+            number=43,
+            title="Fix another thing",
+            html_url="https://github.com/test/repo/issues/43",
+        )
+
+        await pipeline.process_issue(issue, issue_body="Another problem.")
+
+        posted_comments = [str(call) for call in mock_platform.add_issue_comment.call_args_list]
+
+        # Locate the failure comment (contains "Fix session failed")
+        failure_comments = [c for c in posted_comments if "Fix session failed" in c]
+        assert failure_comments, f"No failure comment found; all comments: {posted_comments}"
+
+        run_id = pipeline._run_id
+        for fc in failure_comments:
+            assert run_id in fc, f"run_id {run_id!r} missing from failure comment: {fc!r}"
+            # Branch: label must be present (actual value is derived from issue number/title)
+            assert "Branch:" in fc, f"'Branch:' label missing from failure comment: {fc!r}"
+
+    @pytest.mark.asyncio
+    async def test_failure_comment_bare_exception_no_message(self) -> None:
+        """AC-4: A bare Exception() with no message produces a well-formed comment."""
+        from unittest.mock import AsyncMock, MagicMock
+
+        from agent_fox.nightshift.fix_pipeline import FixPipeline
+        from agent_fox.platform.protocol import IssueResult
+
+        config = MagicMock()
+        mock_platform = AsyncMock()
+
+        pipeline = FixPipeline(config=config, platform=mock_platform)
+        pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+        pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
+        pipeline._run_session = AsyncMock(  # type: ignore[method-assign]
+            side_effect=Exception()  # no message
+        )
+
+        issue = IssueResult(
+            number=44,
+            title="Fix yet another thing",
+            html_url="https://github.com/test/repo/issues/44",
+        )
+
+        await pipeline.process_issue(issue, issue_body="Yet another problem.")
+
+        posted_comments = [str(call) for call in mock_platform.add_issue_comment.call_args_list]
+        failure_comments = [c for c in posted_comments if "Fix session failed" in c]
+        assert failure_comments, f"No failure comment posted; all comments: {posted_comments}"
+
+        for fc in failure_comments:
+            assert "Exception" in fc, f"Exception class name missing from: {fc!r}"
+            # Ensure the comment is well-formed (no stray formatting artefacts)
+            assert "Fix session failed: Exception" in fc

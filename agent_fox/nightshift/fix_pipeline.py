@@ -848,9 +848,12 @@ class FixPipeline:
 
         except Exception as exc:
             # 61-REQ-6.E1: post comment on failure
+            # Use only the exception class name to avoid leaking sensitive details
+            # (file paths, config values) into the public GitHub comment (CWE-209).
+            safe_exc_name = type(exc).__name__
             await self._post_comment(
                 issue.number,
-                f"Fix session failed: {exc}\n\nBranch: `{spec.branch_name}` (run: `{self._run_id}`)",
+                f"Fix session failed: {safe_exc_name}\n\nBranch: `{spec.branch_name}` (run: `{self._run_id}`)",
             )
             logger.warning(
                 "Fix session failed for issue #%d: %s",
