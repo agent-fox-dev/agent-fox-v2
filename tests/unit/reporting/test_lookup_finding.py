@@ -22,10 +22,10 @@ from agent_fox.reporting.findings import lookup_finding_by_id
 
 
 class TestLookupReviewFinding:
-    """lookup_finding_by_id finds review_findings rows with archetype='skeptic'."""
+    """lookup_finding_by_id finds review_findings rows with archetype='reviewer/pre-review'."""
 
     def test_finds_review_finding_by_id(self, knowledge_conn) -> None:
-        """Returns a FindingRow with archetype='skeptic' for a review finding."""
+        """Returns a FindingRow with archetype='reviewer/pre-review' for a review finding."""
         finding = ReviewFinding(
             id=str(uuid.uuid4()),
             severity="critical",
@@ -41,7 +41,7 @@ class TestLookupReviewFinding:
 
         assert result is not None
         assert result.id == finding.id
-        assert result.archetype == "skeptic"
+        assert result.archetype == "reviewer/pre-review"
         assert result.severity == "critical"
         assert result.description == "Missing error handling"
         assert result.spec_name == "test_spec"
@@ -61,14 +61,14 @@ class TestLookupReviewFinding:
 
         assert result is not None
         assert result.id == finding_id
-        assert result.archetype == "skeptic"
+        assert result.archetype == "reviewer/pre-review"
 
 
 class TestLookupDriftFinding:
-    """lookup_finding_by_id finds drift_findings rows with archetype='oracle'."""
+    """lookup_finding_by_id finds drift_findings rows with archetype='reviewer/drift-review'."""
 
     def test_finds_drift_finding_by_id(self, knowledge_conn) -> None:
-        """Returns a FindingRow with archetype='oracle' for a drift finding."""
+        """Returns a FindingRow with archetype='reviewer/drift-review' for a drift finding."""
         finding = DriftFinding(
             id=str(uuid.uuid4()),
             severity="critical",
@@ -85,7 +85,7 @@ class TestLookupDriftFinding:
 
         assert result is not None
         assert result.id == finding.id
-        assert result.archetype == "oracle"
+        assert result.archetype == "reviewer/drift-review"
         assert result.description == "Spec-code mismatch on auth flow"
 
 

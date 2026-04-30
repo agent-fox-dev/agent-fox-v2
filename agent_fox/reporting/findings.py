@@ -33,7 +33,7 @@ class FindingRow:
 
     id: str
     severity: str
-    archetype: str  # "skeptic", "verifier", "oracle"
+    archetype: str  # e.g., "reviewer/pre-review", "reviewer/drift-review", "verifier"
     spec_name: str
     task_group: str
     description: str
@@ -62,20 +62,29 @@ def query_findings(
 ) -> list[FindingRow]:
     """Query findings from DuckDB with optional filters.
 
-    Queries review_findings (skeptic), verification_results (verifier),
-    and drift_findings (oracle) tables, unifying results into FindingRow
-    objects with an archetype discriminator.
+    Queries review_findings (reviewer/pre-review), verification_results (verifier),
+    and drift_findings (reviewer/drift-review) tables, unifying results into
+    FindingRow objects with an archetype discriminator.
 
     Args:
         conn: DuckDB connection.
         spec: Filter by spec_name.
         severity: Minimum severity level (critical > major > minor > observation).
-        archetype: Filter to "skeptic", "verifier", or "oracle" table.
+        archetype: Filter by archetype. Accepted values:
+            - ``"reviewer"`` — both review_findings and drift_findings
+            - ``"reviewer/pre-review"`` — review_findings only
+            - ``"reviewer/drift-review"`` — drift_findings only
+            - ``"verifier"`` — verification_results only
+            - ``None`` — all tables
+            Legacy values ``"skeptic"`` and ``"oracle"`` raise ``ValueError``.
         run_id: Filter by run ID (returns empty list if run metadata unavailable).
         active_only: Only return non-superseded findings.
 
     Returns:
         List of FindingRow objects matching the filters.
+
+    Raises:
+        ValueError: If archetype is a legacy name ("skeptic" or "oracle").
 
     Requirements: 84-REQ-4.1, 84-REQ-4.2, 84-REQ-4.3, 84-REQ-4.4,
                   84-REQ-4.5, 84-REQ-4.6
@@ -83,27 +92,34 @@ def query_findings(
     if conn is None:
         return []
 
+    # Reject legacy archetype names with a clear error
+    if archetype in ("skeptic", "oracle"):
+        raise ValueError(
+            f"Archetype {archetype!r} is no longer supported. "
+            "Use 'reviewer', 'reviewer/pre-review', or 'reviewer/drift-review' instead."
+        )
+
     # run_id filtering requires a join to audit_events or session metadata
     # which is not available in the review tables. Return empty list.
     if run_id is not None:
         return []
 
-    # Determine which archetypes to include
-    include_skeptic = archetype is None or archetype == "skeptic"
+    # Determine which tables to include
+    include_pre_review = archetype is None or archetype in ("reviewer", "reviewer/pre-review")
     include_verifier = archetype is None or archetype == "verifier"
-    include_oracle = archetype is None or archetype == "oracle"
+    include_drift_review = archetype is None or archetype in ("reviewer", "reviewer/drift-review")
 
     severity_threshold: int | None = SEVERITY_ORDER.get(severity) if severity else None
 
     rows: list[FindingRow] = []
 
-    if include_skeptic:
+    if include_pre_review:
         rows.extend(_query_review_findings(conn, spec, severity_threshold, active_only))
 
     if include_verifier:
         rows.extend(_query_verification_results(conn, spec, severity_threshold, active_only))
 
-    if include_oracle:
+    if include_drift_review:
         rows.extend(_query_drift_findings(conn, spec, severity_threshold, active_only))
 
     # Sort by created_at descending (most recent first)
@@ -122,7 +138,7 @@ def _query_review_findings(
     severity_threshold: int | None,
     active_only: bool,
 ) -> list[FindingRow]:
-    """Query the review_findings table (skeptic archetype)."""
+    """Query the review_findings table (reviewer/pre-review archetype)."""
     conditions: list[str] = []
     params: list[Any] = []
 
@@ -154,7 +170,7 @@ def _query_review_findings(
             FindingRow(
                 id=str(row_id),
                 severity=sev,
-                archetype="skeptic",
+                archetype="reviewer/pre-review",
                 spec_name=spec_name,
                 task_group=task_group,
                 description=desc,
@@ -228,7 +244,7 @@ def _query_drift_findings(
     severity_threshold: int | None,
     active_only: bool,
 ) -> list[FindingRow]:
-    """Query the drift_findings table (oracle archetype)."""
+    """Query the drift_findings table (reviewer/drift-review archetype)."""
     conditions: list[str] = []
     params: list[Any] = []
 
@@ -260,7 +276,7 @@ def _query_drift_findings(
             FindingRow(
                 id=str(row_id),
                 severity=sev,
-                archetype="oracle",
+                archetype="reviewer/drift-review",
                 spec_name=spec_name,
                 task_group=task_group,
                 description=desc,
@@ -291,7 +307,7 @@ def query_findings_summary(
         return []
 
     try:
-        # Aggregate from review_findings (skeptic)
+        # Aggregate from review_findings (reviewer/pre-review)
         review_rows = conn.execute(
             """
             SELECT spec_name, severity, COUNT(*) AS cnt
@@ -301,7 +317,7 @@ def query_findings_summary(
             """
         ).fetchall()
 
-        # Aggregate from drift_findings (oracle)
+        # Aggregate from drift_findings (reviewer/drift-review)
         drift_rows = conn.execute(
             """
             SELECT spec_name, severity, COUNT(*) AS cnt
@@ -347,10 +363,10 @@ def lookup_finding_by_id(
 ) -> FindingRow | None:
     """Look up a finding by ID across all three finding tables.
 
-    Searches ``review_findings`` (skeptic), ``drift_findings`` (oracle), and
-    ``verification_results`` (verifier) in that order.  Returns the first
-    matching ``FindingRow``, regardless of whether the record is active or
-    superseded.
+    Searches ``review_findings`` (reviewer/pre-review), ``drift_findings``
+    (reviewer/drift-review), and ``verification_results`` (verifier) in that
+    order.  Returns the first matching ``FindingRow``, regardless of whether
+    the record is active or superseded.
 
     Args:
         conn: DuckDB connection, or ``None`` (returns ``None``).
@@ -365,7 +381,7 @@ def lookup_finding_by_id(
     if conn is None:
         return None
 
-    # Try review_findings (skeptic archetype)
+    # Try review_findings (reviewer/pre-review archetype)
     try:
         row = conn.execute(
             "SELECT id, severity, spec_name, task_group, description, created_at "  # noqa: S608
@@ -377,7 +393,7 @@ def lookup_finding_by_id(
             return FindingRow(
                 id=str(row_id),
                 severity=sev,
-                archetype="skeptic",
+                archetype="reviewer/pre-review",
                 spec_name=spec_name,
                 task_group=task_group,
                 description=desc,
@@ -386,7 +402,7 @@ def lookup_finding_by_id(
     except Exception:
         logger.warning("Failed to query review_findings by ID", exc_info=True)
 
-    # Try drift_findings (oracle archetype)
+    # Try drift_findings (reviewer/drift-review archetype)
     try:
         row = conn.execute(
             "SELECT id, severity, spec_name, task_group, description, created_at "  # noqa: S608
@@ -398,7 +414,7 @@ def lookup_finding_by_id(
             return FindingRow(
                 id=str(row_id),
                 severity=sev,
-                archetype="oracle",
+                archetype="reviewer/drift-review",
                 spec_name=spec_name,
                 task_group=task_group,
                 description=desc,
