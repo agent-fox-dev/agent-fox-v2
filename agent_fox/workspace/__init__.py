@@ -17,6 +17,7 @@ from agent_fox.workspace.git import (  # noqa: F401
     abort_rebase,
     checkout_branch,
     detect_default_branch,
+    fetch_remote,
     get_changed_files,
     has_new_commits,
     local_branch_exists,

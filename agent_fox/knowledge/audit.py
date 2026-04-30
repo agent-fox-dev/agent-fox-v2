@@ -101,6 +101,8 @@ class AuditEventType(StrEnum):
     DEVELOP_SYNC_FAILED = "develop.sync_failed"  # 118-REQ-5.2
     DEVELOP_FETCH_FAILED = "develop.fetch_failed"  # 118-REQ-5.E1
     RUN_STALE_DETECTED = "run.stale_detected"  # 118-REQ-6.1
+    GIT_PUSH_FAILED = "git.push_failed"  # 121-REQ-3.1
+    GIT_PUSH_RETRY_SUCCESS = "git.push_retry_success"  # 121-REQ-3.4
 
 
 # ---------------------------------------------------------------------------

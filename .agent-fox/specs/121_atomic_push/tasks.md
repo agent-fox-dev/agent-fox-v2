@@ -78,34 +78,34 @@ git primitives first, then retry orchestration, then caller integration.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `make check`
 
-- [ ] 2. Add git helpers and audit event types
-  - [ ] 2.1 Add `fetch_remote` function to `agent_fox/workspace/git.py`
+- [x] 2. Add git helpers and audit event types
+  - [x] 2.1 Add `fetch_remote` function to `agent_fox/workspace/git.py`
     - `async def fetch_remote(repo_root, remote="origin", branch=None) -> bool`
     - Uses `run_git(["fetch", remote, branch], check=False)`
     - Returns True on success, False on failure
     - Logs warning on failure
     - _Requirements: 121-REQ-2.1, 121-REQ-2.E1_
 
-  - [ ] 2.2 Verify existing `rebase_onto` and `abort_rebase` in `agent_fox/workspace/git.py`
+  - [x] 2.2 Verify existing `rebase_onto` and `abort_rebase` in `agent_fox/workspace/git.py`
     - `rebase_onto` already exists (line 451) — verify signature matches design
     - `abort_rebase` already exists (line 478) — verify it works for retry use case
     - Adapt if needed: `_push_with_retry` needs a bool-returning rebase
     - _Requirements: 121-REQ-2.1, 121-REQ-2.E2_
 
-  - [ ] 2.3 Add new audit event types to `agent_fox/knowledge/audit.py`
+  - [x] 2.3 Add new audit event types to `agent_fox/knowledge/audit.py`
     - Add `GIT_PUSH_FAILED = "git.push_failed"` to `AuditEventType`
     - Add `GIT_PUSH_RETRY_SUCCESS = "git.push_retry_success"` to `AuditEventType`
     - _Requirements: 121-REQ-3.1, 121-REQ-3.4_
 
-  - [ ] 2.4 Export new git functions from `agent_fox/workspace/__init__.py`
+  - [x] 2.4 Export new git functions from `agent_fox/workspace/__init__.py`
     - Add `fetch_remote` to the workspace package exports
     - _Requirements: 121-REQ-2.1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] New `fetch_remote` function importable and callable
-    - [ ] Audit event types importable: `from agent_fox.knowledge.audit import AuditEventType; AuditEventType.GIT_PUSH_FAILED`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `make check`
+  - [x] 2.V Verify task group 2
+    - [x] New `fetch_remote` function importable and callable
+    - [x] Audit event types importable: `from agent_fox.knowledge.audit import AuditEventType; AuditEventType.GIT_PUSH_FAILED`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `make check`
 
 - [ ] 3. Implement `_push_with_retry` in harvest.py
   - [ ] 3.1 Add `_push_with_retry` function to `agent_fox/workspace/harvest.py`
