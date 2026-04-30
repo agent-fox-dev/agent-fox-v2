@@ -200,3 +200,47 @@ class TestValidationMessageAndOrdering:
     def test_loopback_error_message_includes_ip(self) -> None:
         with pytest.raises(ConfigError, match="127.0.0.1"):
             GitHubPlatform(owner="acme", repo="repo", token="tok", url="127.0.0.1")
+
+
+# ---------------------------------------------------------------------------
+# AC-9 (issue #581): Reject unspecified, multicast, and reserved addresses
+# ---------------------------------------------------------------------------
+
+
+class TestRejectUnspecified:
+    """AC-9a: Unspecified addresses (0.0.0.0 / ::) must be rejected."""
+
+    def test_ipv4_unspecified_raises(self) -> None:
+        with pytest.raises(ConfigError, match="0.0.0.0"):
+            _validate_github_url("0.0.0.0")
+
+    def test_ipv6_unspecified_raises(self) -> None:
+        with pytest.raises(ConfigError):
+            _validate_github_url("::")
+
+
+class TestRejectMulticast:
+    """AC-9b: Multicast addresses must be rejected."""
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "224.0.0.1",       # IPv4 multicast (224.0.0.0/4)
+            "239.255.255.255",  # IPv4 multicast upper bound
+        ],
+    )
+    def test_ipv4_multicast_raises(self, url: str) -> None:
+        with pytest.raises(ConfigError, match=url):
+            _validate_github_url(url)
+
+    def test_ipv6_multicast_raises(self) -> None:
+        with pytest.raises(ConfigError):
+            _validate_github_url("ff02::1")
+
+
+class TestRejectReserved:
+    """AC-9c: IANA reserved addresses must be rejected."""
+
+    def test_ipv4_reserved_raises(self) -> None:
+        with pytest.raises(ConfigError, match="240.0.0.1"):
+            _validate_github_url("240.0.0.1")

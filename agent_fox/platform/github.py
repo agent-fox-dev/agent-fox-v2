@@ -88,7 +88,14 @@ def _validate_github_url(url: str) -> None:
 
 def _check_address(addr: ipaddress.IPv4Address | ipaddress.IPv6Address, url: str) -> None:
     """Raise ConfigError if *addr* is a restricted address."""
-    if addr.is_private or addr.is_loopback or addr.is_link_local:
+    if (
+        addr.is_private
+        or addr.is_loopback
+        or addr.is_link_local
+        or addr.is_reserved
+        or addr.is_multicast
+        or addr.is_unspecified
+    ):
         raise ConfigError(
             f"GitHub URL {url!r} resolves to a restricted IP address: {addr}",
         )
