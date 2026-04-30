@@ -8,6 +8,7 @@ Requirements: 26-REQ-9.3, 30-REQ-2.3, 84-REQ-3.1, 84-REQ-3.E1, 554-REQ-1
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -72,6 +73,29 @@ def _format_block_reason(
     return f"{header} — {detail}"
 
 
+def _is_deferred_to_future_group(description: str, current_group: str) -> bool:
+    """Return True if the description indicates this test is deferred to a future task group.
+
+    Matches case-insensitive occurrences of 'task group N' where N is an integer
+    greater than current_group.  This covers all observed phrasings from the wild:
+
+    - "Integration smoke test. Deferred to task group 4."
+    - "Integration smoke test. Assigned to task group 4, not yet started."
+    - "End-to-end integration smoke test. … deferred to task group 4."
+
+    Requirements: 572-AC-2, 572-AC-4
+    """
+    try:
+        current = int(current_group)
+    except (ValueError, TypeError):
+        return False
+
+    for match in re.finditer(r"task\s+group\s+(\d+)", description, re.IGNORECASE):
+        if int(match.group(1)) > current:
+            return True
+    return False
+
+
 def _evaluate_audit_review_blocking(
     knowledge_db_conn: Any,
     spec_name: str,
@@ -79,17 +103,24 @@ def _evaluate_audit_review_blocking(
     coder_node_id: str,
     node_id: str,
 ) -> BlockDecision:
-    """Evaluate audit-review blocking: any active critical/major audit finding triggers retry.
+    """Evaluate audit-review blocking: active critical/major audit findings trigger retry.
 
     Uses ``query_active_findings`` filtered by ``category='audit'`` because the
     session_id format for audit findings (``{spec_name}:audit:{N}``) does not
     match the reviewer node_id format used by ``query_findings_by_session``.
 
-    Returns a blocking decision when any non-superseded critical or major audit
-    finding exists for (spec_name, task_group).  An empty or minor-only finding
-    set returns ``should_block=False`` so execution proceeds normally.
+    Findings whose descriptions explicitly defer the test to a **future task group**
+    (e.g. "Deferred to task group 4", "Assigned to task group 4, not yet started")
+    are excluded from the blocking set.  The coder cannot satisfy these requirements
+    because the referenced code will be written in a later group; blocking on them
+    creates an unwinnable retry loop.
 
-    Requirements: 554-REQ-1
+    Returns a blocking decision when any non-superseded, non-deferred critical or
+    major audit finding exists for (spec_name, task_group).  An empty,
+    deferred-only, or minor-only finding set returns ``should_block=False`` so
+    execution proceeds normally.
+
+    Requirements: 554-REQ-1, 572-AC-2, 572-AC-4
     """
     try:
         from agent_fox.knowledge.review_store import query_active_findings
@@ -103,8 +134,24 @@ def _evaluate_audit_review_blocking(
         if not audit_findings:
             return BlockDecision(should_block=False)
 
-        n = len(audit_findings)
-        shown = audit_findings[:3]
+        # Filter out findings whose descriptions explicitly defer the test to a
+        # future task group (e.g. "Deferred to task group 4", "Assigned to task
+        # group 4, not yet started").  The coder cannot fix these — the required
+        # code belongs to a later group — so counting them as blocking findings
+        # creates an unwinnable retry loop.  Requirements: 572-AC-2, 572-AC-4
+        actionable_findings = [f for f in audit_findings if not _is_deferred_to_future_group(f.description, task_group)]
+
+        if not actionable_findings:
+            logger.debug(
+                "AUDIT-REVIEW: all %d finding(s) for %s:%s are deferred to a future group — not blocking",
+                len(audit_findings),
+                spec_name,
+                task_group,
+            )
+            return BlockDecision(should_block=False)
+
+        n = len(actionable_findings)
+        shown = actionable_findings[:3]
         detail = ", ".join(
             "F-" + f.id.replace("-", "")[:8] + ": " + f.description[:60] + ("…" if len(f.description) > 60 else "")
             for f in shown

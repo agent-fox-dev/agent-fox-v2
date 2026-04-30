@@ -19,6 +19,24 @@ Treat this file as executable workflow policy.
 - Vague observations like "consider adding more tests" are not findings —
   omit them.
 
+## Group Awareness
+
+Before auditing, determine the **current task group** by reading `tasks.md` and
+identifying which group number you are evaluating (it appears in the session
+context or in the task heading).
+
+For each TS entry, check whether `tasks.md` explicitly assigns or defers it to a
+**future task group** (a group number greater than the current one).
+
+- If the TS entry is deferred to a future group, give it a `PASS` verdict with a
+  note such as `"Deferred to group 4 — out of scope for group 1"`.  **Do not**
+  flag it as `MISSING` or `MISALIGNED`.
+- Only flag `MISSING` or `MISALIGNED` for TS entries whose work is due in the
+  current group or an earlier group.
+
+This prevents blocking the coder for tests it cannot yet write because the
+required production code is scheduled for a later group.
+
 ## Focus Areas
 
 Audit dimensions per TS entry:

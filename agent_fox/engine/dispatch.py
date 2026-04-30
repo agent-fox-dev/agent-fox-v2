@@ -29,6 +29,50 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
+# Known build-artifact patterns for pre-session workspace auto-remediation
+# ---------------------------------------------------------------------------
+
+# Directory names that indicate build/test artifact directories.
+# Any file path component matching one of these names is considered
+# a known build artifact that can be auto-cleaned before dispatch.
+_KNOWN_ARTIFACT_DIRS: frozenset[str] = frozenset(
+    {
+        "__pycache__",
+        ".pytest_cache",
+        ".mypy_cache",
+        ".ruff_cache",
+        ".hypothesis",
+    }
+)
+
+# File-name suffixes that identify known build/test artifacts.
+_KNOWN_ARTIFACT_SUFFIXES: tuple[str, ...] = (
+    ".proptest-regressions",
+    ".pyc",
+    ".pyo",
+)
+
+
+def _is_known_build_artifact(path: str) -> bool:
+    """Return True when *path* looks like a known build or test artifact.
+
+    Checks:
+    - Any path component is a known artifact directory name.
+    - The filename ends with a known artifact suffix.
+
+    Used by :meth:`DispatchManager.prepare_launch` to decide whether to
+    attempt auto-remediation instead of immediately blocking the node.
+
+    Requirements: 571-AC-1
+    """
+    parts = Path(path).parts
+    if any(p in _KNOWN_ARTIFACT_DIRS for p in parts):
+        return True
+    name = parts[-1] if parts else path
+    return any(name.endswith(s) for s in _KNOWN_ARTIFACT_SUFFIXES)
+
+
+# ---------------------------------------------------------------------------
 # SerialRunner — executes one session at a time
 # ---------------------------------------------------------------------------
 
@@ -468,22 +512,47 @@ class DispatchManager:
         # 118-REQ-4.1: Pre-session workspace health check
         try:
             from agent_fox.workspace.health import (
+                HealthReport,
                 check_workspace_health,
+                force_clean_workspace,
                 format_health_diagnostic,
             )
 
             report = await check_workspace_health(Path.cwd())
             if report.has_issues:
-                # 118-REQ-4.2: Block node with diagnostic message
-                diagnostic = format_health_diagnostic(report)
-                logger.warning(
-                    "Pre-session health check failed for %s: %s",
-                    node_id,
-                    diagnostic,
+                # 571-AC-1: Auto-remediate when untracked files match known
+                # build-artifact patterns (e.g. .proptest-regressions, __pycache__).
+                # 571-AC-2: Also remediate when workspace.force_clean is enabled.
+                should_remediate = self._is_force_clean_enabled() or any(
+                    _is_known_build_artifact(f) for f in report.untracked_files
                 )
-                if hasattr(self, "_block_task_fn"):
-                    self._block_task_fn(node_id, state, f"workspace-state: {diagnostic}")
-                return None
+                if should_remediate:
+                    try:
+                        logger.warning(
+                            "Pre-session health check: auto-remediating workspace for %s",
+                            node_id,
+                        )
+                        report = await force_clean_workspace(Path.cwd(), report)
+                    except Exception:
+                        # 571-AC-5: Fail-open — log a warning and proceed as if clean.
+                        logger.warning(
+                            "Pre-session workspace auto-remediation raised an exception for %s; proceeding",
+                            node_id,
+                            exc_info=True,
+                        )
+                        report = HealthReport(untracked_files=[], dirty_index_files=[])
+
+                if report.has_issues:
+                    # 118-REQ-4.2: Block node with diagnostic message
+                    diagnostic = format_health_diagnostic(report)
+                    logger.warning(
+                        "Pre-session health check failed for %s: %s",
+                        node_id,
+                        diagnostic,
+                    )
+                    if hasattr(self, "_block_task_fn"):
+                        self._block_task_fn(node_id, state, f"workspace-state: {diagnostic}")
+                    return None
         except Exception:
             # 118-REQ-4.E1: Fail-open on git command errors
             logger.warning(
@@ -614,6 +683,23 @@ class DispatchManager:
 
         logger.info("Preflight skip: %s", node_id)
         return True
+
+    def _is_force_clean_enabled(self) -> bool:
+        """Return True when workspace.force_clean is enabled in the full config.
+
+        Reads the AgentFoxConfig reference stored at construction time.
+        Returns False if the reference is absent or the attribute is missing
+        (safe default: no force-clean).
+
+        Requirements: 571-AC-2
+        """
+        try:
+            fc = self._full_config_ref() if callable(self._full_config_ref) else self._full_config_ref
+            if fc is not None and hasattr(fc, "workspace"):
+                return bool(fc.workspace.force_clean)
+        except Exception:
+            logger.debug("Could not read workspace.force_clean config", exc_info=True)
+        return False
 
     def filter_file_conflicts(self, ready: list[str]) -> list[str]:
         """Filter conflicting tasks from the ready set.
