@@ -232,8 +232,7 @@ class TestCounterIndependence:
         timeouts_after_max = max(0, sum(1 for e in events if e == "timeout") - max_timeout_retries)
         total_expected_ladder_failures = expected_failures + timeouts_after_max
 
-        # Currently FAILS: _timeout_retries doesn't exist.
-        actual_timeout_retries = handler._timeout_retries.get("node1", -1)
+        actual_timeout_retries = handler._get_node_state("node1").timeout_retries
         assert actual_timeout_retries == expected_timeouts_before_max
 
         # Failures should only count ladder invocations.
@@ -288,17 +287,18 @@ class TestMonotonicTimeoutExtension:
         """TS-75-P3 (concrete): original=30, mult=1.5, ceil=2.0: 45 → 60."""
         handler, _, _, _, _ = _make_handler()
 
-        # Currently FAILS: attributes don't exist.
-        handler._node_timeout["node1"] = 30
+        ns = handler._get_node_state("node1")
+        ns.timeout = 30
         handler._timeout_multiplier = 1.5
         handler._timeout_ceiling_factor = 2.0
-        handler._node_max_turns["node1"] = 200
-
-        handler._extend_node_params("node1")  # Currently FAILS
-        assert handler._node_timeout["node1"] == 45
+        ns.max_turns = 200
+        ns.has_max_turns = True
 
         handler._extend_node_params("node1")
-        assert handler._node_timeout["node1"] == 60
+        assert ns.timeout == 45
+
+        handler._extend_node_params("node1")
+        assert ns.timeout == 60
 
 
 # ---------------------------------------------------------------------------
@@ -408,31 +408,32 @@ class TestUnlimitedTurnsPreserved:
         """
         handler, _, _, _, _ = _make_handler()
 
-        # Currently FAILS: _node_max_turns doesn't exist.
-        handler._node_max_turns["node1"] = None
-        handler._node_timeout["node1"] = 30
+        ns = handler._get_node_state("node1")
+        ns.max_turns = None
+        ns.has_max_turns = True
+        ns.timeout = 30
         handler._timeout_multiplier = 1.5
         handler._timeout_ceiling_factor = 2.0
 
         for _ in range(retry_count):
-            # Currently FAILS: method doesn't exist.
             handler._extend_node_params("node1")
-            assert handler._node_max_turns["node1"] is None
+            assert ns.max_turns is None
 
     def test_none_preserved_concrete_three_retries(self) -> None:
         """TS-75-P5 (concrete): None max_turns stays None through 3 retries."""
         handler, _, _, _, _ = _make_handler()
 
-        # Currently FAILS: _node_max_turns doesn't exist.
-        handler._node_max_turns["node1"] = None
-        handler._node_timeout["node1"] = 30
+        ns = handler._get_node_state("node1")
+        ns.max_turns = None
+        ns.has_max_turns = True
+        ns.timeout = 30
         handler._timeout_multiplier = 1.5
         handler._timeout_ceiling_factor = 2.0
 
         for _ in range(3):
-            handler._extend_node_params("node1")  # Currently FAILS
+            handler._extend_node_params("node1")
 
-        assert handler._node_max_turns["node1"] is None
+        assert ns.max_turns is None
 
 
 # ---------------------------------------------------------------------------

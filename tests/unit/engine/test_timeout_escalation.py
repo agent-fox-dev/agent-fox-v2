@@ -199,9 +199,7 @@ class TestTimeoutRouting:
             error_tracker=error_tracker,
         )
 
-        # _timeout_retries must exist and be incremented.
-        # Currently FAILS: attribute does not exist.
-        assert handler._timeout_retries.get("node1", 0) == 1
+        assert handler._get_node_state("node1").timeout_retries == 1
 
 
 # ---------------------------------------------------------------------------
@@ -241,9 +239,7 @@ class TestNonTimeoutFailureRouting:
             error_tracker=error_tracker,
         )
 
-        # _timeout_retries must exist and be zero for a 'failed' status.
-        # Currently FAILS: attribute does not exist.
-        assert handler._timeout_retries.get("node1", 0) == 0
+        assert handler._get_node_state("node1").timeout_retries == 0
 
 
 # ---------------------------------------------------------------------------
@@ -271,9 +267,7 @@ class TestStatusStringDetection:
                 error_tracker=error_tracker,
             )
 
-            # Count timeout retry counter increments as proxy for handler calls.
-            # Currently FAILS: _timeout_retries doesn't exist.
-            count = handler._timeout_retries.get("node1", 0)
+            count = handler._get_node_state("node1").timeout_retries
             timeout_handler_invocations[status] = count
 
         assert timeout_handler_invocations["timeout"] == 1
@@ -325,8 +319,7 @@ class TestFailedWithTimeoutInMessage:
             error_tracker=error_tracker,
         )
 
-        # Currently FAILS: _timeout_retries doesn't exist.
-        assert handler._timeout_retries.get("node1", 0) == 0
+        assert handler._get_node_state("node1").timeout_retries == 0
 
 
 # ---------------------------------------------------------------------------
@@ -357,7 +350,7 @@ class TestTimeoutCounterIndependence:
                 error_tracker=error_tracker,
             )
 
-        assert handler._timeout_retries.get("node1", -1) == 2
+        assert handler._get_node_state("node1").timeout_retries == 2
 
     def test_timeouts_dont_affect_ladder_attempt_count(self) -> None:
         """TS-75-5: Timeouts must NOT increment the escalation ladder attempt count."""
@@ -432,9 +425,7 @@ class TestTimeoutFallThrough:
         """TS-75-7: After max timeout retries, next timeout calls record_failure()."""
         handler, mock_ladder, state, attempt_tracker, error_tracker = _make_handler()
 
-        # Pre-set the timeout retry counter to the max (2 by default).
-        # Currently FAILS: _timeout_retries doesn't exist.
-        handler._timeout_retries["node1"] = 2
+        handler._get_node_state("node1").timeout_retries = 2
 
         record = _make_record("timeout")
         handler.process(
@@ -498,7 +489,7 @@ class TestMixedTimeoutAndFailures:
             error_tracker=error_tracker,
         )
 
-        assert handler._timeout_retries.get("node1", -1) == 2
+        assert handler._get_node_state("node1").timeout_retries == 2
         # record_failure should only be called for the 'failed' records.
         assert mock_ladder.record_failure.call_count == 2
 
@@ -548,8 +539,7 @@ class TestZeroMaxTimeoutRetries:
         )
 
         # Counter must not be incremented.
-        # Currently FAILS: _timeout_retries doesn't exist.
-        assert handler._timeout_retries.get("node1", 0) == 0
+        assert handler._get_node_state("node1").timeout_retries == 0
 
 
 # ---------------------------------------------------------------------------
@@ -565,17 +555,16 @@ class TestMaxTurnsExtension:
         """TS-75-10: original=200, multiplier=1.5 → extended=300."""
         handler, _, _, _, _ = _make_handler()
 
-        # Set up initial state.
-        # Currently FAILS: _node_max_turns doesn't exist.
-        handler._node_max_turns["node1"] = 200
+        ns = handler._get_node_state("node1")
+        ns.max_turns = 200
+        ns.has_max_turns = True
         handler._timeout_multiplier = 1.5
         handler._timeout_ceiling_factor = 2.0
-        handler._node_timeout["node1"] = 30
+        ns.timeout = 30
 
-        # Currently FAILS: method doesn't exist.
         handler._extend_node_params("node1")
 
-        assert handler._node_max_turns["node1"] == 300
+        assert ns.max_turns == 300
 
 
 # ---------------------------------------------------------------------------
@@ -591,16 +580,16 @@ class TestSessionTimeoutExtension:
         """TS-75-11: original_timeout=30, multiplier=1.5 → extended=45."""
         handler, _, _, _, _ = _make_handler()
 
-        # Currently FAILS: _node_timeout doesn't exist.
-        handler._node_timeout["node1"] = 30
+        ns = handler._get_node_state("node1")
+        ns.timeout = 30
         handler._timeout_multiplier = 1.5
         handler._timeout_ceiling_factor = 2.0
-        handler._node_max_turns["node1"] = 200
+        ns.max_turns = 200
+        ns.has_max_turns = True
 
-        # Currently FAILS: method doesn't exist.
         handler._extend_node_params("node1")
 
-        assert handler._node_timeout["node1"] == 45
+        assert ns.timeout == 45
 
 
 # ---------------------------------------------------------------------------
@@ -616,23 +605,20 @@ class TestTimeoutCeiling:
         """TS-75-12: original=30, mult=1.5, ceil=2.0: retry1→45, retry2→60 (clamped)."""
         handler, _, _, _, _ = _make_handler()
 
-        # Set the original session_timeout on the handler config mock.
-        # Currently FAILS: _node_timeout doesn't exist.
-        handler._node_timeout["node1"] = 30
+        ns = handler._get_node_state("node1")
+        ns.timeout = 30
         handler._timeout_multiplier = 1.5
         handler._timeout_ceiling_factor = 2.0
-        handler._node_max_turns["node1"] = 200
+        ns.max_turns = 200
+        ns.has_max_turns = True
 
-        # Simulate original_timeout so ceiling can be computed.
-        # Currently FAILS: _original_timeout_for doesn't exist.
-        # We rely on the handler knowing original_timeout from config.
         # After first retry:
         handler._extend_node_params("node1")  # 45
-        assert handler._node_timeout["node1"] == 45
+        assert ns.timeout == 45
 
         # After second retry: ceil(45 * 1.5) = 68, ceiling = ceil(30 * 2.0) = 60
         handler._extend_node_params("node1")  # clamped to 60
-        assert handler._node_timeout["node1"] == 60
+        assert ns.timeout == 60
 
 
 # ---------------------------------------------------------------------------
@@ -648,16 +634,16 @@ class TestUnlimitedTurnsPreservation:
         """TS-75-13: If max_turns is None, it must remain None after extension."""
         handler, _, _, _, _ = _make_handler()
 
-        # Currently FAILS: _node_max_turns doesn't exist.
-        handler._node_max_turns["node1"] = None
+        ns = handler._get_node_state("node1")
+        ns.max_turns = None
+        ns.has_max_turns = True
         handler._timeout_multiplier = 1.5
         handler._timeout_ceiling_factor = 2.0
-        handler._node_timeout["node1"] = 30
+        ns.timeout = 30
 
-        # Currently FAILS: method doesn't exist.
         handler._extend_node_params("node1")
 
-        assert handler._node_max_turns["node1"] is None
+        assert ns.max_turns is None
 
 
 # ---------------------------------------------------------------------------
@@ -673,18 +659,17 @@ class TestPerNodeParameterIsolation:
         """TS-75-14: node1 extension is isolated; node2 must not appear in dicts."""
         handler, _, _, _, _ = _make_handler()
 
-        # Currently FAILS: _node_max_turns doesn't exist.
-        handler._node_max_turns["node1"] = 200
-        handler._node_timeout["node1"] = 30
+        ns = handler._get_node_state("node1")
+        ns.max_turns = 200
+        ns.has_max_turns = True
+        ns.timeout = 30
         handler._timeout_multiplier = 1.5
         handler._timeout_ceiling_factor = 2.0
 
-        # Currently FAILS: method doesn't exist.
         handler._extend_node_params("node1")
 
-        assert "node1" in handler._node_timeout
-        assert "node2" not in handler._node_timeout
-        assert "node2" not in handler._node_max_turns
+        assert ns.timeout is not None
+        assert "node2" not in handler._node_retry_states
 
 
 # ---------------------------------------------------------------------------
@@ -702,14 +687,16 @@ class TestCeilingClamp:
 
         # original_timeout=20, multiplier=2.0: ceil(20 * 2.0) = 40
         # ceiling = ceil(20 * 1.5) = 30 → clamped to 30
-        handler._node_timeout["node1"] = 20  # Currently FAILS
+        ns = handler._get_node_state("node1")
+        ns.timeout = 20
         handler._timeout_multiplier = 2.0
         handler._timeout_ceiling_factor = 1.5
-        handler._node_max_turns["node1"] = 100
+        ns.max_turns = 100
+        ns.has_max_turns = True
 
-        handler._extend_node_params("node1")  # Currently FAILS
+        handler._extend_node_params("node1")
 
-        assert handler._node_timeout["node1"] == 30
+        assert ns.timeout == 30
 
 
 # ---------------------------------------------------------------------------
@@ -725,27 +712,31 @@ class TestMultiplierOneNoExtensionHandler:
         """TS-75-20: With multiplier=1.0, max_turns is unchanged after extension."""
         handler, _, _, _, _ = _make_handler()
 
-        handler._node_max_turns["node1"] = 200  # Currently FAILS
-        handler._node_timeout["node1"] = 30
+        ns = handler._get_node_state("node1")
+        ns.max_turns = 200
+        ns.has_max_turns = True
+        ns.timeout = 30
         handler._timeout_multiplier = 1.0
         handler._timeout_ceiling_factor = 2.0
 
-        handler._extend_node_params("node1")  # Currently FAILS
+        handler._extend_node_params("node1")
 
-        assert handler._node_max_turns["node1"] == 200
+        assert ns.max_turns == 200
 
     def test_multiplier_one_no_change_to_timeout(self) -> None:
         """TS-75-20: With multiplier=1.0, session_timeout unchanged after extend."""
         handler, _, _, _, _ = _make_handler()
 
-        handler._node_max_turns["node1"] = 200  # Currently FAILS
-        handler._node_timeout["node1"] = 30
+        ns = handler._get_node_state("node1")
+        ns.max_turns = 200
+        ns.has_max_turns = True
+        ns.timeout = 30
         handler._timeout_multiplier = 1.0
         handler._timeout_ceiling_factor = 2.0
 
-        handler._extend_node_params("node1")  # Currently FAILS
+        handler._extend_node_params("node1")
 
-        assert handler._node_timeout["node1"] == 30
+        assert ns.timeout == 30
 
 
 # ---------------------------------------------------------------------------
@@ -817,9 +808,7 @@ class TestExhaustionWarningLog:
         """TS-75-22: Warning mentioning exhaustion is emitted when retries run out."""
         handler, mock_ladder, state, attempt_tracker, error_tracker = _make_handler()
 
-        # Pre-exhaust the timeout retry counter.
-        # Currently FAILS: _timeout_retries doesn't exist.
-        handler._timeout_retries["node1"] = 2
+        handler._get_node_state("node1").timeout_retries = 2
         handler._max_timeout_retries = 2
 
         record = _make_record("timeout")
@@ -884,9 +873,9 @@ class TestAuditEventPayloadValues:
         sink = _EventCaptureSink()
         handler, mock_ladder, state, attempt_tracker, error_tracker = _make_handler(sink=sink)
 
-        # Set up expected values.
-        # Currently FAILS: attributes don't exist.
-        handler._node_max_turns["node1"] = 200
+        ns = handler._get_node_state("node1")
+        ns.max_turns = 200
+        ns.has_max_turns = True
         handler._timeout_multiplier = 1.5
         handler._timeout_ceiling_factor = 2.0
 

@@ -220,8 +220,7 @@ class TestTimeoutThenSuccess:
         )
 
         # Extended timeout for node1 should be ceil(30 * 1.5) = 45.
-        # Currently FAILS: _node_timeout doesn't exist.
-        assert handler._node_timeout.get(node_id) == 45
+        assert handler._get_node_state(node_id).timeout == 45
 
 
 # ---------------------------------------------------------------------------
@@ -285,9 +284,8 @@ class TestTimeoutExhaustionThenEscalation:
             node_id, max_timeout_retries=1
         )
 
-        # Currently FAILS: _max_timeout_retries / _timeout_retries don't exist.
         handler._max_timeout_retries = 1
-        handler._timeout_retries[node_id] = 1  # pre-exhaust
+        handler._get_node_state(node_id).timeout_retries = 1  # pre-exhaust
 
         timeout_record = _make_session_record(node_id, "timeout", attempt=2)
 

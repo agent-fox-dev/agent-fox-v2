@@ -380,8 +380,8 @@ class TestResultHandlerCoverageIntegration:
         ):
             handler.capture_coverage_baseline("spec:1", tmp_path)
 
-        assert "spec:1" in handler._coverage_baselines
-        assert handler._coverage_baselines["spec:1"] is baseline
+        ns = handler._get_node_state("spec:1")
+        assert ns.coverage_baseline is baseline
 
     def test_capture_baseline_skips_when_no_tool(self, tmp_path: Path) -> None:
         handler = self._make_handler()
@@ -390,7 +390,7 @@ class TestResultHandlerCoverageIntegration:
             return_value=None,
         ):
             handler.capture_coverage_baseline("spec:1", tmp_path)
-        assert "spec:1" not in handler._coverage_baselines
+        assert handler._get_node_state("spec:1").coverage_baseline is None
 
     def test_check_regression_returns_json_on_no_regression(
         self, tmp_path: Path
@@ -401,7 +401,7 @@ class TestResultHandlerCoverageIntegration:
         baseline = CoverageResult(
             files={"a.py": FileCoverage("a.py", 80, 100)}
         )
-        handler._coverage_baselines["spec:1"] = baseline
+        handler._get_node_state("spec:1").coverage_baseline = baseline
         handler._coverage_tool = CoverageTool("pytest-cov", ["echo"], "coverage.json")
 
         current = CoverageResult(
@@ -437,7 +437,7 @@ class TestResultHandlerCoverageIntegration:
         baseline = CoverageResult(
             files={"a.py": FileCoverage("a.py", 80, 100)}
         )
-        handler._coverage_baselines["spec:1"] = baseline
+        handler._get_node_state("spec:1").coverage_baseline = baseline
         handler._coverage_tool = CoverageTool("pytest-cov", ["echo"], "coverage.json")
 
         current = CoverageResult(

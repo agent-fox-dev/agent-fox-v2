@@ -246,8 +246,7 @@ class TestExhaustedTimeoutRetries:
             node_id, max_timeout_retries=1, is_exhausted=True
         )
 
-        # Exhaust the timeout retry counter
-        handler._timeout_retries[node_id] = 1  # already at max
+        handler._get_node_state(node_id).timeout_retries = 1  # already at max
 
         record = _make_record("timeout", node_id=node_id, attempt=2)
         handler.process(record, attempt=2, state=state,
@@ -272,7 +271,7 @@ class TestExhaustedTimeoutRetries:
         handler.process(record1, attempt=1, state=state,
                         attempt_tracker=attempt_tracker, error_tracker=error_tracker)
         assert handler._graph_sync.node_states[node_id] == "pending"
-        assert handler._timeout_retries[node_id] == 1
+        assert handler._get_node_state(node_id).timeout_retries == 1
 
         # Simulate re-dispatch by orchestrator
         handler._graph_sync.node_states[node_id] = "in_progress"
@@ -284,6 +283,6 @@ class TestExhaustedTimeoutRetries:
                         attempt_tracker=attempt_tracker, error_tracker=error_tracker)
 
         # Timeout retry count is 1 (not incremented beyond max)
-        assert handler._timeout_retries[node_id] == 1
+        assert handler._get_node_state(node_id).timeout_retries == 1
         # Escalation ladder record_failure was called (fell through to _handle_failure)
         assert mock_ladder.record_failure.call_count == 1
