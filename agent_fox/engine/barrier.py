@@ -101,6 +101,21 @@ def _count_node_status(node_states: dict[str, str], status: str) -> int:
     return sum(1 for s in node_states.values() if s == status)
 
 
+# Ordered list of statuses shown in the progress line (issue #588).
+_PROGRESS_STATUSES = ("completed", "in_progress", "pending", "blocked", "failed")
+
+
+def _format_progress_line(node_states: dict[str, str]) -> str:
+    """Return a single-line progress summary, e.g. 'completed: 4 | pending: 2'.
+
+    Only statuses with a non-zero count are included.
+    """
+    parts = [
+        f"{status}: {count}" for status in _PROGRESS_STATUSES if (count := _count_node_status(node_states, status))
+    ]
+    return " | ".join(parts) if parts else "no tasks"
+
+
 async def run_sync_barrier_sequence(
     *,
     state: Any,
@@ -142,6 +157,13 @@ async def run_sync_barrier_sequence(
         barrier_number,
         completed_count,
     )
+
+    # Print a brief one-line progress summary (issue #588).
+    # Guarded so a broken pipe or other I/O error never aborts the sequence.
+    try:
+        print(f"[barrier] {_format_progress_line(state.node_states)}", flush=True)
+    except Exception:
+        logger.debug("Failed to print barrier progress line", exc_info=True)
 
     # 51-REQ-2.1: Verify worktrees for orphans
     orphaned_worktrees: list[str] = []
