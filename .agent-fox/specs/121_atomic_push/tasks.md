@@ -27,14 +27,14 @@ git primitives first, then retry orchestration, then caller integration.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create test file `tests/workspace/test_atomic_push.py`
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create test file `tests/workspace/test_atomic_push.py`
     - Set up test file with imports, fixtures, mock helpers
     - Create `FakeAuditSink` helper for capturing audit events
     - Use existing test patterns from `tests/workspace/test_harvester.py`
     - _Test Spec: TS-121-1 through TS-121-16_
 
-  - [ ] 1.2 Translate acceptance-criterion tests from test_spec.md
+  - [x] 1.2 Translate acceptance-criterion tests from test_spec.md
     - `test_push_executes_inside_merge_lock` (TS-121-1)
     - `test_no_concurrent_merge_while_push_in_progress` (TS-121-2)
     - `test_lock_released_after_successful_push` (TS-121-3)
@@ -53,7 +53,7 @@ git primitives first, then retry orchestration, then caller integration.
     - `test_harvest_push_false_skips_push` (TS-121-16)
     - _Test Spec: TS-121-1 through TS-121-16_
 
-  - [ ] 1.3 Translate edge-case tests from test_spec.md
+  - [x] 1.3 Translate edge-case tests from test_spec.md
     - `test_no_remote_configured_skips_push` (TS-121-E1)
     - `test_fetch_fails_during_retry` (TS-121-E2)
     - `test_rebase_conflict_aborts_retry` (TS-121-E3)
@@ -62,21 +62,21 @@ git primitives first, then retry orchestration, then caller integration.
     - `test_external_caller_sync_acquires_lock` (TS-121-E6)
     - _Test Spec: TS-121-E1 through TS-121-E6_
 
-  - [ ] 1.4 Translate property tests from test_spec.md
+  - [x] 1.4 Translate property tests from test_spec.md
     - `test_property_bounded_retry_count` (TS-121-P1)
     - `test_property_audit_event_completeness` (TS-121-P2)
     - `test_property_no_double_push` (TS-121-P3)
     - _Test Spec: TS-121-P1 through TS-121-P3_
 
-  - [ ] 1.5 Translate integration smoke tests from test_spec.md
+  - [x] 1.5 Translate integration smoke tests from test_spec.md
     - `test_smoke_harvest_push_retry` (TS-121-SMOKE-1)
     - `test_smoke_harvest_push_success_first_try` (TS-121-SMOKE-2)
     - _Test Spec: TS-121-SMOKE-1, TS-121-SMOKE-2_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `make check`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `make check`
 
 - [ ] 2. Add git helpers and audit event types
   - [ ] 2.1 Add `fetch_remote` function to `agent_fox/workspace/git.py`
