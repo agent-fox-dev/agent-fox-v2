@@ -88,6 +88,10 @@ def load_profile(
     candidates.append(_DEFAULT_PROFILES_DIR / base_filename)
 
     for candidate in candidates:
+        # Security: reject symlinks to prevent content injection (CWE-59)
+        if candidate.is_symlink():
+            logger.warning("Skipping symlink profile candidate: %s", candidate)
+            continue
         if candidate.exists():
             logger.debug(
                 "Loading profile for %r (mode=%r) from: %s",

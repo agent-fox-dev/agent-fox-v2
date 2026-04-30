@@ -8,7 +8,6 @@ Requirements: 31-REQ-3.2, 31-REQ-3.3, 31-REQ-3.4, 31-REQ-3.5,
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -17,7 +16,6 @@ from agent_fox.fix.analyzer import (
     build_analyzer_prompt,
     filter_improvements,
     parse_analyzer_response,
-    query_oracle_context,
 )
 
 from .conftest import make_improvement
@@ -102,3 +100,61 @@ class TestFilterImprovements:
         assert filtered[0].tier == "quick_win"
         assert filtered[1].tier == "structural"
         assert filtered[2].tier == "design_level"
+
+
+# ---------------------------------------------------------------------------
+# Symlink rejection in _load_conventions (issue #586, CWE-59)
+# ---------------------------------------------------------------------------
+
+
+class TestLoadConventionsSymlinkRejection:
+    """AC-3, AC-4, AC-5: _load_conventions() rejects symlinks."""
+
+    def test_symlinked_claude_md_is_skipped(self, tmp_path: Path) -> None:
+        """AC-3: _load_conventions() skips CLAUDE.md when it is a symlink.
+
+        The function must not return content from a symlink target.
+        """
+        from agent_fox.fix.analyzer import _load_conventions
+
+        external = tmp_path / "external.md"
+        external.write_text("INJECTED_SECRET")
+
+        project_root = tmp_path / "project"
+        project_root.mkdir()
+        (project_root / "CLAUDE.md").symlink_to(external)
+
+        result = _load_conventions(project_root)
+
+        assert "INJECTED_SECRET" not in result
+
+    def test_symlink_skipped_falls_through_to_next_candidate(self, tmp_path: Path) -> None:
+        """AC-4: When first convention file is a symlink, the search continues.
+
+        CLAUDE.md is a symlink (skipped); AGENTS.md is a real file and must be
+        returned.
+        """
+        from agent_fox.fix.analyzer import _load_conventions
+
+        external = tmp_path / "external.md"
+        external.write_text("SHOULD_NOT_APPEAR")
+
+        project_root = tmp_path / "project"
+        project_root.mkdir()
+        (project_root / "CLAUDE.md").symlink_to(external)
+        (project_root / "AGENTS.md").write_text("real-conventions")
+
+        result = _load_conventions(project_root)
+
+        assert "real-conventions" in result
+        assert "SHOULD_NOT_APPEAR" not in result
+
+    def test_regular_claude_md_loads_correctly(self, tmp_path: Path) -> None:
+        """AC-5 (conventions): Non-symlinked CLAUDE.md loads correctly after the fix."""
+        from agent_fox.fix.analyzer import _load_conventions
+
+        (tmp_path / "CLAUDE.md").write_text("project-conventions")
+
+        result = _load_conventions(tmp_path)
+
+        assert "project-conventions" in result

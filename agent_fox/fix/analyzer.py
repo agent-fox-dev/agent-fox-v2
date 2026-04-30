@@ -339,6 +339,10 @@ def _load_conventions(project_root: Path) -> str:
     """Load project conventions from CLAUDE.md, AGENTS.md, or README.md."""
     for filename in _CONVENTION_FILES:
         path = project_root / filename
+        # Security: reject symlinks to prevent content injection (CWE-59)
+        if path.is_symlink():
+            logger.warning("Skipping symlink convention file: %s", path)
+            continue
         if path.exists():
             try:
                 return path.read_text(encoding="utf-8").strip()

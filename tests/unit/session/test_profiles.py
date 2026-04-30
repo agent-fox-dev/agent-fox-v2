@@ -145,3 +145,69 @@ def test_mode_none_loads_base_profile() -> None:
     without_mode = load_profile("coder")
 
     assert with_mode == without_mode
+
+
+# ---------------------------------------------------------------------------
+# Symlink rejection (issue #586, CWE-59)
+# ---------------------------------------------------------------------------
+
+
+def test_symlinked_project_profile_is_skipped(tmp_path: Path) -> None:
+    """AC-1: load_profile() skips a project-level profile that is a symlink.
+
+    A symlink pointing outside the repo must never be read; the function
+    must fall through to the package-embedded fallback instead.
+    """
+    from agent_fox.session.profiles import load_profile
+
+    # Create a sensitive file OUTSIDE the project tree.
+    external_file = tmp_path / "external_secret.md"
+    external_file.write_text("SECRET")
+
+    profiles_dir = tmp_path / "project" / ".agent-fox" / "profiles"
+    profiles_dir.mkdir(parents=True)
+    symlink = profiles_dir / "coder.md"
+    symlink.symlink_to(external_file)
+
+    project_dir = tmp_path / "project"
+    result = load_profile("coder", project_dir=project_dir)
+
+    assert "SECRET" not in result
+    # Fell back to the package default, which has real content.
+    assert len(result) > 0
+
+
+def test_symlinked_project_profile_logs_warning(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """AC-2: load_profile() emits a WARNING when it skips a symlinked candidate."""
+    from agent_fox.session.profiles import load_profile
+
+    external_file = tmp_path / "external.md"
+    external_file.write_text("SENSITIVE")
+
+    profiles_dir = tmp_path / "project" / ".agent-fox" / "profiles"
+    profiles_dir.mkdir(parents=True)
+    symlink = profiles_dir / "coder.md"
+    symlink.symlink_to(external_file)
+
+    project_dir = tmp_path / "project"
+    with caplog.at_level(logging.WARNING):
+        load_profile("coder", project_dir=project_dir)
+
+    warning_messages = [r.message for r in caplog.records if r.levelno >= logging.WARNING]
+    assert any("symlink" in msg.lower() for msg in warning_messages)
+    assert any(str(symlink) in msg for msg in warning_messages)
+
+
+def test_regular_project_profile_still_loads(tmp_path: Path) -> None:
+    """AC-5 (profiles): Non-symlinked project profiles load correctly after the fix."""
+    from agent_fox.session.profiles import load_profile
+
+    profiles_dir = tmp_path / ".agent-fox" / "profiles"
+    profiles_dir.mkdir(parents=True)
+    (profiles_dir / "coder.md").write_text("custom-directive")
+
+    result = load_profile("coder", project_dir=tmp_path)
+
+    assert "custom-directive" in result
