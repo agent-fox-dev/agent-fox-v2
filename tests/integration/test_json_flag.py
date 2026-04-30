@@ -317,35 +317,6 @@ class TestCodeJsonl:
 
 
 # ---------------------------------------------------------------------------
-# TS-23-16: Fix command JSONL streaming
-# ---------------------------------------------------------------------------
-
-
-class TestFixJsonl:
-    """TS-23-16: fix --json emits JSONL stream."""
-
-    def test_fix_jsonl_streaming(self, cli_runner: CliRunner, tmp_project: Path) -> None:
-        """fix --json with immediate exit emits JSONL lines."""
-
-        def _close_coro_and_return(coro, **kwargs):  # noqa: ARG001
-            coro.close()
-            return None
-
-        with (
-            patch("agent_fox.cli.fix.detect_checks") as mock_checks,
-            patch("agent_fox.cli.fix.asyncio.run") as mock_run,
-        ):
-            mock_checks.return_value = [MagicMock()]
-            mock_run.side_effect = _close_coro_and_return
-
-            result = cli_runner.invoke(main, ["--json", "fix"])
-            for line in result.output.strip().splitlines():
-                if line.strip():
-                    data = json.loads(line)
-                    assert isinstance(data, dict)
-
-
-# ---------------------------------------------------------------------------
 # TS-23-17: Error envelope in JSON mode
 # ---------------------------------------------------------------------------
 
@@ -498,25 +469,6 @@ class TestStreamingInterrupted:
             data = json.loads(last_line)
             assert data["status"] == "interrupted"
 
-    def test_fix_interrupted_emits_status(self, cli_runner: CliRunner, tmp_project: Path) -> None:
-        """fix --json interrupted by KeyboardInterrupt emits status."""
-
-        def _close_coro_and_raise(coro, **kwargs):  # noqa: ARG001
-            """Close the coroutine to avoid 'never awaited' warning."""
-            coro.close()
-            raise KeyboardInterrupt
-
-        with (
-            patch("agent_fox.cli.fix.detect_checks") as mock_checks,
-            patch("agent_fox.cli.fix.asyncio.run") as mock_run,
-        ):
-            mock_checks.return_value = [MagicMock()]
-            mock_run.side_effect = _close_coro_and_raise
-
-            result = cli_runner.invoke(main, ["--json", "fix"])
-            last_line = result.output.strip().splitlines()[-1]
-            data = json.loads(last_line)
-            assert data["status"] == "interrupted"
 
 
 # ---------------------------------------------------------------------------

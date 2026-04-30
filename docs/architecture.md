@@ -776,7 +776,7 @@ session summary artifact.
 - Tool access: unrestricted (inherits from global security config)
 - Injection: none (assigned to task groups directly)
 
-**Modes:** `fix` — used by the `agent-fox fix` pipeline for targeted fixes on
+**Modes:** `fix` — used by the night-shift fix pipeline for targeted fixes on
 specific issues. Same max turns and thinking configuration as the base.
 
 ### 8.2 Reviewer
@@ -808,7 +808,7 @@ All modes produce structured findings and have restricted tool allowlists
 - `retry_predecessor`: true — triggers a coder retry when tests are MISSING or
   MISALIGNED.
 
-**Fix-review mode** (used by `agent-fox fix` and night-shift):
+**Fix-review mode** (used by night-shift):
 - ADVANCED model tier with broader tool access (`make`, `uv`).
 - Max turns: 120 (higher than other reviewer modes).
 - Not injected automatically into coding session plans.

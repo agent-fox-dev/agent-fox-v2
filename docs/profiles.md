@@ -20,7 +20,7 @@ agent-fox ships with profiles for all four archetypes and their modes:
 |---|---|---|---|
 | `agent.md` | (all) | — | Base instructions shared by every agent: project orientation, exploration steps, structure |
 | `coder.md` | coder | — | Implementation agent: test-first workflow, commit discipline, input triage |
-| `coder_fix.md` | coder | fix | Fix-mode variant for `agent-fox fix` pipeline |
+| `coder_fix.md` | coder | fix | Fix-mode variant for the night-shift fix pipeline |
 | `reviewer.md` | reviewer | — | Base reviewer (fallback when no mode-specific profile exists) |
 | `reviewer_pre-review.md` | reviewer | pre-review | Spec quality review before coding |
 | `reviewer_drift-review.md` | reviewer | drift-review | Spec-vs-codebase drift detection |
