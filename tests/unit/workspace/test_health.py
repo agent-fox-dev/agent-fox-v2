@@ -301,6 +301,93 @@ class TestForceCleanPermissionError:
             os.chmod(ro_dir, 0o755)
 
 
+class TestForceCleanSymlinkEscape:
+    """AC-1 (issue #579): force_clean skips symlink-based path traversal.
+
+    A symlink inside repo_root pointing outside should not allow deletion
+    of the target file.  The path must remain in the returned report.
+    """
+
+    @pytest.mark.asyncio
+    async def test_symlink_target_not_deleted(
+        self,
+        tmp_path: Path,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """force_clean_workspace does not delete a file via a symlink escape."""
+        # Create the outside directory and file
+        outside_dir = tmp_path / "outside"
+        outside_dir.mkdir()
+        outside_file = outside_dir / "outside.txt"
+        outside_file.write_text("keep me\n")
+
+        # Create a minimal git repo at repo_root
+        repo_root = tmp_path / "repo"
+        repo_root.mkdir()
+
+        # Create a symlink inside the repo pointing to the outside directory
+        link = repo_root / "link"
+        link.symlink_to(outside_dir)
+
+        report = HealthReport(
+            untracked_files=["link/outside.txt"],
+            dirty_index_files=[],
+        )
+
+        with caplog.at_level(logging.WARNING, logger="agent_fox.workspace.health"):
+            result = await force_clean_workspace(repo_root, report)
+
+        # The external file must NOT have been deleted
+        assert outside_file.exists(), "symlink target must not be deleted"
+
+        # The path must remain in the returned report as untracked
+        assert "link/outside.txt" in result.untracked_files
+
+        # A WARNING must have been logged
+        messages = " ".join(r.message for r in caplog.records)
+        assert "outside repo root" in messages or "skipping" in messages.lower()
+
+
+class TestForceCleanDotDotEscape:
+    """AC-4 (issue #579): force_clean blocks literal '../' path traversal.
+
+    A rel_path containing '../' segments that resolve outside repo_root
+    must be skipped — the target file must not be deleted.
+    """
+
+    @pytest.mark.asyncio
+    async def test_dotdot_traversal_blocked(
+        self,
+        tmp_path: Path,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """force_clean_workspace skips '../outside_file.txt' style paths."""
+        # Create a file one level above repo_root
+        outside_file = tmp_path / "outside_file.txt"
+        outside_file.write_text("keep me too\n")
+
+        repo_root = tmp_path / "repo"
+        repo_root.mkdir()
+
+        report = HealthReport(
+            untracked_files=["../outside_file.txt"],
+            dirty_index_files=[],
+        )
+
+        with caplog.at_level(logging.WARNING, logger="agent_fox.workspace.health"):
+            result = await force_clean_workspace(repo_root, report)
+
+        # The external file must NOT have been deleted
+        assert outside_file.exists(), "../ traversal target must not be deleted"
+
+        # The path must remain in the returned report
+        assert "../outside_file.txt" in result.untracked_files
+
+        # A WARNING must have been logged
+        messages = " ".join(r.message for r in caplog.records)
+        assert "outside repo root" in messages or "skipping" in messages.lower()
+
+
 class TestFileListTruncation:
     """TS-118-E10: file list truncation at 20 files.
 

@@ -151,7 +151,18 @@ async def _clean_conflicting_untracked(
     divergent: list[str] = []
     unverifiable: list[str] = []
 
+    resolved_root = repo_root.resolve()
     for path in sorted(conflicts):
+        # Path containment check: skip paths that escape repo_root via symlinks
+        # or literal traversal segments (e.g. '../').
+        resolved_path = (repo_root / path).resolve()
+        if not resolved_path.is_relative_to(resolved_root):
+            logger.warning(
+                "Skipping path outside repo root: %s", path
+            )
+            unverifiable.append(path)
+            continue
+
         # Fetch the feature branch version of this file to compare content.
         try:
             show_rc, branch_content, _ = await run_git(
