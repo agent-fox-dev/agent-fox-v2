@@ -101,6 +101,57 @@ def _check_address(addr: ipaddress.IPv4Address | ipaddress.IPv6Address, url: str
         )
 
 
+def _validate_transport_address(host: str) -> None:
+    """Resolve *host* and reject restricted addresses at connection time.
+
+    Closes the TOCTOU window between construction-time URL validation and
+    the actual TCP connection.  Unlike ``_validate_github_url``, a DNS
+    failure here is passed through — the parent transport will surface a
+    ``ConnectError`` as expected.
+
+    Requirements: 580-AC-1, 580-AC-4, 580-AC-5
+    """
+    # Handle bare IP literals without a DNS lookup.
+    try:
+        addr = ipaddress.ip_address(host)
+        _check_address(addr, host)
+        return
+    except ValueError:
+        pass
+
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except (OSError, UnicodeError):
+        # DNS failure at connection time — let the transport surface the error.
+        return
+
+    for info in infos:
+        addr_str = info[4][0]
+        try:
+            addr = ipaddress.ip_address(addr_str)
+        except ValueError:
+            continue
+        _check_address(addr, host)
+
+
+class _SSRFGuardTransport(httpx.AsyncHTTPTransport):
+    """Validating transport that re-checks DNS before each TCP connection.
+
+    Closes the TOCTOU window between construction-time URL validation and
+    the actual TCP connection by resolving and validating the target host
+    on every request.  ``ConfigError`` is raised — before any bytes are
+    sent — if DNS has rebound to a restricted address.
+
+    Requirements: 580-AC-1, 580-AC-4, 580-AC-5
+    """
+
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        host = request.url.host
+        if host:
+            _validate_transport_address(host)
+        return await super().handle_async_request(request)
+
+
 class GitHubPlatform:
     """GitHub platform using the REST API.
 
@@ -157,7 +208,10 @@ class GitHubPlatform:
         last_exc: Exception | None = None
         for attempt in range(_MAX_RETRIES):
             try:
-                async with httpx.AsyncClient(timeout=_GITHUB_TIMEOUT) as client:
+                async with httpx.AsyncClient(
+                    timeout=_GITHUB_TIMEOUT,
+                    transport=_SSRFGuardTransport(),
+                ) as client:
                     resp: httpx.Response = await getattr(client, method)(url, **kwargs)
                     return resp
             except _RETRYABLE_ERRORS as exc:
