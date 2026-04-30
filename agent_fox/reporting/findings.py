@@ -341,6 +341,100 @@ def query_findings_summary(
     return summary
 
 
+def lookup_finding_by_id(
+    conn: Any,
+    finding_id: str,
+) -> FindingRow | None:
+    """Look up a finding by ID across all three finding tables.
+
+    Searches ``review_findings`` (skeptic), ``drift_findings`` (oracle), and
+    ``verification_results`` (verifier) in that order.  Returns the first
+    matching ``FindingRow``, regardless of whether the record is active or
+    superseded.
+
+    Args:
+        conn: DuckDB connection, or ``None`` (returns ``None``).
+        finding_id: String representation of the finding UUID.
+
+    Returns:
+        A ``FindingRow`` with the correct ``id``, ``description``,
+        ``archetype``, and ``severity`` if found; ``None`` otherwise.
+
+    Requirements: 592-AC-5
+    """
+    if conn is None:
+        return None
+
+    # Try review_findings (skeptic archetype)
+    try:
+        row = conn.execute(
+            "SELECT id, severity, spec_name, task_group, description, created_at "  # noqa: S608
+            "FROM review_findings WHERE id::VARCHAR = ?",
+            [finding_id],
+        ).fetchone()
+        if row is not None:
+            row_id, sev, spec_name, task_group, desc, created_at = row
+            return FindingRow(
+                id=str(row_id),
+                severity=sev,
+                archetype="skeptic",
+                spec_name=spec_name,
+                task_group=task_group,
+                description=desc,
+                created_at=created_at,
+            )
+    except Exception:
+        logger.warning("Failed to query review_findings by ID", exc_info=True)
+
+    # Try drift_findings (oracle archetype)
+    try:
+        row = conn.execute(
+            "SELECT id, severity, spec_name, task_group, description, created_at "  # noqa: S608
+            "FROM drift_findings WHERE id::VARCHAR = ?",
+            [finding_id],
+        ).fetchone()
+        if row is not None:
+            row_id, sev, spec_name, task_group, desc, created_at = row
+            return FindingRow(
+                id=str(row_id),
+                severity=sev,
+                archetype="oracle",
+                spec_name=spec_name,
+                task_group=task_group,
+                description=desc,
+                created_at=created_at,
+            )
+    except Exception:
+        logger.warning("Failed to query drift_findings by ID", exc_info=True)
+
+    # Try verification_results (verifier archetype)
+    try:
+        row = conn.execute(
+            "SELECT id, requirement_id, verdict, evidence, spec_name, task_group, created_at "  # noqa: S608
+            "FROM verification_results WHERE id::VARCHAR = ?",
+            [finding_id],
+        ).fetchone()
+        if row is not None:
+            row_id, req_id, verdict, evidence, spec_name, task_group, created_at = row
+            severity = "major" if verdict == "FAIL" else "minor"
+            description = f"{req_id}: {verdict}"
+            if evidence:
+                description = f"{description} — {evidence}"
+            return FindingRow(
+                id=str(row_id),
+                severity=severity,
+                archetype="verifier",
+                spec_name=spec_name,
+                task_group=task_group,
+                description=description,
+                created_at=created_at,
+            )
+    except Exception:
+        logger.warning("Failed to query verification_results by ID", exc_info=True)
+
+    return None
+
+
 def format_findings_table(
     findings: list[FindingRow],
     json_output: bool = False,

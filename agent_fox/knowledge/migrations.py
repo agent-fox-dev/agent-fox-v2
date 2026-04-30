@@ -831,6 +831,51 @@ def _migrate_v24(conn: duckdb.DuckDBPyConnection) -> None:
     """)
 
 
+def _migrate_v25(conn: duckdb.DuckDBPyConnection) -> bool | None:
+    """Change drift_findings.superseded_by from UUID to TEXT.
+
+    Migration v4 incorrectly typed ``drift_findings.superseded_by`` as UUID
+    while ``review_findings.superseded_by`` and
+    ``verification_results.superseded_by`` (both created in v2) use TEXT.
+    This mismatch causes a ConversionException when any non-UUID string
+    (e.g. a session_id like ``'my_spec:1:1'`` or a dismissal marker like
+    ``'dismissed:2026-04-30T...'``) is written to the column.
+
+    DuckDB supports ``ALTER TABLE ... ALTER COLUMN ... TYPE`` to change column
+    types in-place.  Existing NULL values and any UUID values already stored
+    are cast to TEXT without data loss.
+
+    Uses idempotency check (skip if column is already TEXT) so the migration
+    is safe to re-apply.
+
+    Requirements: 592-AC-1 (pre-condition fix for drift_findings dismissal)
+    """
+    tables = {
+        r[0]
+        for r in conn.execute(
+            "SELECT table_name FROM information_schema.tables WHERE table_schema = 'main'"
+        ).fetchall()
+    }
+    if "drift_findings" not in tables:
+        logger.info("drift_findings table not found, skipping v25 migration")
+        return False
+
+    col_info = conn.execute(
+        "SELECT data_type FROM information_schema.columns "
+        "WHERE table_name = 'drift_findings' AND column_name = 'superseded_by'"
+    ).fetchone()
+    if col_info is None:
+        logger.info("drift_findings.superseded_by column not found, skipping v25 migration")
+        return False
+
+    if col_info[0].upper() in ("VARCHAR", "TEXT"):
+        logger.info("drift_findings.superseded_by already TEXT, skipping v25 migration")
+        return False
+
+    logger.info("Changing drift_findings.superseded_by from %s to TEXT", col_info[0])
+    conn.execute("ALTER TABLE drift_findings ALTER COLUMN superseded_by TYPE TEXT USING superseded_by::TEXT")
+
+
 def _migrate_v21(conn: duckdb.DuckDBPyConnection) -> None:
     """Drop dead columns retrieval_summary and coverage_data from session_outcomes.
 
@@ -973,6 +1018,11 @@ MIGRATIONS: list[Migration] = [
         version=24,
         description="add session_summaries table for session summary storage",
         apply=_migrate_v24,
+    ),
+    Migration(
+        version=25,
+        description="fix drift_findings.superseded_by column type from UUID to TEXT",
+        apply=_migrate_v25,
     ),
 ]
 
