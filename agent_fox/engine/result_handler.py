@@ -15,6 +15,7 @@ from __future__ import annotations
 import logging
 import math
 from collections.abc import Callable
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +30,17 @@ from agent_fox.knowledge.sink import SinkDispatcher
 from agent_fox.ui.progress import TaskCallback, TaskEvent
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class _NodeRetryState:
+    timeout_retries: int = 0
+    audit_retry_count: int = 0
+    max_turns: int | None = None
+    has_max_turns: bool = False
+    timeout: int | None = None
+    original_timeout: int | None = None
+    coverage_baseline: Any = field(default=None, repr=False)
 
 
 class SessionResultHandler:
@@ -73,17 +85,8 @@ class SessionResultHandler:
         self._block_task = block_task_fn
         self._check_block_budget = check_block_budget_fn
 
-        # Timeout-aware escalation state (75-REQ-2.1)
-        self._timeout_retries: dict[str, int] = {}
-        self._node_max_turns: dict[str, int | None] = {}
-        self._node_timeout: dict[str, int] = {}
-        self._original_node_timeout: dict[str, int] = {}  # per-node original timeouts
-
-        # Audit-review retry counter (separate from the generic EscalationLadder)
-        self._audit_retry_counts: dict[str, int] = {}
-
-        # Coverage regression gate state
-        self._coverage_baselines: dict[str, Any] = {}
+        # Per-node retry/escalation state (75-REQ-2.1)
+        self._node_retry_states: dict[str, _NodeRetryState] = {}
         self._coverage_tool: Any = None  # None = not checked, False = no tool
         self._max_timeout_retries: int = max_timeout_retries
         self._timeout_multiplier: float = timeout_multiplier
@@ -101,6 +104,23 @@ class SessionResultHandler:
         if self._graph is not None and node_id in self._graph.nodes:
             return self._graph.nodes[node_id].mode
         return None
+
+    def _get_node_state(self, node_id: str) -> _NodeRetryState:
+        ns = self._node_retry_states.get(node_id)
+        if ns is None:
+            ns = _NodeRetryState()
+            self._node_retry_states[node_id] = ns
+        return ns
+
+    def get_timeout_override(self, node_id: str) -> int | None:
+        ns = self._node_retry_states.get(node_id)
+        return ns.timeout if ns is not None else None
+
+    def get_max_turns_override(self, node_id: str) -> tuple[bool, int | None]:
+        ns = self._node_retry_states.get(node_id)
+        if ns is None or not ns.has_max_turns:
+            return False, None
+        return True, ns.max_turns
 
     def _get_predecessors(self, node_id: str) -> list[str]:
         """Get predecessor node IDs for a given node."""
@@ -125,7 +145,7 @@ class SessionResultHandler:
 
             result = measure_coverage(cwd, tool)
             if result is not None:
-                self._coverage_baselines[node_id] = result
+                self._get_node_state(node_id).coverage_baseline = result
                 logger.debug("Captured coverage baseline for %s (%d files)", node_id, len(result.files))
         except Exception:
             logger.debug("Failed to capture coverage baseline for %s", node_id, exc_info=True)
@@ -141,7 +161,9 @@ class SessionResultHandler:
         Returns JSON coverage data for storage, or None if no measurement
         was possible. Emits a blocking finding if coverage regressed.
         """
-        baseline = self._coverage_baselines.pop(record.node_id, None)
+        ns = self._get_node_state(record.node_id)
+        baseline = ns.coverage_baseline
+        ns.coverage_baseline = None
         if baseline is None:
             return None
 
@@ -365,7 +387,8 @@ class SessionResultHandler:
         Returns True if permanently blocked, False if converted to retry.
         """
         max_retries = self._get_audit_max_retries()
-        count = self._audit_retry_counts.get(coder_node_id, 0)
+        ns = self._get_node_state(coder_node_id)
+        count = ns.audit_retry_count
 
         if count >= max_retries:
             logger.warning(
@@ -378,7 +401,7 @@ class SessionResultHandler:
             self._generate_errata(record)
             return True
 
-        self._audit_retry_counts[coder_node_id] = count + 1
+        ns.audit_retry_count = count + 1
 
         logger.info(
             "Audit-review blocking converted to retry for %s (%d/%d, findings injected as context)",
@@ -533,13 +556,8 @@ class SessionResultHandler:
             except Exception:
                 logger.warning("Failed to record session to DB", exc_info=True)
 
-        # Ensure timeout retry counter is initialised (even for non-timeout
-        # events), so callers can use .get(node_id, -1) as a sentinel for
-        # "never seen any event for this node" while still distinguishing
-        # "zero timeout retries" from "counter not initialised".
         node_id = record.node_id
-        if node_id not in self._timeout_retries:
-            self._timeout_retries[node_id] = 0
+        self._get_node_state(node_id)
 
         if record.status == "completed":
             self._handle_success(record, state, error_tracker)
@@ -615,9 +633,10 @@ class SessionResultHandler:
 
         Requirements: 75-REQ-3.3, 75-REQ-3.E1
         """
-        if node_id not in self._original_node_timeout:
-            self._original_node_timeout[node_id] = self._node_timeout.get(node_id, self._original_session_timeout)
-        return self._original_node_timeout[node_id]
+        ns = self._get_node_state(node_id)
+        if ns.original_timeout is None:
+            ns.original_timeout = ns.timeout if ns.timeout is not None else self._original_session_timeout
+        return ns.original_timeout
 
     def _extend_node_params(self, node_id: str) -> None:
         """Increase max_turns and session_timeout for the node by the multiplier.
@@ -628,6 +647,7 @@ class SessionResultHandler:
         Requirements: 75-REQ-3.1, 75-REQ-3.2, 75-REQ-3.3, 75-REQ-3.4,
                       75-REQ-3.5, 75-REQ-3.E1
         """
+        ns = self._get_node_state(node_id)
         multiplier = self._timeout_multiplier
         ceiling_factor = self._timeout_ceiling_factor
 
@@ -635,19 +655,17 @@ class SessionResultHandler:
         original_timeout = self._get_original_node_timeout(node_id)
 
         # Extend session_timeout, clamped to ceiling (75-REQ-3.2, 75-REQ-3.3)
-        current_timeout = self._node_timeout.get(node_id, original_timeout)
+        current_timeout = ns.timeout if ns.timeout is not None else original_timeout
         ceiling_timeout = math.ceil(original_timeout * ceiling_factor)
         new_timeout = min(
             math.ceil(current_timeout * multiplier),
             ceiling_timeout,
         )
-        self._node_timeout[node_id] = new_timeout
+        ns.timeout = new_timeout
 
         # Extend max_turns if finite (75-REQ-3.1, 75-REQ-3.4)
-        if node_id in self._node_max_turns:
-            current_turns = self._node_max_turns[node_id]
-            if current_turns is not None:
-                self._node_max_turns[node_id] = math.ceil(current_turns * multiplier)
+        if ns.has_max_turns and ns.max_turns is not None:
+            ns.max_turns = math.ceil(ns.max_turns * multiplier)
 
     def _handle_timeout(
         self,
@@ -670,7 +688,8 @@ class SessionResultHandler:
                       75-REQ-5.1, 75-REQ-5.2, 75-REQ-5.3
         """
         node_id = record.node_id
-        current_retries = self._timeout_retries.get(node_id, 0)
+        ns = self._get_node_state(node_id)
+        current_retries = ns.timeout_retries
 
         if current_retries >= self._max_timeout_retries:
             # Exhausted timeout retries — fall through to escalation (75-REQ-2.4)
@@ -685,14 +704,14 @@ class SessionResultHandler:
 
         # Capture original values before extending for audit payload (75-REQ-5.3)
         original_timeout = self._get_original_node_timeout(node_id)
-        original_max_turns = self._node_max_turns.get(node_id)
+        original_max_turns = ns.max_turns if ns.has_max_turns else None
 
         # Increment counter and extend parameters (75-REQ-2.2, 75-REQ-3.1, 75-REQ-3.2)
-        self._timeout_retries[node_id] = current_retries + 1
+        ns.timeout_retries = current_retries + 1
         self._extend_node_params(node_id)
 
-        extended_timeout = self._node_timeout[node_id]
-        extended_max_turns = self._node_max_turns.get(node_id)
+        extended_timeout = ns.timeout
+        extended_max_turns = ns.max_turns if ns.has_max_turns else None
 
         # Reset to pending for retry at same tier (75-REQ-2.3, 535-AC-2)
         self._graph_sync.mark_pending(node_id, reason="timeout retry")
