@@ -211,3 +211,51 @@ def test_regular_project_profile_still_loads(tmp_path: Path) -> None:
     result = load_profile("coder", project_dir=tmp_path)
 
     assert "custom-directive" in result
+
+
+# ---------------------------------------------------------------------------
+# Path traversal rejection (issue #585, CWE-22)
+# ---------------------------------------------------------------------------
+
+
+def test_load_profile_rejects_path_traversal_in_archetype() -> None:
+    """AC-1: load_profile() raises ValueError for path traversal in archetype."""
+    from agent_fox.session.profiles import load_profile
+
+    with pytest.raises(ValueError, match="archetype"):
+        load_profile("../../etc/passwd")
+
+
+def test_load_profile_rejects_path_traversal_in_mode() -> None:
+    """AC-2: load_profile() raises ValueError for path traversal in mode."""
+    from agent_fox.session.profiles import load_profile
+
+    with pytest.raises(ValueError, match="mode"):
+        load_profile("coder", mode="../secret")
+
+
+def test_has_custom_profile_rejects_path_traversal(tmp_path: Path) -> None:
+    """AC-3: has_custom_profile() raises ValueError for path traversal in name."""
+    from agent_fox.session.profiles import has_custom_profile
+
+    with pytest.raises(ValueError, match="name"):
+        has_custom_profile("../../etc", tmp_path)
+
+
+def test_load_profile_safe_names_accepted() -> None:
+    """AC-4: load_profile() accepts valid alphanumeric/hyphen/underscore names."""
+    from agent_fox.session.profiles import load_profile
+
+    # Should not raise — both are safe names.
+    result = load_profile("coder", mode="fix")
+    assert isinstance(result, str)
+    assert len(result) > 0
+
+
+def test_has_custom_profile_safe_name_accepted(tmp_path: Path) -> None:
+    """AC-4: has_custom_profile() accepts a valid name without raising."""
+    from agent_fox.session.profiles import has_custom_profile
+
+    # Should not raise; returns a boolean.
+    result = has_custom_profile("coder", tmp_path)
+    assert isinstance(result, bool)
