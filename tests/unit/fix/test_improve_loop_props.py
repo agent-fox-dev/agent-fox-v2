@@ -80,7 +80,7 @@ class TestTerminationBound:
                 "agent_fox.fix.improve.load_review_context",
                 return_value="",
             ),
-            patch("agent_fox.fix.improve.subprocess.run"),
+            patch("agent_fox.fix.improve.run_git_sync", return_value=(0, "", "")),
         ):
             result = await run_improve_loop(
                 project_root=tmp_dir,

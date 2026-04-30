@@ -123,6 +123,46 @@ async def run_git(
     return returncode, stdout, stderr
 
 
+def run_git_sync(
+    args: list[str],
+    cwd: Path,
+    *,
+    check: bool = False,
+) -> tuple[int, str, str]:
+    """Synchronous counterpart to :func:`run_git`.
+
+    Returns ``(returncode, stdout, stderr)``.  When *check* is True and
+    the command fails, raises :class:`WorkspaceError`.
+    """
+    import subprocess
+
+    env = os.environ.copy()
+    env["GIT_TERMINAL_PROMPT"] = "0"
+
+    try:
+        result = subprocess.run(
+            ["git", *args],
+            cwd=str(cwd),
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        if check:
+            raise WorkspaceError(f"git {args[0] if args else 'unknown'} failed: {exc}") from exc
+        return -1, "", str(exc)
+
+    if check and result.returncode != 0:
+        subcommand = args[0] if args else "unknown"
+        raise WorkspaceError(
+            f"git {subcommand} failed (exit code {result.returncode})",
+            command=" ".join(["git", *args]),
+            returncode=result.returncode,
+        )
+
+    return result.returncode, result.stdout, result.stderr
+
+
 async def create_branch(
     repo_path: Path,
     branch_name: str,
