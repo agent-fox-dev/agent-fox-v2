@@ -809,3 +809,182 @@ class TestAC6AuditMaxRetriesConfig:
             "Pre-review should use the generic EscalationLadder (retries_before_escalation=2), not audit_max_retries=0"
         )
         block_task_fn.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Issue #572: deferred-to-future-group findings must not block the coder.
+# ---------------------------------------------------------------------------
+
+
+class TestDeferredFindingsFiltered:
+    """AC-2 (#572): _evaluate_audit_review_blocking() filters out findings whose
+    descriptions indicate deferral to a task group number greater than the
+    current group."""
+
+    def test_deferred_to_future_group_does_not_block(self, audit_conn: duckdb.DuckDBPyConnection) -> None:
+        """'Deferred to task group 4' for task_group='1' → should_block=False."""
+        finding = _make_audit_finding(
+            severity="critical",
+            description="Integration smoke test. Deferred to task group 4.",
+            spec_name="foo",
+            task_group="1",
+            session_id="foo:audit:1",
+        )
+        insert_findings(audit_conn, [finding])
+
+        record = _make_audit_review_record(node_id="foo:1:reviewer:audit-review")
+        decision = evaluate_review_blocking(record, None, audit_conn, mode="audit-review")
+
+        assert decision.should_block is False
+
+    def test_assigned_to_future_group_does_not_block(self, audit_conn: duckdb.DuckDBPyConnection) -> None:
+        """'Assigned to task group 4, not yet started' → should_block=False."""
+        finding = _make_audit_finding(
+            severity="critical",
+            description="Integration smoke test. Assigned to task group 4, not yet started.",
+            spec_name="foo",
+            task_group="1",
+            session_id="foo:audit:1",
+        )
+        insert_findings(audit_conn, [finding])
+
+        record = _make_audit_review_record(node_id="foo:1:reviewer:audit-review")
+        decision = evaluate_review_blocking(record, None, audit_conn, mode="audit-review")
+
+        assert decision.should_block is False
+
+    def test_major_deferred_finding_does_not_block(self, audit_conn: duckdb.DuckDBPyConnection) -> None:
+        """Major-severity deferred finding is also filtered → should_block=False."""
+        finding = _make_audit_finding(
+            severity="major",
+            description="Startup smoke test. Deferred to task group 3.",
+            spec_name="foo",
+            task_group="1",
+            session_id="foo:audit:1",
+        )
+        insert_findings(audit_conn, [finding])
+
+        record = _make_audit_review_record(node_id="foo:1:reviewer:audit-review")
+        decision = evaluate_review_blocking(record, None, audit_conn, mode="audit-review")
+
+        assert decision.should_block is False
+
+    def test_deferred_to_current_group_still_blocks(self, audit_conn: duckdb.DuckDBPyConnection) -> None:
+        """'task group 1' reference for task_group='1' is NOT deferred → should_block=True."""
+        finding = _make_audit_finding(
+            severity="critical",
+            description="Smoke test for task group 1 is missing assertions.",
+            spec_name="foo",
+            task_group="1",
+            session_id="foo:audit:1",
+        )
+        insert_findings(audit_conn, [finding])
+
+        record = _make_audit_review_record(node_id="foo:1:reviewer:audit-review")
+        decision = evaluate_review_blocking(record, None, audit_conn, mode="audit-review")
+
+        # "task group 1" == current group, so not deferred → still blocks
+        assert decision.should_block is True
+
+
+class TestNonDeferredFindingsStillBlock:
+    """AC-3 (#572): Non-deferred critical findings still trigger blocking after the fix."""
+
+    def test_non_deferred_finding_blocks(self, audit_conn: duckdb.DuckDBPyConnection) -> None:
+        """Finding without deferral language → should_block=True."""
+        finding = _make_audit_finding(
+            severity="critical",
+            description="Test lacks assertion after DB write",
+            spec_name="foo",
+            task_group="1",
+            session_id="foo:audit:1",
+        )
+        insert_findings(audit_conn, [finding])
+
+        record = _make_audit_review_record(node_id="foo:1:reviewer:audit-review")
+        decision = evaluate_review_blocking(record, None, audit_conn, mode="audit-review")
+
+        assert decision.should_block is True
+
+    def test_deferred_and_non_deferred_together_still_blocks(
+        self, audit_conn: duckdb.DuckDBPyConnection
+    ) -> None:
+        """When a real gap exists alongside a deferred finding, should_block=True."""
+        audit_conn.execute(
+            """
+            INSERT INTO review_findings
+                (id, severity, description, spec_name, task_group, session_id, category)
+            VALUES (gen_random_uuid(), 'critical', 'Test lacks assertion after DB write',
+                    'foo', '1', 'foo:audit:1', 'audit'),
+                   (gen_random_uuid(), 'critical', 'Integration smoke test. Deferred to task group 4.',
+                    'foo', '1', 'foo:audit:2', 'audit')
+            """
+        )
+
+        record = _make_audit_review_record(node_id="foo:1:reviewer:audit-review")
+        decision = evaluate_review_blocking(record, None, audit_conn, mode="audit-review")
+
+        assert decision.should_block is True
+
+
+class TestDeferralPatternMatching:
+    """AC-4 (#572): Pattern matches all observed phrasings from the issue log."""
+
+    @pytest.mark.parametrize(
+        "description",
+        [
+            "End-to-end integration smoke test. tests/locking-service/ absent — deferred to task group 4.",
+            "Integration smoke test. Assigned to task group 4, not yet started.",
+            "Integration smoke test. Deferred to task group 4.",
+        ],
+    )
+    def test_all_observed_phrasings_filtered(
+        self, audit_conn: duckdb.DuckDBPyConnection, description: str
+    ) -> None:
+        """All phrasings observed in the real run log are identified as deferred."""
+        audit_conn.execute(
+            """
+            INSERT INTO review_findings
+                (id, severity, description, spec_name, task_group, session_id, category)
+            VALUES (gen_random_uuid(), 'critical', ?, 'foo', '1', 'foo:audit:1', 'audit')
+            """,
+            [description],
+        )
+
+        record = _make_audit_review_record(node_id="foo:1:reviewer:audit-review")
+        decision = evaluate_review_blocking(record, None, audit_conn, mode="audit-review")
+
+        assert decision.should_block is False, (
+            f"Description should be detected as deferred to a future group: {description!r}"
+        )
+
+
+class TestOnlyDeferredNoBlock:
+    """AC-5 (#572): When all audit findings are deferred, check_skeptic_blocking()
+    returns False and does not trigger a coder retry."""
+
+    def test_only_deferred_findings_no_retry(self, audit_conn: duckdb.DuckDBPyConnection) -> None:
+        """100% deferred findings for (foo, 2) → check_skeptic_blocking returns False."""
+        deferred_descriptions = [
+            "Integration smoke test. Deferred to task group 4.",
+            "Startup smoke test. Deferred to task group 4.",
+            "Shutdown smoke test. Deferred to task group 4.",
+        ]
+        for i, desc in enumerate(deferred_descriptions):
+            audit_conn.execute(
+                """
+                INSERT INTO review_findings
+                    (id, severity, description, spec_name, task_group, session_id, category)
+                VALUES (gen_random_uuid(), 'critical', ?, 'foo', '2', ?, 'audit')
+                """,
+                [desc, f"foo:audit:{i}"],
+            )
+
+        handler, state, block_task_fn = _make_audit_review_handler(audit_conn)
+        record = _make_audit_review_record(node_id="foo:2:reviewer:audit-review")
+
+        result = handler.check_skeptic_blocking(record, state)
+
+        assert result is False
+        block_task_fn.assert_not_called()
+        assert state.node_states["foo:2"] == "completed"
