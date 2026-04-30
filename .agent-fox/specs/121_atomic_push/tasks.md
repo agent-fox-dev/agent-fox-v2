@@ -134,34 +134,34 @@ git primitives first, then retry orchestration, then caller integration.
     - [x] No linter warnings introduced: `make check`
     - [x] Requirements 121-REQ-2.*, 121-REQ-3.* acceptance criteria met
 
-- [ ] 4. Wire atomic push into harvest and session lifecycle
-  - [ ] 4.1 Modify `harvest()` signature in `agent_fox/workspace/harvest.py`
+- [x] 4. Wire atomic push into harvest and session lifecycle
+  - [x] 4.1 Modify `harvest()` signature in `agent_fox/workspace/harvest.py`
     - Add parameters: `push: bool = True`, `audit_sink=None`, `run_id=None`, `node_id=None`
     - Pass through to `_harvest_under_lock()`
     - _Requirements: 121-REQ-5.1, 121-REQ-5.2_
 
-  - [ ] 4.2 Modify `_harvest_under_lock()` to call `_push_with_retry`
+  - [x] 4.2 Modify `_harvest_under_lock()` to call `_push_with_retry`
     - Add parameters: `push`, `audit_sink`, `run_id`, `node_id`
     - After successful squash-merge commit, if `push=True`: call `_push_with_retry()`
     - Check for remote configured before pushing (skip if no remote)
     - Push happens before lock release (still inside `async with lock:`)
     - _Requirements: 121-REQ-1.1, 121-REQ-1.2, 121-REQ-1.3, 121-REQ-1.4, 121-REQ-1.E1_
 
-  - [ ] 4.3 Modify `post_harvest_integrate()` to accept `push_already_done`
+  - [x] 4.3 Modify `post_harvest_integrate()` to accept `push_already_done`
     - Add parameter: `push_already_done: bool = False`
     - When `push_already_done=True`, skip the call to `_push_develop_if_pushable()`
     - _Requirements: 121-REQ-5.3, 121-REQ-5.E1_
 
-  - [ ] 4.4 Update `_harvest_and_integrate()` in `agent_fox/engine/session_lifecycle.py`
+  - [x] 4.4 Update `_harvest_and_integrate()` in `agent_fox/engine/session_lifecycle.py`
     - Pass `push=True`, `audit_sink=self._sink`, `run_id=self._run_id`, `node_id=node_id` to `harvest()`
     - Pass `push_already_done=True` to `post_harvest_integrate()` when harvest was called with `push=True`
     - _Requirements: 121-REQ-1.1, 121-REQ-5.E1_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Spec tests pass: `uv run pytest -q tests/workspace/test_atomic_push.py -k "test_push_executes or test_no_concurrent or test_lock_released or test_push_failure_triggers or test_retries_happen or test_harvest_push or test_no_remote or test_smoke"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `make check`
-    - [ ] Requirements 121-REQ-1.*, 121-REQ-5.* acceptance criteria met
+  - [x] 4.V Verify task group 4
+    - [x] Spec tests pass: `uv run pytest -q tests/workspace/test_atomic_push.py -k "test_push_executes or test_no_concurrent or test_lock_released or test_push_failure_triggers or test_retries_happen or test_harvest_push or test_no_remote or test_smoke"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `make check`
+    - [x] Requirements 121-REQ-1.*, 121-REQ-5.* acceptance criteria met
 
 - [ ] 5. Lock reentrancy for sync
   - [ ] 5.1 Modify `_sync_develop_with_remote()` in `agent_fox/workspace/develop.py`

@@ -23,6 +23,7 @@ from agent_fox.workspace import (
     checkout_branch,
     fetch_remote,
     get_changed_files,
+    get_remote_url,
     has_new_commits,
     push_to_remote,
     rebase_onto,
@@ -45,6 +46,10 @@ async def harvest(
     dev_branch: str = "develop",
     *,
     force_clean: bool = False,
+    push: bool = True,
+    audit_sink: object | None = None,
+    run_id: str | None = None,
+    node_id: str | None = None,
 ) -> list[str]:
     """Integrate a workspace's changes into the development branch.
 
@@ -57,16 +62,24 @@ async def harvest(
     2. Checkout dev_branch in the main repo.
     3. Squash-merge the feature branch (single commit, no merge commit).
     4. On conflict, spawn the merge agent to resolve.
-    5. Return the list of changed files.
+    5. If ``push=True``, push develop to origin inside the lock.
+    6. Return the list of changed files.
 
     Args:
         force_clean: When True, remove divergent untracked files instead
             of raising IntegrationError. Defaults to False.
+        push: When True (default), push develop to origin inside the
+            merge lock after a successful merge. When False, skip the
+            push (pre-fix behavior). Requirements: 121-REQ-5.1, 121-REQ-5.2
+        audit_sink: Optional audit sink for push failure/retry events.
+        run_id: Optional run ID for audit event context.
+        node_id: Optional node ID for audit event context.
 
     Raises:
         IntegrationError: If merge fails after merge-agent attempt.
 
-    Requirements: 118-REQ-2.3
+    Requirements: 118-REQ-2.3, 121-REQ-1.1, 121-REQ-1.2, 121-REQ-1.3,
+                  121-REQ-1.4, 121-REQ-5.1, 121-REQ-5.2
     """
     # Step 1: Check for new commits (03-REQ-7.E2)
     if not await has_new_commits(repo_root, workspace.branch, dev_branch):
@@ -77,7 +90,9 @@ async def harvest(
         )
         return []
 
-    # Wrap all merge operations in the merge lock (45-REQ-3.1)
+    # Wrap all merge and push operations in the merge lock (45-REQ-3.1,
+    # 121-REQ-1.1, 121-REQ-1.2). The push happens inside the lock to
+    # prevent concurrent sessions from interleaving their pushes.
     lock = MergeLock(repo_root)
     async with lock:
         return await _harvest_under_lock(
@@ -85,6 +100,10 @@ async def harvest(
             workspace,
             dev_branch,
             force_clean=force_clean,
+            push=push,
+            audit_sink=audit_sink,
+            run_id=run_id,
+            node_id=node_id,
         )
 
 
@@ -306,6 +325,10 @@ async def _harvest_under_lock(
     dev_branch: str,
     *,
     force_clean: bool = False,
+    push: bool = True,
+    audit_sink: object | None = None,
+    run_id: str | None = None,
+    node_id: str | None = None,
 ) -> list[str]:
     """Execute the harvest squash-merge under the merge lock.
 
@@ -313,9 +336,13 @@ async def _harvest_under_lock(
     dev_branch regardless of the feature branch topology.  On conflict,
     spawns the merge agent to resolve.
 
+    After a successful merge, if ``push=True``, pushes develop to origin
+    via ``_push_with_retry()`` while the lock is still held (121-REQ-1.1).
+
     Called from harvest() after the lock is acquired.
 
-    Requirements: 45-REQ-4.1, 45-REQ-6.1, 118-REQ-2.3
+    Requirements: 45-REQ-4.1, 45-REQ-6.1, 118-REQ-2.3,
+                  121-REQ-1.1, 121-REQ-1.3, 121-REQ-1.4, 121-REQ-1.E1
     """
     # Ensure a clean working tree before any merge operation. A prior
     # failed harvest may have left tracked files dirty, which would cause
@@ -390,6 +417,22 @@ async def _harvest_under_lock(
         workspace.branch,
         dev_branch,
     )
+
+    # Push develop to origin inside the lock (121-REQ-1.1, 121-REQ-1.3).
+    # The push happens while the merge lock is still held so concurrent
+    # sessions cannot interleave their pushes.
+    if push:
+        # Check if a remote is configured before pushing (121-REQ-1.E1).
+        remote_url = await get_remote_url(repo_root)
+        if remote_url is not None:
+            await _push_with_retry(
+                repo_root,
+                branch=dev_branch,
+                audit_sink=audit_sink,
+                run_id=run_id,
+                node_id=node_id,
+            )
+
     return changed_files
 
 
@@ -614,18 +657,27 @@ async def _push_develop_if_pushable(repo_root: Path) -> None:
 async def post_harvest_integrate(
     repo_root: Path,
     workspace: WorkspaceInfo,
+    *,
+    push_already_done: bool = False,
 ) -> None:
     """Push develop to origin after harvest.
 
     Feature branches are kept local-only and are not pushed to the remote.
     The workspace parameter is retained for logging context.
 
+    When ``push_already_done=True``, the push is skipped because
+    ``harvest()`` already pushed inside the merge lock (121-REQ-5.3,
+    121-REQ-5.E1).
+
     All remote operations are best-effort: failures are logged as warnings
     and never raised.
 
     Requirements: 65-REQ-3.2, 65-REQ-3.3, 65-REQ-3.4, 65-REQ-3.5,
                   65-REQ-3.E2, 78-REQ-1.1, 78-REQ-1.2, 78-REQ-1.3,
-                  78-REQ-1.E1
+                  78-REQ-1.E1, 121-REQ-5.3, 121-REQ-5.E1
     """
+    if push_already_done:
+        return
+
     # Push only develop — feature branches are local-only (78-REQ-1.1)
     await _push_develop_if_pushable(repo_root)

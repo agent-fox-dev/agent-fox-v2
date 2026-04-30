@@ -22,7 +22,6 @@ from agent_fox.workspace import WorkspaceInfo
 from agent_fox.workspace.harvest import harvest, post_harvest_integrate
 from agent_fox.workspace.merge_lock import MergeLock
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -93,8 +92,10 @@ def repo_root(tmp_path: Path) -> Path:
 def _standard_harvest_mocks() -> dict:
     """Return a dict of context managers for standard harvest mocking.
 
-    Mocks has_new_commits, get_changed_files, checkout_branch, and run_git
-    to simulate a successful squash-merge without touching real git.
+    Mocks has_new_commits, get_changed_files, checkout_branch, run_git,
+    and get_remote_url to simulate a successful squash-merge without
+    touching real git.  The get_remote_url mock returns a URL so that
+    push-enabled tests proceed to push_to_remote as expected.
     """
     return {
         "has_new_commits": patch(
@@ -115,6 +116,11 @@ def _standard_harvest_mocks() -> dict:
             "agent_fox.workspace.harvest.run_git",
             new_callable=AsyncMock,
             return_value=(0, "", ""),
+        ),
+        "get_remote_url": patch(
+            "agent_fox.workspace.harvest.get_remote_url",
+            new_callable=AsyncMock,
+            return_value="https://origin.example.com/repo.git",
         ),
     }
 
@@ -150,6 +156,7 @@ class TestPushExecutesInsideMergeLock:
             mocks["get_changed_files"],
             mocks["checkout_branch"],
             mocks["run_git"],
+            mocks["get_remote_url"],
             patch(
                 "agent_fox.workspace.harvest.push_to_remote",
                 side_effect=tracking_push,
@@ -229,6 +236,11 @@ class TestNoConcurrentMergeWhilePushing:
                 side_effect=tracking_run_git,
             ),
             patch(
+                "agent_fox.workspace.harvest.get_remote_url",
+                new_callable=AsyncMock,
+                return_value="https://origin.example.com/repo.git",
+            ),
+            patch(
                 "agent_fox.workspace.harvest.push_to_remote",
                 side_effect=slow_push,
             ),
@@ -271,6 +283,7 @@ class TestLockReleasedAfterSuccessfulPush:
             mocks["get_changed_files"],
             mocks["checkout_branch"],
             mocks["run_git"],
+            mocks["get_remote_url"],
             patch(
                 "agent_fox.workspace.harvest.push_to_remote",
                 new_callable=AsyncMock,
@@ -314,6 +327,7 @@ class TestPushFailureTriggersRetry:
             mocks["get_changed_files"],
             mocks["checkout_branch"],
             mocks["run_git"],
+            mocks["get_remote_url"],
             patch(
                 "agent_fox.workspace.harvest.push_to_remote",
                 side_effect=mock_push,
@@ -574,6 +588,7 @@ class TestRetriesHappenUnderMergeLock:
             mocks["get_changed_files"],
             mocks["checkout_branch"],
             mocks["run_git"],
+            mocks["get_remote_url"],
             patch(
                 "agent_fox.workspace.harvest.push_to_remote",
                 side_effect=tracking_push,
@@ -904,6 +919,7 @@ class TestHarvestPushTrueThenPostHarvestSkips:
             mocks["get_changed_files"],
             mocks["checkout_branch"],
             mocks["run_git"],
+            mocks["get_remote_url"],
             patch(
                 "agent_fox.workspace.harvest.push_to_remote",
                 side_effect=counting_push,
@@ -953,6 +969,7 @@ class TestHarvestPushFalseSkipsPush:
             mocks["get_changed_files"],
             mocks["checkout_branch"],
             mocks["run_git"],
+            mocks["get_remote_url"],
             patch(
                 "agent_fox.workspace.harvest.push_to_remote",
                 side_effect=should_not_push,
@@ -1001,10 +1018,9 @@ class TestNoRemoteConfiguredSkipsPush:
                 side_effect=should_not_push,
             ),
             patch(
-                "agent_fox.workspace.git.get_remote_url",
+                "agent_fox.workspace.harvest.get_remote_url",
                 new_callable=AsyncMock,
                 return_value=None,
-                create=True,
             ),
         ):
             result = await harvest(repo_root, fake_workspace, push=True)
@@ -1057,7 +1073,7 @@ class TestFetchFailsDuringRetry:
                 side_effect=mock_rebase,
             ),
         ):
-            result = await _push_with_retry(repo_root, "develop")
+            await _push_with_retry(repo_root, "develop")
 
         assert push_count >= 2
 
@@ -1345,7 +1361,7 @@ class TestPropertyBoundedRetryCount:
                     max_retries=max_retries,
                 )
 
-        asyncio.get_event_loop().run_until_complete(run_test())
+        asyncio.run(run_test())
         assert call_count <= max_retries + 1
 
 
@@ -1419,7 +1435,7 @@ class TestPropertyAuditEventCompleteness:
                     run_id="test-run",
                 )
 
-        asyncio.get_event_loop().run_until_complete(run_test())
+        asyncio.run(run_test())
 
         failed_events = [
             e for e in sink.events
@@ -1486,6 +1502,7 @@ class TestPropertyNoDoublePush:
                 mocks["get_changed_files"],
                 mocks["checkout_branch"],
                 mocks["run_git"],
+                mocks["get_remote_url"],
                 patch(
                     "agent_fox.workspace.harvest.push_to_remote",
                     side_effect=counting_push,
@@ -1502,7 +1519,7 @@ class TestPropertyNoDoublePush:
                     push_already_done=push_flag,
                 )
 
-        asyncio.get_event_loop().run_until_complete(run_test())
+        asyncio.run(run_test())
         assert push_count <= 1
 
 
@@ -1552,6 +1569,7 @@ class TestSmokeHarvestPushRetry:
             mocks["get_changed_files"],
             mocks["checkout_branch"],
             mocks["run_git"],
+            mocks["get_remote_url"],
             patch(
                 "agent_fox.workspace.harvest.push_to_remote",
                 side_effect=tracking_push,
@@ -1617,6 +1635,7 @@ class TestSmokeHarvestPushSuccessFirstTry:
             mocks["get_changed_files"],
             mocks["checkout_branch"],
             mocks["run_git"],
+            mocks["get_remote_url"],
             patch(
                 "agent_fox.workspace.harvest.push_to_remote",
                 new_callable=AsyncMock,
