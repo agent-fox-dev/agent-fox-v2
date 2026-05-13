@@ -21,6 +21,7 @@ from agent_fox.spec.discovery import discover_specs
 
 
 @click.command("plan")
+@click.option("--dry-run", is_flag=True, help="Show plan analysis without persisting to database")
 @click.option("--fast", is_flag=True, help="Exclude optional tasks")
 @click.option("--spec", "filter_spec", default=None, help="Plan a single spec")
 @click.option(
@@ -32,6 +33,7 @@ from agent_fox.spec.discovery import discover_specs
 @click.pass_context
 def plan_cmd(
     ctx: click.Context,
+    dry_run: bool,
     fast: bool,
     filter_spec: str | None,
     specs_dir: str | None,
@@ -83,6 +85,44 @@ def plan_cmd(
         return
     finally:
         spinner.stop()
+
+    # 122-REQ-1.1: dry-run skips persistence and shows analysis
+    if dry_run:
+        from agent_fox.graph.analyzer import compute_phases, critical_path, group_edges
+        from agent_fox.graph.planner import format_plan_analysis
+
+        phases = compute_phases(graph)
+        path = critical_path(graph)
+        grouped = group_edges(graph)
+
+        try:
+            specs = discover_specs(specs_path, filter_spec=filter_spec)
+        except PlanError:
+            specs = []
+
+        if json_mode:
+            from dataclasses import asdict
+
+            from agent_fox.cli.json_io import emit
+
+            emit(
+                {
+                    "nodes": {nid: asdict(node) for nid, node in graph.nodes.items()},
+                    "edges": [asdict(e) for e in graph.edges],
+                    "order": graph.order,
+                    "metadata": asdict(graph.metadata),
+                    "phases": [{"number": p.number, "node_ids": p.node_ids} for p in phases],
+                    "critical_path": path,
+                    "grouped_edges": {
+                        "intra_spec": [asdict(e) for e in grouped.intra_spec],
+                        "cross_spec": [asdict(e) for e in grouped.cross_spec],
+                    },
+                }
+            )
+            return
+
+        click.echo(format_plan_analysis(graph, phases, path, grouped, specs))
+        return
 
     # Persist the plan to DuckDB (105-REQ-5.2)
     from agent_fox.knowledge.db import open_knowledge_store

@@ -30,36 +30,36 @@ wiring verification (group 5).
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create test file structure
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create test file structure
     - Create `tests/unit/graph/test_analyzer.py` for analyzer unit + property tests
     - Create `tests/unit/graph/test_planner_analyze.py` for run_plan analyze tests
     - Create `tests/integration/cli/test_plan_analyze.py` for CLI integration tests
     - Use existing test framework conventions (pytest, Click CliRunner, hypothesis)
     - _Test Spec: TS-122-1 through TS-122-17, TS-122-E1 through TS-122-E7, TS-122-P1 through TS-122-P8, TS-122-SMOKE-1 through TS-122-SMOKE-4_
 
-  - [ ] 1.2 Translate unit tests for analyzer functions
+  - [x] 1.2 Translate unit tests for analyzer functions
     - TS-122-4: compute_phases with diamond graph
     - TS-122-7: group_edges partitioning
     - TS-122-9: critical_path longest path
     - TS-122-11: critical_path deterministic tie-break
     - _Test Spec: TS-122-4, TS-122-7, TS-122-9, TS-122-11_
 
-  - [ ] 1.3 Translate unit tests for formatter
+  - [x] 1.3 Translate unit tests for formatter
     - TS-122-5: format_plan_analysis includes phase headings
     - TS-122-6: format_plan_analysis summary line
     - TS-122-8: edge display format
     - TS-122-10: critical path display
     - _Test Spec: TS-122-5, TS-122-6, TS-122-8, TS-122-10_
 
-  - [ ] 1.4 Translate edge case tests
+  - [x] 1.4 Translate edge case tests
     - TS-122-E3: single node phases
     - TS-122-E4: no cross-spec edges
     - TS-122-E5: single node critical path
     - TS-122-E6: empty graph critical path
     - _Test Spec: TS-122-E3, TS-122-E4, TS-122-E5, TS-122-E6_
 
-  - [ ] 1.5 Translate property tests
+  - [x] 1.5 Translate property tests
     - TS-122-P1: phase completeness
     - TS-122-P2: phase ordering respects dependencies
     - TS-122-P3: critical path is valid path
@@ -70,7 +70,7 @@ wiring verification (group 5).
     - TS-122-P8: phase determinism
     - _Test Spec: TS-122-P1 through TS-122-P8_
 
-  - [ ] 1.6 Translate integration and smoke tests
+  - [x] 1.6 Translate integration and smoke tests
     - TS-122-1: analyze skips persistence
     - TS-122-2: normal plan persists
     - TS-122-3: analyze exit codes
@@ -86,10 +86,10 @@ wiring verification (group 5).
     - TS-122-SMOKE-1 through TS-122-SMOKE-4
     - _Test Spec: TS-122-1, TS-122-2, TS-122-3, TS-122-12 through TS-122-17, TS-122-E1, TS-122-E2, TS-122-E7, TS-122-SMOKE-1 through TS-122-SMOKE-4_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/`
 
 - [ ] 2. Implement analyzer module
   - [ ] 2.1 Create `agent_fox/graph/analyzer.py` with data types

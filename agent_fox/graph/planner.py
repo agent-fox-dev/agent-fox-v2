@@ -151,6 +151,20 @@ def format_plan_summary(graph: TaskGraph, specs: list[SpecInfo]) -> str:
     return "\n".join(lines)
 
 
+def format_plan_analysis(
+    graph: TaskGraph,
+    phases: list,
+    path: list[str],
+    grouped: object,
+    specs: list[SpecInfo],
+) -> str:
+    """Format rich plan analysis for human-readable output.
+
+    Requirements: 122-REQ-2.2, 122-REQ-2.3, 122-REQ-3.2, 122-REQ-4.2, 122-REQ-3.E1
+    """
+    raise NotImplementedError("format_plan_analysis not yet implemented")
+
+
 def run_plan(
     config: AgentFoxConfig,
     *,
@@ -158,6 +172,7 @@ def run_plan(
     force: bool = False,
     fast: bool = False,
     filter_spec: str | None = None,
+    dry_run: bool = False,
 ) -> TaskGraph:
     """Build or rebuild the task graph.
 
@@ -173,11 +188,8 @@ def run_plan(
     Returns:
         A fully resolved TaskGraph.
 
-    Requirements: 59-REQ-5.1, 59-REQ-5.2, 59-REQ-5.3
+    Requirements: 59-REQ-5.1, 59-REQ-5.2, 59-REQ-5.3, 122-REQ-6.1, 122-REQ-6.2
     """
-    from agent_fox.graph.persistence import save_plan
-    from agent_fox.knowledge.db import open_knowledge_store
-
     if specs_dir is not None:
         resolved_specs_dir = specs_dir
     else:
@@ -187,10 +199,15 @@ def run_plan(
 
     # Always rebuild — caching was removed by spec 63
     graph = build_plan(resolved_specs_dir, filter_spec, fast, config)
-    knowledge_db = open_knowledge_store(config.knowledge)
-    try:
-        save_plan(graph, knowledge_db.connection)
-    finally:
-        knowledge_db.close()
+
+    if not dry_run:
+        from agent_fox.graph.persistence import save_plan
+        from agent_fox.knowledge.db import open_knowledge_store
+
+        knowledge_db = open_knowledge_store(config.knowledge)
+        try:
+            save_plan(graph, knowledge_db.connection)
+        finally:
+            knowledge_db.close()
 
     return graph
