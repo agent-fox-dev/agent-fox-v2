@@ -160,9 +160,9 @@ wiring verification (group 5).
     - [x] `docs/cli-reference.md` updated with --dry-run flag
     - [x] All existing tests still pass: `uv run pytest -q`
 
-- [ ] 5. Wiring verification
+- [x] 5. Wiring verification
 
-  - [ ] 5.1 Trace every execution path from design.md end-to-end
+  - [x] 5.1 Trace every execution path from design.md end-to-end
     - For each path, verify the entry point actually calls the next function
       in the chain (read the calling code, do not assume)
     - Confirm no function in the chain is a stub (`return []`, `return None`,
@@ -171,25 +171,27 @@ wiring verification (group 5).
       satisfy this check
     - _Requirements: all_
 
-  - [ ] 5.2 Verify return values propagate correctly
+  - [x] 5.2 Verify return values propagate correctly
     - For every function in this spec that returns data consumed by a caller,
       confirm the caller receives and uses the return value
     - Grep for callers of each such function; confirm none discards the return
     - _Requirements: all_
 
-  - [ ] 5.3 Run the integration smoke tests
+  - [x] 5.3 Run the integration smoke tests
     - All `TS-122-SMOKE-*` tests pass using real components (no stub bypass)
     - _Test Spec: TS-122-SMOKE-1 through TS-122-SMOKE-4_
 
-  - [ ] 5.4 Stub / dead-code audit
+  - [x] 5.4 Stub / dead-code audit
     - Search all files touched by this spec for: `return []`, `return None`
       on non-Optional returns, `pass` in non-abstract methods, `# TODO`,
       `# stub`, `override point`, `NotImplementedError`
     - Each hit must be either: (a) justified with a comment explaining why it
       is intentional, or (b) replaced with a real implementation
     - Document any intentional stubs here with rationale
+    - `analyzer.py:43` and `analyzer.py:85`: `return []` are intentional
+      guard clauses for empty graphs (per 122-REQ-4.E2). Not stubs.
 
-  - [ ] 5.5 Cross-spec entry point verification
+  - [x] 5.5 Cross-spec entry point verification
     - For each execution path whose entry point is owned by another spec
       (e.g., plan_cmd is defined by spec 02), grep the codebase to confirm
       the entry point is actually called from production code — not just tests
@@ -197,12 +199,12 @@ wiring verification (group 5).
       spec or file an issue and remove the path from design.md
     - _Requirements: all_
 
-  - [ ] 5.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live (traceable in code)
-    - [ ] All cross-spec entry points are called from production code
-    - [ ] All existing tests still pass: `uv run pytest -q`
+  - [x] 5.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] All cross-spec entry points are called from production code
+    - [x] All existing tests still pass: `uv run pytest -q`
 
 ## Traceability
 
