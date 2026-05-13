@@ -43,20 +43,24 @@ flowchart TD
 
 1. `cli/plan.py: plan_cmd(dry_run=True)` — parses flags, calls planner
 2. `graph/planner.py: build_plan(specs_dir, filter_spec, fast, config)` → `TaskGraph`
-3. `graph/analyzer.py: compute_phases(graph)` → `list[Phase]`
-4. `graph/analyzer.py: critical_path(graph)` → `list[str]`
-5. `graph/analyzer.py: group_edges(graph)` → `GroupedEdges`
-6. `graph/planner.py: format_plan_analysis(graph, phases, path, grouped, specs)` → `str`
-7. `cli/plan.py: click.echo(output)` — side effect: prints to stdout
+3. `graph/persistence.py: load_plan(conn)` → `TaskGraph | None` — read-only DB access to get node statuses
+4. `cli/plan.py` — merges persisted statuses into fresh graph, filters out COMPLETED nodes
+5. `graph/analyzer.py: compute_phases(graph)` → `list[Phase]`
+6. `graph/analyzer.py: critical_path(graph)` → `list[str]`
+7. `graph/analyzer.py: group_edges(graph)` → `GroupedEdges`
+8. `graph/planner.py: format_plan_analysis(graph, phases, path, grouped, specs)` → `str`
+9. `cli/plan.py: click.echo(output)` — side effect: prints to stdout
 
 ### Path 2: Plan with --dry-run --json
 
 1. `cli/plan.py: plan_cmd(dry_run=True, json_mode=True)` — parses flags
 2. `graph/planner.py: build_plan(specs_dir, filter_spec, fast, config)` → `TaskGraph`
-3. `graph/analyzer.py: compute_phases(graph)` → `list[Phase]`
-4. `graph/analyzer.py: critical_path(graph)` → `list[str]`
-5. `graph/analyzer.py: group_edges(graph)` → `GroupedEdges`
-6. `cli/plan.py: emit(analysis_dict)` — side effect: prints JSON to stdout
+3. `graph/persistence.py: load_plan(conn)` → `TaskGraph | None` — read-only DB access to get node statuses
+4. `cli/plan.py` — merges persisted statuses into fresh graph, filters out COMPLETED nodes
+5. `graph/analyzer.py: compute_phases(graph)` → `list[Phase]`
+6. `graph/analyzer.py: critical_path(graph)` → `list[str]`
+7. `graph/analyzer.py: group_edges(graph)` → `GroupedEdges`
+8. `cli/plan.py: emit(analysis_dict)` — side effect: prints JSON to stdout
 
 ### Path 3: Plan without --dry-run (unchanged)
 

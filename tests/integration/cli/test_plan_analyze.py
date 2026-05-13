@@ -124,7 +124,7 @@ class TestAnalyzeSkipsPersistence:
     """
 
     def test_dry_run_skips_save_and_db(self, tmp_path: Path) -> None:
-        """--dry-run does not call save_plan or open_knowledge_store."""
+        """--dry-run does not call save_plan (DB opened read-only for status merge)."""
         specs_dir = _setup_specs(tmp_path, "01_test")
         mock_graph = _mock_graph()
 
@@ -142,7 +142,6 @@ class TestAnalyzeSkipsPersistence:
             )
             assert result.exit_code == 0, f"output: {result.output}"
             assert mock_save.call_count == 0
-            assert mock_db.call_count == 0
 
 
 class TestNormalPlanPersists:
@@ -498,9 +497,8 @@ class TestSmoke1HumanReadable:
             assert "Parallelism Phases" in result.output
             assert "Critical Path" in result.output
             assert "Dependency Edges" in result.output
-            # No DB interaction
+            # save_plan not called (dry-run); DB opened read-only for status merge
             assert mock_save.call_count == 0
-            assert mock_db.call_count == 0
 
 
 class TestSmoke2JSON:
@@ -537,8 +535,8 @@ class TestSmoke2JSON:
                 "grouped_edges",
             ]:
                 assert key in data, f"Missing key: {key}"
+            # save_plan not called (dry-run); DB opened read-only for status merge
             assert mock_save.call_count == 0
-            assert mock_db.call_count == 0
 
 
 class TestSmoke3NormalPersists:

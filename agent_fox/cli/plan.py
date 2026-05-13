@@ -118,6 +118,37 @@ def plan_cmd(
     if dry_run:
         from agent_fox.graph.analyzer import compute_phases, critical_path, group_edges
         from agent_fox.graph.planner import format_plan_analysis
+        from agent_fox.graph.types import NodeStatus
+
+        # 122-REQ-1.4: merge persisted statuses and filter completed nodes
+        try:
+            from agent_fox.graph.persistence import load_plan
+            from agent_fox.knowledge.db import open_knowledge_store
+
+            _db = open_knowledge_store(config.knowledge)
+            try:
+                persisted = load_plan(_db.connection)
+            finally:
+                _db.close()
+        except Exception:
+            persisted = None
+
+        if persisted:
+            for nid, node in graph.nodes.items():
+                if nid in persisted.nodes:
+                    node.status = persisted.nodes[nid].status
+
+        completed_ids = {
+            nid for nid, node in graph.nodes.items() if node.status == NodeStatus.COMPLETED
+        }
+        if completed_ids:
+            graph.nodes = {nid: n for nid, n in graph.nodes.items() if nid not in completed_ids}
+            graph.edges = [
+                e
+                for e in graph.edges
+                if e.source not in completed_ids and e.target not in completed_ids
+            ]
+            graph.order = [nid for nid in graph.order if nid not in completed_ids]
 
         phases = compute_phases(graph)
         path = critical_path(graph)

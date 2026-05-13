@@ -48,6 +48,11 @@ modifying the database, so that I can inspect the plan before committing it.
 3. [122-REQ-1.3] WHEN the user runs `plan --dry-run`, THE system SHALL
    exit with code 0 on success and code 1 on plan error.
 
+4. [122-REQ-1.4] WHEN the user runs `plan --dry-run`, THE system SHALL
+   read node statuses from the DuckDB knowledge store (read-only), merge
+   them into the freshly-built graph, and exclude all nodes with status
+   COMPLETED from the analysis output (phases, critical path, edges).
+
 #### Edge Cases
 
 1. [122-REQ-1.E1] IF the specs directory is empty or contains no valid
@@ -57,6 +62,10 @@ modifying the database, so that I can inspect the plan before committing it.
 2. [122-REQ-1.E2] IF a dependency cycle is detected during `--dry-run`,
    THEN THE system SHALL report the cycle error and exit with code 1 (same
    behavior as normal plan).
+
+3. [122-REQ-1.E3] IF no persisted plan exists in the DuckDB knowledge
+   store when `--dry-run` is used, THEN THE system SHALL treat all nodes
+   as pending and display the full plan (no filtering).
 
 ### Requirement 2: Parallelism Phase Analysis
 
