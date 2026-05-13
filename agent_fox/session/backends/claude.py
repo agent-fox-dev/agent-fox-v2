@@ -84,7 +84,6 @@ class ClaudeBackend:
         archetype: str | None = None,
         max_turns: int | None = None,
         max_budget_usd: float | None = None,
-        fallback_model: str | None = None,
         thinking: dict[str, Any] | None = None,
     ) -> AsyncIterator[AgentMessage]:
         """Execute a session via the Claude SDK and yield canonical messages.
@@ -96,7 +95,7 @@ class ClaudeBackend:
         ``is_error=True`` instead of propagating the exception.
 
         Requirements: 26-REQ-2.3, 26-REQ-2.E1, 56-REQ-1.2, 56-REQ-2.2,
-                      56-REQ-3.2, 56-REQ-4.2, 56-REQ-5.E1
+                      56-REQ-4.2, 56-REQ-5.E1
         """
         # Build the can_use_tool callback if a permission_callback is provided
         can_use_tool = None
@@ -116,12 +115,10 @@ class ClaudeBackend:
             can_use_tool = _can_use_tool_wrapper
 
         # Build extra_args for parameters not directly supported by ClaudeAgentOptions
-        # (56-REQ-2.2, 56-REQ-3.2)
+        # (56-REQ-2.2)
         extra_args: dict[str, str | None] = {}
         if max_budget_usd:
             extra_args["max-budget-usd"] = str(max_budget_usd)
-        if fallback_model:
-            extra_args["fallback-model"] = fallback_model
 
         # Build core options — max_turns is a native ClaudeAgentOptions field
         options = ClaudeAgentOptions(

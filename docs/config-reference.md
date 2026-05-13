@@ -109,7 +109,6 @@ to a more capable model tier based on past session outcomes.
 | `max_timeout_retries` | int | `2` | >= 0 | Maximum timeout retries before falling through to escalation (0 = disable timeout handling) |
 | `timeout_multiplier` | float | `1.5` | >= 1.0 | Factor by which `max_turns` and `session_timeout` are extended on each timeout retry |
 | `timeout_ceiling_factor` | float | `2.0` | >= 1.0 | Maximum `session_timeout` as a multiple of the original configured value |
-| `fallback_model` | str | `"claude-sonnet-4-6"` | -- | Fallback model ID when the primary model is unavailable |
 
 **Example:**
 
@@ -119,7 +118,6 @@ retries_before_escalation = 2
 max_timeout_retries = 3
 timeout_multiplier = 1.5
 timeout_ceiling_factor = 2.0
-fallback_model = "claude-sonnet-4-6"
 ```
 
 ---
@@ -131,7 +129,6 @@ fallback_model = "claude-sonnet-4-6"
 >
 > | Old field | New location |
 > |-----------|-------------|
-> | `fallback_model` | `[routing] fallback_model` |
 > | `coding` | `[archetypes.overrides.coder] model_tier` |
 
 Selects the model tier for each task category. Valid tier values are
@@ -141,7 +138,6 @@ Selects the model tier for each task category. Valid tier values are
 |-------|------|---------|--------|-------------|
 | `coding` | str | `"ADVANCED"` | -- | **Deprecated.** Model tier for coding tasks. Use `[archetypes.overrides.coder] model_tier` instead. |
 | `memory_extraction` | str | `"SIMPLE"` | -- | Model tier for memory/fact extraction |
-| `fallback_model` | str | `"claude-sonnet-4-6"` | -- | **Deprecated.** Fallback model ID. Use `[routing] fallback_model` instead. |
 
 **Migration example:**
 
@@ -149,12 +145,8 @@ Selects the model tier for each task category. Valid tier values are
 # Before (deprecated):
 [models]
 coding = "ADVANCED"
-fallback_model = "claude-sonnet-4-6"
 
 # After (preferred):
-[routing]
-fallback_model = "claude-sonnet-4-6"
-
 [archetypes.overrides.coder]
 model_tier = "ADVANCED"
 ```

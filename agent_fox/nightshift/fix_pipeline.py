@@ -168,8 +168,7 @@ class FixPipeline:
         """Run a single archetype session for an issue fix.
 
         Resolves SDK parameters (model, security, max_turns, thinking,
-        fallback, budget) per archetype, consistent with the regular
-        coding path.  Subclasses or tests can override this for mock
+        budget) per archetype, consistent with the regular coding path.  Subclasses or tests can override this for mock
         execution.
 
         Requirements: 61-REQ-6.3
@@ -204,7 +203,6 @@ class FixPipeline:
             config,
             archetype,
             mode=mode,
-            model_id=resolved_model_id,
         )
 
         return await run_session(
@@ -218,7 +216,6 @@ class FixPipeline:
             security_config=resolved_security,
             max_turns=params.max_turns,
             max_budget_usd=params.max_budget_usd,
-            fallback_model=params.fallback_model,
             thinking=params.thinking,
             archetype=archetype,
             sink_dispatcher=self._sink,

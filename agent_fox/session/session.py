@@ -78,7 +78,6 @@ async def run_session(
     run_id: str = "",
     max_turns: int | None = None,
     max_budget_usd: float | None = None,
-    fallback_model: str | None = None,
     thinking: dict[str, Any] | None = None,
     session_timeout: int | None = None,
     archetype: str | None = None,
@@ -109,7 +108,6 @@ async def run_session(
             Requirements: 56-REQ-1.2
         max_budget_usd: Optional USD budget cap to pass to the backend.
             Requirements: 56-REQ-2.2
-        fallback_model: Optional fallback model ID. Requirements: 56-REQ-3.2
         thinking: Optional extended thinking config dict. Requirements: 56-REQ-4.2
         session_timeout: Optional session timeout in minutes. When set, overrides
             config.orchestrator.session_timeout for this session.
@@ -151,7 +149,6 @@ async def run_session(
                 run_id=run_id,
                 max_turns=max_turns,
                 max_budget_usd=max_budget_usd,
-                fallback_model=fallback_model,
                 thinking=thinking,
                 archetype=archetype,
             ),
@@ -204,7 +201,6 @@ async def _execute_query(
     run_id: str = "",
     max_turns: int | None = None,
     max_budget_usd: float | None = None,
-    fallback_model: str | None = None,
     thinking: dict[str, Any] | None = None,
     archetype: str | None = None,
 ) -> None:
@@ -250,7 +246,6 @@ async def _execute_query(
         archetype=archetype,
         max_turns=max_turns,
         max_budget_usd=max_budget_usd,
-        fallback_model=fallback_model,
         thinking=thinking,
     ):
         is_result = isinstance(message, ResultMessage)

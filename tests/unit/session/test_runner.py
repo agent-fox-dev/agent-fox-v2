@@ -68,7 +68,6 @@ class MockBackend:
         tools: list | None = None,
         max_turns: int | None = None,
         max_budget_usd: float | None = None,
-        fallback_model: str | None = None,
         thinking: dict | None = None,
     ) -> AsyncIterator[AgentMessage]:
         self.last_prompt = prompt

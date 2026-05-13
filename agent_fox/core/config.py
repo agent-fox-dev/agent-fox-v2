@@ -113,11 +113,6 @@ class RoutingConfig(BaseModel):
         default=2.0,
         description=("Maximum session_timeout as a factor of the original configured value"),
     )
-    fallback_model: str = Field(
-        default="claude-sonnet-4-6",
-        description="Fallback model ID when primary is unavailable",
-    )
-
     _auto_clamp = _auto_clamp_validator()
 
 
@@ -188,7 +183,6 @@ class ModelConfig(BaseModel):
     .. deprecated::
         The ``[models]`` section is deprecated.  Migrate as follows:
 
-        - ``fallback_model`` → ``[routing] fallback_model``
         - ``coding``         → ``[archetypes.overrides.coder] model_tier``
     """
 
@@ -196,10 +190,6 @@ class ModelConfig(BaseModel):
 
     coding: str = Field(default="ADVANCED", description="Model tier for coding tasks (deprecated)")
     memory_extraction: str = Field(default="SIMPLE", description="Model tier for memory extraction")
-    fallback_model: str = Field(
-        default="claude-sonnet-4-6",
-        description="Fallback model ID when primary is unavailable (deprecated; use routing.fallback_model instead)",
-    )
 
     @model_validator(mode="after")
     def _warn_deprecated_coding(self) -> Self:
