@@ -423,16 +423,14 @@ class NodeSessionRunner:
             self._config,
             self._archetype,
             mode=self._mode,
-            model_id=self._resolved_model_id,
             max_turns_override=self._max_turns_override,
         )
 
         logger.info(
-            "Session %s: max_turns=%s, max_budget_usd=%s, fallback_model=%s, thinking=%s, timeout_override=%s",
+            "Session %s: max_turns=%s, max_budget_usd=%s, thinking=%s, timeout_override=%s",
             node_id,
             params.max_turns,
             params.max_budget_usd,
-            params.fallback_model,
             params.thinking,
             self._timeout_override,
         )
@@ -450,7 +448,6 @@ class NodeSessionRunner:
             run_id=self._run_id,
             max_turns=params.max_turns,
             max_budget_usd=params.max_budget_usd,
-            fallback_model=params.fallback_model,
             thinking=params.thinking,
             session_timeout=self._timeout_override,
             archetype=self._archetype,

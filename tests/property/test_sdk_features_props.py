@@ -95,39 +95,6 @@ class TestBudgetCapPassthrough:
 
 
 # ---------------------------------------------------------------------------
-# TS-56-P4: Fallback Model Passthrough Invariant
-# Property 4: For any non-empty model string, it passes through unchanged.
-# Requirements: 56-REQ-3.1, 56-REQ-3.2
-# ---------------------------------------------------------------------------
-
-
-class TestFallbackModelPassthrough:
-    """For any non-empty model string, resolve_fallback_model returns it."""
-
-    @given(
-        model_id=st.text(
-            alphabet=st.characters(
-                whitelist_categories=("Ll", "Nd"),
-                whitelist_characters="-_",
-            ),
-            min_size=1,
-            max_size=50,
-        )
-    )
-    @settings(max_examples=50)
-    def test_nonempty_model_passthrough(self, model_id: str) -> None:
-        from agent_fox.core.config import AgentFoxConfig
-        from agent_fox.engine.sdk_params import resolve_fallback_model
-
-        config = AgentFoxConfig(
-            routing={"fallback_model": model_id},  # type: ignore[arg-type]
-        )
-        result = resolve_fallback_model(config)
-        # Non-empty model ID should pass through (possibly with a warning)
-        assert result == model_id
-
-
-# ---------------------------------------------------------------------------
 # TS-56-P5: Thinking Passthrough Invariant
 # Property 5: For any non-disabled thinking config, it passes through.
 # Requirements: 56-REQ-4.1, 56-REQ-4.2

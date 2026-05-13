@@ -1,12 +1,12 @@
 """Configuration tests for SDK feature adoption.
 
-Test Spec: TS-56-1, TS-56-3, TS-56-5, TS-56-7, TS-56-8, TS-56-10,
+Test Spec: TS-56-1, TS-56-3, TS-56-5, TS-56-7,
            TS-56-12, TS-56-14, TS-56-E1, TS-56-E3, TS-56-E5, TS-56-E6
 Requirements: 56-REQ-1.1, 56-REQ-1.3, 56-REQ-2.1, 56-REQ-2.3,
-              56-REQ-3.1, 56-REQ-3.3, 56-REQ-4.1, 56-REQ-4.3,
+              56-REQ-4.1, 56-REQ-4.3,
               56-REQ-1.E1, 56-REQ-2.E2, 56-REQ-4.E1, 56-REQ-4.E2
 
-AC-1, AC-2, AC-3: fallback_model migrated to [routing]; models.coding deprecated.
+AC-3: models.coding deprecated.
 """
 
 from __future__ import annotations
@@ -96,81 +96,6 @@ class TestBudgetDefault:
         """TS-56-7: Default max_budget_usd is 8.0."""
         config = AgentFoxConfig()
         assert config.orchestrator.max_budget_usd == 8.0
-
-
-# ---------------------------------------------------------------------------
-# TS-56-8: fallback_model Config Parsing
-# Requirement: 56-REQ-3.1
-# ---------------------------------------------------------------------------
-
-
-class TestFallbackModelParsing:
-    """Verify fallback_model is parsed from [routing] config (AC-1, AC-2)."""
-
-    def test_fallback_model_parsed_from_routing_toml(self, tmp_path: Path) -> None:
-        """AC-1/TS-56-8: fallback_model is parsed from [routing] section."""
-        config_file = tmp_path / "config.toml"
-        config_file.write_text('[routing]\nfallback_model = "claude-haiku-4-5"\n')
-        config = load_config(path=config_file)
-        assert config.routing.fallback_model == "claude-haiku-4-5"
-
-    def test_fallback_model_legacy_models_section_still_parsed(self, tmp_path: Path) -> None:
-        """Backward compat: [models] fallback_model still parses (but is not used by resolver)."""
-        config_file = tmp_path / "config.toml"
-        config_file.write_text('[models]\nfallback_model = "claude-haiku-4-5"\n')
-        config = load_config(path=config_file)
-        # models.fallback_model is still stored but routing.fallback_model is the canonical source
-        assert config.models.fallback_model == "claude-haiku-4-5"
-
-
-# ---------------------------------------------------------------------------
-# TS-56-10: fallback_model Default
-# Requirement: 56-REQ-3.3
-# ---------------------------------------------------------------------------
-
-
-class TestFallbackModelDefault:
-    """Verify default fallback_model is 'claude-sonnet-4-6' in [routing] (AC-1)."""
-
-    def test_default_fallback_model_in_routing(self) -> None:
-        """AC-1/TS-56-10: Default routing.fallback_model is 'claude-sonnet-4-6'."""
-        config = AgentFoxConfig()
-        assert config.routing.fallback_model == "claude-sonnet-4-6"
-
-
-# ---------------------------------------------------------------------------
-# AC-2: resolve_fallback_model reads from routing.fallback_model
-# ---------------------------------------------------------------------------
-
-
-class TestResolveFallbackModelReadsRouting:
-    """Verify resolve_fallback_model uses config.routing.fallback_model (AC-2)."""
-
-    def test_resolve_fallback_model_from_routing(self) -> None:
-        """AC-2: resolve_fallback_model returns routing.fallback_model value."""
-        from agent_fox.engine.sdk_params import resolve_fallback_model
-
-        config = AgentFoxConfig(routing={"fallback_model": "claude-haiku-4-5"})
-        assert resolve_fallback_model(config) == "claude-haiku-4-5"
-
-    def test_resolve_fallback_model_default(self) -> None:
-        """AC-2: resolve_fallback_model returns routing default when not overridden."""
-        from agent_fox.engine.sdk_params import resolve_fallback_model
-
-        config = AgentFoxConfig()
-        assert resolve_fallback_model(config) == "claude-sonnet-4-6"
-
-    def test_resolve_fallback_model_not_affected_by_models_section(self) -> None:
-        """AC-2: Setting only models.fallback_model does not affect resolve_fallback_model."""
-        from agent_fox.engine.sdk_params import resolve_fallback_model
-
-        # routing.fallback_model is default; models.fallback_model is legacy
-        config = AgentFoxConfig(
-            routing={"fallback_model": "claude-sonnet-4-6"},
-            models={"fallback_model": "claude-haiku-4-5"},
-        )
-        # The resolver reads from routing, not models
-        assert resolve_fallback_model(config) == "claude-sonnet-4-6"
 
 
 # ---------------------------------------------------------------------------

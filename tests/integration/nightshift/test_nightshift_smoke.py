@@ -47,7 +47,6 @@ def _sdk_param_patches():
     stack.enter_context(patch("agent_fox.engine.sdk_params.resolve_security_config", return_value=None))
     stack.enter_context(patch("agent_fox.engine.sdk_params.resolve_max_turns", return_value=10))
     stack.enter_context(patch("agent_fox.engine.sdk_params.resolve_thinking", return_value=None))
-    stack.enter_context(patch("agent_fox.engine.sdk_params.resolve_fallback_model", return_value=None))
     stack.enter_context(patch("agent_fox.engine.sdk_params.resolve_max_budget", return_value=None))
     return stack
 
