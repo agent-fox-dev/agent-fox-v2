@@ -91,32 +91,32 @@ wiring verification (group 5).
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/`
 
-- [ ] 2. Implement analyzer module
-  - [ ] 2.1 Create `agent_fox/graph/analyzer.py` with data types
+- [x] 2. Implement analyzer module
+  - [x] 2.1 Create `agent_fox/graph/analyzer.py` with data types
     - Define `Phase` and `GroupedEdges` dataclasses
     - _Requirements: 122-REQ-2.1, 122-REQ-3.1_
 
-  - [ ] 2.2 Implement `compute_phases(graph)` function
+  - [x] 2.2 Implement `compute_phases(graph)` function
     - Compute topological depth for each node using BFS from sources
     - Group nodes by depth into Phase objects
     - Sort node IDs within each phase lexicographically
     - _Requirements: 122-REQ-2.1_
 
-  - [ ] 2.3 Implement `critical_path(graph)` function
+  - [x] 2.3 Implement `critical_path(graph)` function
     - Compute longest path using dynamic programming on topological order
     - Track predecessors for path reconstruction
     - Lexicographic tie-breaking at each step
     - _Requirements: 122-REQ-4.1, 122-REQ-4.3_
 
-  - [ ] 2.4 Implement `group_edges(graph)` function
+  - [x] 2.4 Implement `group_edges(graph)` function
     - Partition graph.edges by `edge.kind` into intra_spec and cross_spec lists
     - _Requirements: 122-REQ-3.1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/graph/test_analyzer.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/graph/analyzer.py`
-    - [ ] Requirements 122-REQ-2.1, 122-REQ-3.1, 122-REQ-4.1, 122-REQ-4.3 acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/graph/test_analyzer.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/graph/analyzer.py`
+    - [x] Requirements 122-REQ-2.1, 122-REQ-3.1, 122-REQ-4.1, 122-REQ-4.3 acceptance criteria met
 
 - [ ] 3. Integrate into CLI and API
   - [ ] 3.1 Add `--dry-run` flag to `plan_cmd` in `cli/plan.py`
