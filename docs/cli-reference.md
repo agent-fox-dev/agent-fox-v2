@@ -148,6 +148,7 @@ agent-fox plan [OPTIONS]
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
+| `--dry-run` | flag | off | Show plan analysis without persisting to database |
 | `--fast` | flag | off | Exclude optional tasks |
 | `--spec NAME` | string | all | Plan a single spec |
 | `--specs-dir PATH` | path | from config | Path to specs directory (default: from config, or `.agent-fox/specs`) |
@@ -156,6 +157,34 @@ Scans `.agent-fox/specs/` for specification folders, parses task groups, builds 
 dependency graph, resolves topological ordering, and persists the plan to the
 DuckDB knowledge store. The plan is always rebuilt from `.agent-fox/specs/` on every
 invocation.
+
+#### Dry-Run Mode (`--dry-run`)
+
+When `--dry-run` is set, the full planning pipeline runs (discovery, parsing,
+building, resolving) but database persistence is skipped. Instead, the command
+computes and displays a richer analysis of the plan:
+
+- **Parallelism phases** — groups of tasks that can execute concurrently, with
+  phase numbers and peak parallelism.
+- **Critical path** — the longest dependency chain through the plan, identifying
+  the bottleneck sequence.
+- **Dependency edges** — all edges grouped by type (intra-spec and cross-spec).
+
+The analysis output includes a summary header (specs, task count, review node
+count, dependency count, fast-mode status), followed by the three analysis
+sections.
+
+`--dry-run` composes with other flags:
+
+- `--dry-run --fast` — applies fast-mode filtering before analysis.
+- `--dry-run --spec NAME` — restricts the plan to the named spec.
+- `--dry-run --json` — outputs a JSON object with keys `nodes`, `edges`,
+  `order`, `metadata`, `phases`, `critical_path`, and `grouped_edges`.
+- All flags can be combined: `--dry-run --fast --spec NAME --json`.
+
+The `run_plan()` API also accepts a `dry_run` parameter. When `dry_run=True`,
+it returns the `TaskGraph` without opening a database connection or calling
+`save_plan()`.
 
 **Exit codes:** `0` success, `1` plan error.
 

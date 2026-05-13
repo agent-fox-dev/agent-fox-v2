@@ -150,15 +150,15 @@ wiring verification (group 5).
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/cli/plan.py agent_fox/graph/planner.py`
     - [x] Requirements 122-REQ-1.1 through 122-REQ-6.2 acceptance criteria met
 
-- [ ] 4. Documentation
-  - [ ] 4.1 Update CLI reference
+- [x] 4. Documentation
+  - [x] 4.1 Update CLI reference
     - Add `--dry-run` to the plan command options table in `docs/cli-reference.md`
     - Add description of the analysis output
     - _Requirements: all_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] `docs/cli-reference.md` updated with --dry-run flag
-    - [ ] All existing tests still pass: `uv run pytest -q`
+  - [x] 4.V Verify task group 4
+    - [x] `docs/cli-reference.md` updated with --dry-run flag
+    - [x] All existing tests still pass: `uv run pytest -q`
 
 - [ ] 5. Wiring verification
 
