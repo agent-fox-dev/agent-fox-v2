@@ -22,6 +22,7 @@ from agent_fox.spec.parser import CrossSpecDep, parse_cross_deps, parse_tasks
 
 if TYPE_CHECKING:
     from agent_fox.core.config import AgentFoxConfig
+    from agent_fox.graph.analyzer import GroupedEdges, Phase
 
 logger = logging.getLogger(__name__)
 
@@ -153,16 +154,94 @@ def format_plan_summary(graph: TaskGraph, specs: list[SpecInfo]) -> str:
 
 def format_plan_analysis(
     graph: TaskGraph,
-    phases: list,
+    phases: list[Phase],
     path: list[str],
-    grouped: object,
+    grouped: GroupedEdges,
     specs: list[SpecInfo],
 ) -> str:
     """Format rich plan analysis for human-readable output.
 
+    Renders a multi-section report including plan summary, parallelism
+    phases, critical path, and dependency edges.
+
+    Args:
+        graph: The resolved task graph.
+        phases: Parallelism phases from ``compute_phases()``.
+        path: Critical path node IDs from ``critical_path()``.
+        grouped: Edges partitioned by kind from ``group_edges()``.
+        specs: Discovered spec infos.
+
+    Returns:
+        Formatted analysis string.
+
     Requirements: 122-REQ-2.2, 122-REQ-2.3, 122-REQ-3.2, 122-REQ-4.2, 122-REQ-3.E1
     """
-    raise NotImplementedError("format_plan_analysis not yet implemented")
+    lines: list[str] = []
+
+    total_nodes = len(graph.nodes)
+    total_edges = len(graph.edges)
+    spec_names = sorted({node.spec_name for node in graph.nodes.values()})
+
+    # Filter to real task nodes (exclude injected archetype nodes)
+    task_nodes = {nid: node for nid, node in graph.nodes.items() if node.archetype == "coder"}
+    total_tasks = len(task_nodes)
+    review_count = total_nodes - total_tasks
+
+    lines.append("Plan Analysis")
+    lines.append("=" * 40)
+    lines.append(f"Specs:         {', '.join(spec_names)}")
+    lines.append(f"Total tasks:   {total_tasks}")
+    if review_count:
+        lines.append(f"Review nodes:  {review_count}")
+    lines.append(f"Dependencies:  {total_edges}")
+
+    if graph.metadata.fast_mode:
+        lines.append("Fast mode:     on")
+    else:
+        lines.append("Fast mode:     off")
+
+    # Parallelism Phases
+    lines.append("")
+    lines.append("Parallelism Phases")
+    lines.append("------------------")
+    for phase in phases:
+        count = len(phase.node_ids)
+        label = "node" if count == 1 else "nodes"
+        lines.append(f"Phase {phase.number} ({count} {label}):")
+        for nid in phase.node_ids:
+            node = graph.nodes[nid]
+            lines.append(f"  {nid} — {node.title}")
+        lines.append("")
+
+    peak = max(len(p.node_ids) for p in phases) if phases else 0
+    lines.append(f"Summary: {len(phases)} phases, peak parallelism: {peak}")
+
+    # Critical Path
+    lines.append("")
+    lines.append("Critical Path")
+    lines.append("-------------")
+    if path:
+        lines.append(" -> ".join(path))
+        lines.append(f"Length: {len(path)} nodes")
+    else:
+        lines.append("No critical path (empty plan).")
+
+    # Dependency Edges
+    lines.append("")
+    lines.append("Dependency Edges")
+    lines.append("----------------")
+    if grouped.intra_spec:
+        lines.append(f"Intra-spec ({len(grouped.intra_spec)}):")
+        for edge in grouped.intra_spec:
+            lines.append(f"  {edge.source} -> {edge.target}")
+
+    if grouped.cross_spec:
+        lines.append("")
+        lines.append(f"Cross-spec ({len(grouped.cross_spec)}):")
+        for edge in grouped.cross_spec:
+            lines.append(f"  {edge.source} -> {edge.target}")
+
+    return "\n".join(lines)
 
 
 def run_plan(
@@ -184,6 +263,8 @@ def run_plan(
         force: Discard cached plan and rebuild.
         fast: Exclude optional tasks.
         filter_spec: Plan a single spec only.
+        dry_run: If True, skip persistence to DuckDB and return
+            the TaskGraph without database side effects.
 
     Returns:
         A fully resolved TaskGraph.

@@ -118,37 +118,37 @@ wiring verification (group 5).
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/graph/analyzer.py`
     - [x] Requirements 122-REQ-2.1, 122-REQ-3.1, 122-REQ-4.1, 122-REQ-4.3 acceptance criteria met
 
-- [ ] 3. Integrate into CLI and API
-  - [ ] 3.1 Add `--dry-run` flag to `plan_cmd` in `cli/plan.py`
+- [x] 3. Integrate into CLI and API
+  - [x] 3.1 Add `--dry-run` flag to `plan_cmd` in `cli/plan.py`
     - Add Click option `--dry-run` as a boolean flag
     - When `dry_run=True`: call `build_plan()`, then analyzer functions, then formatter/JSON; skip persistence
     - When `dry_run=False`: existing flow unchanged
     - _Requirements: 122-REQ-1.1, 122-REQ-1.2, 122-REQ-1.3_
 
-  - [ ] 3.2 Implement `format_plan_analysis()` in `graph/planner.py`
+  - [x] 3.2 Implement `format_plan_analysis()` in `graph/planner.py`
     - Render standard summary, parallelism phases, critical path, dependency edges
     - Include phase summary line (total phases, peak parallelism)
     - Omit cross-spec section if no cross-spec edges exist
     - _Requirements: 122-REQ-2.2, 122-REQ-2.3, 122-REQ-3.2, 122-REQ-4.2, 122-REQ-3.E1_
 
-  - [ ] 3.3 Add JSON analysis output in `cli/plan.py`
+  - [x] 3.3 Add JSON analysis output in `cli/plan.py`
     - When `--dry-run --json`: emit JSON with phases, critical_path, grouped_edges
     - _Requirements: 122-REQ-5.3_
 
-  - [ ] 3.4 Add `dry_run` parameter to `run_plan()` in `graph/planner.py`
+  - [x] 3.4 Add `dry_run` parameter to `run_plan()` in `graph/planner.py`
     - When `dry_run=True`: skip `open_knowledge_store()` and `save_plan()`
     - When `dry_run=False`: existing behavior unchanged
     - _Requirements: 122-REQ-6.1, 122-REQ-6.2_
 
-  - [ ] 3.5 Verify flag composability
+  - [x] 3.5 Verify flag composability
     - Ensure `--dry-run` works with `--fast`, `--spec`, and `--json` in all combinations
     - _Requirements: 122-REQ-5.1, 122-REQ-5.2, 122-REQ-5.4_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/graph/test_planner_analyze.py tests/integration/cli/test_plan_analyze.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/cli/plan.py agent_fox/graph/planner.py`
-    - [ ] Requirements 122-REQ-1.1 through 122-REQ-6.2 acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/graph/test_planner_analyze.py tests/integration/cli/test_plan_analyze.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/cli/plan.py agent_fox/graph/planner.py`
+    - [x] Requirements 122-REQ-1.1 through 122-REQ-6.2 acceptance criteria met
 
 - [ ] 4. Documentation
   - [ ] 4.1 Update CLI reference

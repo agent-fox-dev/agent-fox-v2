@@ -20,6 +20,34 @@ from agent_fox.graph.planner import build_plan, format_plan_summary
 from agent_fox.spec.discovery import discover_specs
 
 
+def _node_to_dict(node: object) -> dict:
+    """Serialize a Node (or duck-typed object) to a JSON-friendly dict."""
+    return {
+        "id": node.id,
+        "spec_name": node.spec_name,
+        "group_number": node.group_number,
+        "title": node.title,
+        "optional": node.optional,
+        "status": str(node.status),
+        "archetype": node.archetype,
+    }
+
+
+def _edge_to_dict(edge: object) -> dict:
+    """Serialize an Edge (or duck-typed object) to a JSON-friendly dict."""
+    return {"source": edge.source, "target": edge.target, "kind": edge.kind}
+
+
+def _metadata_to_dict(meta: object) -> dict:
+    """Serialize PlanMetadata (or duck-typed object) to a JSON-friendly dict."""
+    return {
+        "created_at": meta.created_at,
+        "fast_mode": meta.fast_mode,
+        "filtered_spec": meta.filtered_spec,
+        "version": meta.version,
+    }
+
+
 @click.command("plan")
 @click.option("--dry-run", is_flag=True, help="Show plan analysis without persisting to database")
 @click.option("--fast", is_flag=True, help="Exclude optional tasks")
@@ -101,21 +129,27 @@ def plan_cmd(
             specs = []
 
         if json_mode:
-            from dataclasses import asdict
-
             from agent_fox.cli.json_io import emit
 
             emit(
                 {
-                    "nodes": {nid: asdict(node) for nid, node in graph.nodes.items()},
-                    "edges": [asdict(e) for e in graph.edges],
+                    "nodes": {
+                        nid: _node_to_dict(node) for nid, node in graph.nodes.items()
+                    },
+                    "edges": [_edge_to_dict(e) for e in graph.edges],
                     "order": graph.order,
-                    "metadata": asdict(graph.metadata),
-                    "phases": [{"number": p.number, "node_ids": p.node_ids} for p in phases],
+                    "metadata": _metadata_to_dict(graph.metadata),
+                    "phases": [
+                        {"number": p.number, "node_ids": p.node_ids} for p in phases
+                    ],
                     "critical_path": path,
                     "grouped_edges": {
-                        "intra_spec": [asdict(e) for e in grouped.intra_spec],
-                        "cross_spec": [asdict(e) for e in grouped.cross_spec],
+                        "intra_spec": [
+                            _edge_to_dict(e) for e in grouped.intra_spec
+                        ],
+                        "cross_spec": [
+                            _edge_to_dict(e) for e in grouped.cross_spec
+                        ],
                     },
                 }
             )
