@@ -12,7 +12,7 @@ You write the same spec, run `agent-fox code`, and go do something else.
 
 The fox reads your specs, plans the work, spins up isolated worktrees, runs each
 session with the right context, handles merge conflicts, retries failures,
-extracts learnings into structured memory, and merges clean commits to
+extracts learnings into structured memory, and merges commits to
 `develop`. 
 
 You come back to a finished feature branch and a standup report.
@@ -22,29 +22,27 @@ You come back to a finished feature branch and a standup report.
 ```bash
 # Initialize your project (use --skills to install Claude Code skills)
 agent-fox init --skills
-
-# Create the task graph from your specs
-agent-fox plan
-
-# Run autonomous coding sessions with 4 agents in parallel
-agent-fox code --parallel 4
-
-# Check progress
-agent-fox status
 ```
 
-See the [CLI reference](docs/cli-reference.md) for all command options.
-
-### Spec-driven Development
-
-Your project needs specs under `.agent-fox/specs/` before running `plan` or `code`.
-
-Use the `/af-spec` skill in Claude Code to generate them from a PRD,
-a GitHub issue or a plain-English description:
+Use the `/af-spec` skill in Claude Code to generate a specification
+from a PRD, a GitHub issue or a plain-english description:
 
 ```
 /af-spec [path-to-prd-or-prompt-or-github-issue-url]
 ```
+
+```bash
+# Create the task graph from your specs
+agent-fox plan
+
+# Run autonomous coding sessions
+agent-fox code 
+
+# Check results
+agent-fox standup
+```
+
+See the [CLI reference](docs/cli-reference.md) for all command options.
 
 ### Night Shift — Autonomous Maintenance
 
@@ -126,4 +124,4 @@ agent-fox draws on ideas from the following research:
   [GitHub](https://github.com/Shichun-Liu/Agent-Memory-Paper-List)
 
 ---
-Built exclusively for Claude.
+Built exclusively for Claude Code. And mostly by agent-fox.

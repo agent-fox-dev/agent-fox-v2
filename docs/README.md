@@ -13,8 +13,8 @@ extracts learnings into structured memory, and merges clean commits to
 The typical workflow has four stages:
 
 1. **Write specs.** Describe your feature as a structured specification
-   package under `.agent-fox/specs/` — a PRD, acceptance criteria (EARS syntax), design
-   document, test contracts, and a task list. Each spec maps to one coherent
+   package under `.agent-fox/specs/` — a PRD, acceptance criteria (EARS syntax),
+   design document, test contracts, and a task list. Each spec maps to one coherent
    feature or change. Use the `/af-spec` skill in Claude Code to generate the
    full five-file package from a PRD, a GitHub issue URL, or a plain-English
    description. Run `agent-fox lint-specs` to validate specs before planning;
@@ -28,7 +28,7 @@ The typical workflow has four stages:
    PRDs, and injects review agents at the right positions. Use `--analyze` to
    see a parallelism analysis, or `--fast` to exclude optional tasks.
 
-3. **Execute.** Run `agent-fox code --parallel 4` to start autonomous
+3. **Execute.** Run `agent-fox code` to start autonomous
    execution. The orchestrator dispatches agents to each ready task in
    dependency order. Each agent works in an isolated git worktree on its own
    feature branch, so multiple agents work simultaneously without conflicts.
@@ -39,7 +39,7 @@ The typical workflow has four stages:
    AI-assisted conflict resolution when needed).
 
 4. **Monitor.** Run `agent-fox standup` for an activity report covering
-   agent sessions, human commits, and file overlaps. Run
+   agent sessions, human commits, and token consumption. Run
    `agent-fox insights` for a structured view of review findings, drift
    reports, and verification verdicts across specs. Both commands support
    `--json` for machine consumption.
@@ -85,12 +85,12 @@ categories — linter debt, dead code, test coverage gaps, dependency freshness,
 deprecated API usage, documentation drift, TODO/FIXME resolution, and quality
 gate failures — then groups findings by root cause and files GitHub issues.
 Issues labelled `af:fix` are automatically picked up and repaired through a
-two-agent pipeline (Coder, Reviewer in fix-review mode). Use `--auto` to label every
-discovered issue for hands-off repair.
+two-agent pipeline (Coder, Reviewer in fix-review mode). Use `--auto` to label 
+every discovered issue for hands-off repair.
 
 ### Knowledge System
 
-agent-fox maintains a persistent knowledge store (DuckDB) that provides
+agent-fox maintains a persistent knowledge store that provides
 institutional memory across sessions. Each new session starts with a fresh
 context window but receives curated, relevant knowledge from prior sessions
 so agents build on each other's work rather than starting blind.
@@ -109,10 +109,17 @@ sessions working on related specs.
 
 ### Recovery
 
-When tasks fail or become blocked, run `agent-fox reset` to clear failed
-tasks and retry them. For targeted recovery, pass a specific task ID. For a
-full restart, use `--hard` to reset all tasks, clean up worktrees and
-branches, compact the knowledge store, and roll back `develop`.
+When tasks fail or become blocked, start by diagnosing what went wrong.
+Run `agent-fox insights` to list active review findings — critical findings
+from pre-review, drift-review, or verification often explain why a task is
+blocked. Filter by spec with `--spec NAME` or by severity with
+`--severity critical` to narrow down the cause. Once you understand and
+address the blocking finding (e.g., fix a spec issue flagged by pre-review,
+resolve a drift detected against the codebase), dismiss it with
+`--dismiss ID REASON`, then run `agent-fox reset` to restart the affected
+task. For targeted recovery, pass a specific task ID. For a full restart,
+use `--hard` to reset all tasks, clean up worktrees and branches, compact
+the knowledge store, and roll back `develop`.
 
 ## Architecture
 
