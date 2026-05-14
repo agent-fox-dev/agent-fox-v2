@@ -203,9 +203,10 @@ Queried by spec reference or keyword overlap.
 ### 5.7 `errata`
 
 Spec divergence records indexed from `docs/errata/` markdown files. Each
-record is keyed by spec name and carries a content hash for deduplication.
-Errata are never automatically generated — they are registered explicitly when
-a spec-to-code divergence is discovered and documented.
+record is keyed by spec name and task group, with fields for finding summary,
+requirement reference, and fix summary. Errata are never automatically
+generated — they are registered explicitly when a spec-to-code divergence is
+discovered and documented.
 
 ### 5.8 `audit_events`
 
@@ -225,7 +226,7 @@ with keyword-based relevance scoring — no embeddings, no vector search:
 | Category | Source | Prefix | Scope |
 |---|---|---|---|
 | Review findings | `review_findings` | `[REVIEW]` | Active critical/major for this spec and task group |
-| Verification verdicts | `verification_results` | `[VERDICT]` | Active FAIL verdicts only |
+| Verification verdicts | `verification_results` | `[VERIFY]` | Active FAIL verdicts only |
 | Errata | `errata` | `[ERRATA]` | All errata for this spec |
 | ADR summaries | `adr_entries` | `[ADR]` | ADRs matching spec or task keywords |
 | Cross-group findings | `review_findings` | `[CROSS-GROUP]` | Critical/major from other groups in the same spec |
@@ -328,7 +329,7 @@ and mode.
 
 **Active.** Findings in the active state are visible to three consumers:
 context assembly (rendered as structured markdown in Layer 3 of the system
-prompt), knowledge retrieval (returned as `[REVIEW]` or `[VERDICT]` items),
+prompt), knowledge retrieval (returned as `[REVIEW]` or `[VERIFY]` items),
 and retry context (prepended to coder task prompts on retry attempts).
 
 **Injected.** When `retrieve()` serves a finding to a session, the finding ID

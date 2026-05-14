@@ -263,7 +263,6 @@ agent-fox standup [OPTIONS]
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `--hours N` | int | 24 | Reporting window in hours |
-| `--output PATH` | path | stdout | Write report to file |
 
 Covers agent activity (sessions, tokens, cost), human commits, file overlaps
 between agent and human work, and queue status (ready/pending/blocked tasks).
@@ -465,8 +464,9 @@ agent-fox insights [OPTIONS]
 |--------|------|---------|-------------|
 | `--spec NAME` | string | all | Filter by spec name |
 | `--severity LEVEL` | string | all | Minimum severity level (`critical`, `major`, `minor`, `observation`) |
-| `--archetype NAME` | string | all | Filter by archetype (`skeptic`, `verifier`, `oracle`) |
+| `--archetype NAME` | string | all | Filter by archetype (`reviewer`, `verifier`, `reviewer/pre-review`, `reviewer/drift-review`) |
 | `--run ID` | string | all | Filter by run ID |
+| `--dismiss ID REASON` | string pair | | Dismiss a finding by ID with a reason |
 | `--json` | flag | off | Output as JSON array |
 
 Displays active (non-superseded) review findings from the knowledge store.

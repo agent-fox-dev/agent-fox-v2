@@ -61,8 +61,8 @@ The task graph is stored across three tables:
 - **`plan_nodes`** — One row per task group node. Fields: node ID
   (`spec_name:group_number`), spec name, group number, title, status, archetype,
   mode, instance count, optional flag, subtask count, body text.
-- **`plan_edges`** — Directed dependency edges: `(source_node_id, target_node_id,
-  kind)`. Kind is either `intra_spec` (sequential groups within a spec) or
+- **`plan_edges`** — Directed dependency edges: `(from_node, to_node,
+  edge_type)`. Edge type is either `intra_spec` (sequential groups within a spec) or
   `cross_spec` (dependency declared in `prd.md`).
 - **`plan_meta`** — Content hash of the plan, version, fast-mode flag, and
   optional spec filter.
@@ -72,8 +72,9 @@ The plan is rebuilt deterministically from `.agent-fox/specs/` on every
 loads it at startup.
 
 Node status is one of: `pending`, `in_progress`, `completed`, `failed`,
-`blocked`, `skipped`, `deferred`. The orchestrator updates status after every
-session completes and writes it back to DuckDB.
+`blocked`, `skipped`, `cost_blocked`, `merge_blocked`, `deferred`. The
+orchestrator updates status after every session completes and writes it back
+to DuckDB.
 
 ### 2.2 Execution State
 
@@ -105,8 +106,8 @@ Three tables store the outputs of review and verification agents:
 Five tables store the institutional memory:
 
 - **`errata`** — Spec divergence records indexed from `docs/errata/` markdown
-  files. Each record is keyed by spec name and carries a content hash for
-  deduplication.
+  files. Each record is keyed by spec name and task group, with fields for
+  finding summary, requirement reference, and fix summary.
 - **`adr_entries`** — Architecture Decision Records parsed from
   `docs/adr/*.md` in MADR 4.0.0 format. Fields: file path, title, status,
   chosen option, justification, considered options, summary, content hash,
@@ -329,12 +330,12 @@ downstream dependents are most impactful.
 
 Two dispatch strategies are available:
 
-**Serial dispatch** (default, `parallel=1`). The dispatcher picks the first
+**Serial dispatch** (`parallel=1`). The dispatcher picks the first
 ready task, prepares launch parameters, marks it `in_progress`, executes the
 session, processes the result, and loops. An inter-session delay can be
 configured to avoid API rate limits.
 
-**Parallel dispatch** (`parallel=2..8`). A streaming asyncio task pool
+**Parallel dispatch** (default, `parallel=2..8`). A streaming asyncio task pool
 maintains up to N concurrent sessions. When a session completes and frees a
 slot, the orchestrator immediately evaluates which tasks are now ready and
 fills the slot. Review archetype sessions (other than auto_pre group-0 nodes)
@@ -366,11 +367,11 @@ Before dispatching a task, the `DispatchManager` runs a preparation pipeline:
 
 ### 4.6 Signal Handling
 
-The orchestrator installs a two-stage SIGINT handler. The first interrupt sets
-an `interrupted` flag: no new dispatches, but in-flight sessions finish cleanly
-and their results are persisted. A second interrupt cancels in-flight sessions
-and exits immediately. Signal handlers are restored on exit so the parent
-process is unaffected.
+The orchestrator installs a two-stage signal handler for both SIGINT and
+SIGTERM. The first signal sets an `interrupted` flag: no new dispatches, but
+in-flight sessions finish cleanly and their results are persisted. A second
+signal cancels in-flight sessions and exits immediately. Signal handlers are
+restored on exit so the parent process is unaffected.
 
 ---
 
@@ -708,7 +709,7 @@ prompt traceability:
 | Category | Source | Prefix | Scope |
 |---|---|---|---|
 | **Review findings** | `review_findings` table | `[REVIEW]` | Active critical/major for this spec and task group |
-| **Verification verdicts** | `verification_results` table | `[VERDICT]` | Active FAIL verdicts only (PASS are not actionable) |
+| **Verification verdicts** | `verification_results` table | `[VERIFY]` | Active FAIL verdicts only (PASS are not actionable) |
 | **Errata** | `errata` table | `[ERRATA]` | All errata for this spec |
 | **ADR summaries** | `adr_entries` table | `[ADR]` | ADRs matching spec or task description keywords |
 | **Cross-group findings** | `review_findings` table | `[CROSS-GROUP]` | Critical/major findings from other task groups in the same spec |
@@ -884,7 +885,7 @@ All merge operations are serialized by a two-layer lock:
   creation; stale lock detection uses a rename-to-temp pattern safe against
   TOCTOU races.
 
-The file lock has a configurable stale timeout (default: 5 minutes). If a lock
+The file lock has a configurable stale timeout (default: 1 hour). If a lock
 file is older than the timeout, it is considered abandoned and broken.
 
 ### 9.4 The Merge Agent

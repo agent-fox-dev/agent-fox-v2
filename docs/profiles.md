@@ -28,7 +28,6 @@ agent-fox ships with profiles for all four archetypes and their modes:
 | `reviewer_fix-review.md` | reviewer | fix-review | Fix patch review with extended tool access |
 | `verifier.md` | verifier | — | Post-implementation verification against requirements |
 | `maintainer.md` | maintainer | — | Base maintainer (night-shift operations) |
-| `maintainer_hunt.md` | maintainer | hunt | Technical debt discovery |
 | `maintainer_fix-triage.md` | maintainer | fix-triage | Issue triage and batch prioritization |
 
 These files live in `agent_fox/_templates/profiles/` inside the package.

@@ -28,6 +28,7 @@ skills to the latest bundled versions.
 | [Security Audit](#af-security-audit) | `/af-security-audit` | Review code for security flaws and mitigations |
 | [ADR Writer](#af-adr) | `/af-adr` | Create Architecture Decision Records |
 | [Reverse-Engineer PRD](#af-reverse-engineer) | `/af-reverse-engineer` | Generate a PRD from an existing codebase |
+| [Clone Issue](#af-clone-issue) | `/af-clone-issue` | Copy a GitHub issue (with comments) to another repo |
 
 ---
 
@@ -35,7 +36,7 @@ skills to the latest bundled versions.
 
 **Spec-driven development: from idea to implementation-ready spec package.**
 
-Transforms a PRD, product idea, or GitHub issue into four specification
+Transforms a PRD, product idea, or GitHub issue into five specification
 artifacts with full traceability from requirements through design, tests, and
 tasks.
 
@@ -49,7 +50,7 @@ tasks.
 | `test_spec.md` | Language-agnostic test contracts with full requirement coverage |
 | `tasks.md` | Implementation checklist (test-first: group 1 is always "write failing tests") |
 
-All files are saved to `.specs/NN_specification_name/`.
+All files are saved to `.agent-fox/specs/NN_specification_name/`.
 
 ### Workflow
 
@@ -134,7 +135,9 @@ A report at `docs/audits/audit-report-{YYYY-MM-DD}.md` with:
 5. **Handle in-progress specs** -- uses `tasks.md` checkbox state to
    distinguish expected gaps from drift.
 6. **Suggest mitigations** -- one per drift item, with priority.
-7. **Generate report** -- saves to `docs/audits/audit-report-{YYYY-MM-DD}.md`.
+7. **Detect extra behavior** -- best-effort scan for code not covered by any
+   spec requirement.
+8. **Generate report** -- saves to `docs/audits/audit-report-{YYYY-MM-DD}.md`.
 
 ### When to use
 
@@ -288,9 +291,49 @@ A `prd.md` with sections:
 3. **Write the PRD** -- 11 sections, all in user/product language.
 4. **Quality checks** -- stakeholder test (could you present this to a VP?),
    implementation leak test (no code terms), testability test (can QA write
-   tests from this?).
+   tests from this?), "so what" test (does every requirement justify its
+   existence?).
 
 ### When to use
 
 When you have an existing codebase with no (or outdated) product documentation
 and need a user-facing PRD. When onboarding new stakeholders.
+
+---
+
+## af-clone-issue
+
+**Copy a GitHub issue to another repository.**
+
+Copies a GitHub issue — title, body, and all comments in chronological order —
+from an upstream repository into a fork or other target repo. Uses `gh` and
+optional `jq` for JSON parsing.
+
+### Prerequisites
+
+- `gh` installed and authenticated.
+- Read access to the source issue; permission to open issues on the target repo.
+- `jq` recommended for comment parsing.
+
+### Workflow
+
+1. **Parse URLs** -- extracts source owner/repo/number from the issue URL and
+   target owner/repo from a repo URL or shorthand. Rejects pull request
+   references.
+2. **Fetch the source issue** -- retrieves title, body, and metadata via the
+   GitHub API.
+3. **Fetch all comments** -- paginates through all comments and sorts by
+   creation date.
+4. **Create the issue** -- opens a new issue on the target repo with a
+   provenance header linking back to the original.
+5. **Replay comments** -- posts each comment as a new comment on the target
+   issue with author attribution and timestamp.
+
+### What it does not copy
+
+Labels, milestones, assignees, projects, reactions, edits, or PR links.
+
+### When to use
+
+When mirroring an issue into a fork, syncing a bug report to a local repo, or
+duplicating an issue across repositories.

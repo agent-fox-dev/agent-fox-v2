@@ -25,7 +25,7 @@ The typical workflow has four stages:
    graph of tasks. The planner is deterministic — same specs, same graph,
    every time. It parses task groups from each spec, builds intra-spec chains
    (groups execute sequentially), wires cross-spec dependencies declared in
-   PRDs, and injects review agents at the right positions. Use `--analyze` to
+   PRDs, and injects review agents at the right positions. Use `--dry-run` to
    see a parallelism analysis, or `--fast` to exclude optional tasks.
 
 3. **Execute.** Run `agent-fox code` to start autonomous
