@@ -134,6 +134,17 @@ overwritten with the latest bundled versions. Works on both fresh init and
 re-init. The output reports the number of skills installed. In JSON mode, the
 output includes a `skills_installed` integer field.
 
+**Night-shift ignore file:** Creates a `.night-shift` file in the project root
+(gitignore syntax) for controlling which files the hunt scan skips. Patterns
+from this file are combined with `.gitignore` and hardcoded defaults
+(`.agent-fox/**`, `.git/**`, `node_modules/**`, `__pycache__/**`,
+`.claude/**`). If the file already exists it is preserved.
+
+**GitHub labels:** When a `[platform]` section with `type = "github"` is
+configured, `init` automatically creates five labels on the repository:
+`af:hunt`, `af:fix`, `af:fixed`, `af:no-change`, and `af:ignore`. If the
+platform is not configured, this step is silently skipped.
+
 **Exit codes:** `0` success, `1` not inside a git repository.
 
 ---
@@ -245,10 +256,15 @@ agent-fox code --watch --watch-interval 30
 | Code | Meaning |
 |------|---------|
 | `0` | All tasks completed |
-| `1` | Error (plan missing, unexpected failure) |
+| `1` | Error (plan missing, unexpected failure, or block limit exceeded) |
 | `2` | Stalled (no ready tasks, incomplete remain) |
 | `3` | Cost or session limit reached |
 | `130` | Interrupted (SIGINT) |
+
+Exit code 1 is also returned when the fraction of blocked tasks exceeds
+`orchestrator.max_blocked_fraction`. This indicates a systemic quality
+problem (many specs have blocking review findings) rather than a dependency
+deadlock.
 
 ---
 
@@ -354,8 +370,10 @@ Night Shift is a continuously-running maintenance daemon that:
    files, and a suggested fix.
 4. **Fixes `af:fix`-labelled issues** -- polls GitHub for open issues with the
    `af:fix` label at the configured `issue_check_interval`, then runs each
-   through a coder + reviewer (fix-review mode) pipeline and opens a pull
-   request.
+   through a three-stage pipeline (triage → coder → reviewer in fix-review
+   mode) and opens a pull request. The fix phase drains all eligible issues
+   in a single interval (up to 50 iterations) rather than processing one
+   batch per interval.
 
 **Requirements:**
 
@@ -397,6 +415,22 @@ second signal to abort immediately; exit code is 130.
 
 **PID file:** The daemon writes a PID file to `.agent-fox/daemon.pid`. The
 `code` and `plan` commands refuse to run while the daemon is active.
+
+**File scope control:** The `.night-shift` file in the project root controls
+which files the hunt scan analyzes (gitignore syntax). Patterns are combined
+with `.gitignore` and hardcoded exclusions. Edit this file to suppress
+findings on vendored code, generated files, or directories you do not
+maintain.
+
+**Labels:** Night Shift uses five GitHub labels to manage its workflow:
+
+| Label | Applied by | Meaning |
+|-------|-----------|---------|
+| `af:hunt` | Hunt scan | Finding created by a hunt category |
+| `af:fix` | User or `--auto` | Issue eligible for automatic fixing |
+| `af:fixed` | Fix pipeline | Fix successfully merged |
+| `af:no-change` | Fix pipeline | Coder produced no commits; needs human review |
+| `af:ignore` | User | False positive; suppresses semantically similar future findings |
 
 **Exit codes:**
 

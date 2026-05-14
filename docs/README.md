@@ -36,7 +36,9 @@ The typical workflow has four stages:
    coding starts; audit-review and Verifier agents check the result after. Failed
    tasks are retried with escalation to stronger models. Completed work is
    merged into `develop` under a serializing lock via squash merge (with
-   AI-assisted conflict resolution when needed).
+   AI-assisted conflict resolution when needed). When all tasks for a spec
+   complete, a summary comment is automatically posted to the originating
+   GitHub issue (if `prd.md` contains a `## Source` section with a URL).
 
 4. **Monitor.** Run `agent-fox standup` for an activity report covering
    agent sessions, human commits, and token consumption. Run
@@ -85,8 +87,11 @@ categories — linter debt, dead code, test coverage gaps, dependency freshness,
 deprecated API usage, documentation drift, TODO/FIXME resolution, and quality
 gate failures — then groups findings by root cause and files GitHub issues.
 Issues labelled `af:fix` are automatically picked up and repaired through a
-two-agent pipeline (Coder, Reviewer in fix-review mode). Use `--auto` to label 
-every discovered issue for hands-off repair.
+three-stage pipeline (Triage, Coder, Reviewer in fix-review mode). Use
+`--auto` to label every discovered issue for hands-off repair. Control which
+files the hunt scan analyzes by editing the `.night-shift` file (gitignore
+syntax). Apply the `af:ignore` label to any hunt issue to suppress similar
+findings in the future.
 
 ### Knowledge System
 

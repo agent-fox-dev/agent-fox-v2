@@ -98,6 +98,11 @@ pre-execution node precedes the first coder group, a post-execution node follows
 the last coder group, and mid-execution nodes are spliced between the relevant
 groups.
 
+**Completion propagation.** When all coder nodes in a spec are already marked
+as completed (from `tasks.md` checkboxes), the builder automatically propagates
+completed status to all non-coder archetype nodes in that spec. This skips
+review and verification for specs whose implementation work is already done.
+
 ### Phase 3: Archetype Tag Overrides
 
 After injection, the planner applies archetype tag overrides from `tasks.md`.
@@ -119,6 +124,11 @@ Standard-format dependencies (which declare spec-level rather than group-level
 dependencies) use sentinel group numbers that resolve to the first or last
 actual group in the referenced spec. This means "depends on spec B" becomes
 "depends on the last group of spec B," which is conservative but correct.
+
+Cross-spec dependencies are also propagated to non-coder predecessor nodes so
+that review nodes wait for upstream specs to complete. However, pre-review
+nodes are exempt from this propagation — they validate spec content, not
+upstream implementation, so they can run before upstream specs finish.
 
 The planner validates that both endpoints of each cross-spec edge exist in the
 graph. References to nonexistent specs or group numbers are rejected during

@@ -92,14 +92,18 @@ Two tables track runtime history:
 Three tables store the outputs of review and verification agents:
 
 - **`review_findings`** — Findings from pre-review and audit-review sessions,
-  classified by severity (`critical`, `major`, `minor`, `observation`). Each
-  finding has provenance (spec, task group, session) and a `superseded_by`
-  column so resolved findings can be retired without deletion.
+  classified by severity (`critical`, `major`, `minor`, `observation`). Only
+  `critical` and `major` findings are persisted; `minor` and `observation`
+  findings are dropped at write time. Unrecognized severity values are
+  normalized to `observation` (and therefore also dropped). Each finding has
+  provenance (spec, task group, session) and a `superseded_by` column so
+  resolved findings can be retired without deletion.
 - **`drift_findings`** — Spec-to-code discrepancies detected by drift-review.
   Structured identically to review_findings with additional spec and artifact
   reference fields.
-- **`verification_results`** — Per-requirement verdicts (`PASS`, `FAIL`,
-  `PARTIAL`) from the Verifier archetype, with evidence text.
+- **`verification_results`** — Per-requirement verdicts (`PASS` or `FAIL`)
+  from the Verifier archetype, with evidence text. Non-standard verdicts
+  (including `PARTIAL`) are normalized to `FAIL`.
 
 ### 2.4 Knowledge State
 
@@ -107,7 +111,8 @@ Five tables store the institutional memory:
 
 - **`errata`** — Spec divergence records indexed from `docs/errata/` markdown
   files. Each record is keyed by spec name and task group, with fields for
-  finding summary, requirement reference, and fix summary.
+  finding summary, requirement reference, and fix summary. Errata are both
+  auto-generated (from blocking review findings) and manually authored.
 - **`adr_entries`** — Architecture Decision Records parsed from
   `docs/adr/*.md` in MADR 4.0.0 format. Fields: file path, title, status,
   chosen option, justification, considered options, summary, content hash,
@@ -484,8 +489,11 @@ On successful session completion, the feature branch is integrated into
    from the tip commit of the feature branch. For multi-commit branches, earlier
    commit subjects are appended as a bullet list.
 
-7. **Push.** `develop` is pushed to origin (best-effort). If origin is ahead,
-   the system reconciles first via fetch and rebase. Push failures are logged as
+7. **Push.** `develop` is pushed to origin with up to 3 retry attempts. On
+   non-fast-forward rejection, the system attempts a reconciliation cascade:
+   rebase onto origin, then merge commit if rebase conflicts, then AI merge
+   agent as a last resort. Non-retryable errors (authentication failure,
+   repository not found) abort immediately. Push failures are logged as
    warnings and do not fail the session.
 
 8. **Worktree cleanup.** The feature branch worktree is always destroyed at the
@@ -561,6 +569,10 @@ cascade-blocked via BFS.
 `retry_predecessor=true`. When their session completes with failing outputs
 (MISSING tests, FAIL requirements), the orchestrator re-runs the preceding
 coder session with the review/verification findings injected as context.
+Audit-review findings that reference a future task group (e.g., "deferred to
+task group 4") are excluded from the blocking set to avoid unwinnable retry
+loops where the coder cannot write a test because the code it depends on has
+not been implemented yet.
 
 **Coverage regression detection.** Before a coder session, the result handler
 captures a test coverage baseline. After the session completes, it measures
@@ -1094,8 +1106,10 @@ breaker trips, or SIGINT received):
    audit files are deleted once a spec is complete.
 
 3. **Post issue summaries** (if a platform is configured) for newly completed
-   specs — creating or updating GitHub issues with a summary of what was
-   implemented.
+   specs. If a spec's `prd.md` contains a `## Source` section with a GitHub
+   issue URL, a summary comment is posted to that issue listing the spec
+   name, develop HEAD commit, and all task group titles. Already-posted
+   specs are tracked to prevent duplicate comments.
 
 4. **Mark the run record complete** in DuckDB with the final status and
    timestamp.

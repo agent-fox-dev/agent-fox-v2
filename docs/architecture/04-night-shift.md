@@ -28,8 +28,8 @@ Night-shift operates as a two-phase loop:
    issues, and create GitHub issues for novel findings.
 
 2. **Fix**: Pick up issues labelled for automatic repair, determine a safe
-   processing order using dependency analysis, and execute a two-agent
-   pipeline (Coder → Reviewer in fix-review mode) for each issue.
+   processing order using dependency analysis, and execute a three-stage
+   pipeline (Triage → Coder → Reviewer in fix-review mode) for each issue.
 
 These two phases run on independent timers. The hunt scan runs less frequently
 (default: every six hours) because it is expensive — it executes static
@@ -170,28 +170,51 @@ creation-date order.
 
 ### The Fix Pipeline
 
-Each issue passes through a two-stage pipeline:
+Each issue passes through a three-stage pipeline:
 
-1. **Coder implementation.** A Coder agent implements the fix on an isolated
+1. **Triage analysis.** A Maintainer agent in fix-triage mode analyzes the
+   issue: identifies root cause, affected files, and produces structured
+   acceptance criteria. The triage report is posted as a comment on the
+   GitHub issue. These criteria are injected into both the coder and
+   reviewer prompts.
+
+2. **Coder implementation.** A Coder agent implements the fix on an isolated
    branch. The branch name includes the issue number and a sanitized slug
    derived from the title (`fix/{issue-number}-{slug}`). The system prompt
-   contains the full issue body; the task prompt directs the agent to fix
-   the described problem.
+   contains the full issue body and triage criteria; the task prompt directs
+   the agent to fix the described problem.
 
-2. **Reviewer validation.** A Reviewer agent in fix-review mode reviews the
+3. **Reviewer validation.** A Reviewer agent in fix-review mode reviews the
    patch for correctness and quality. If the review identifies issues, the
    pipeline loops back to the Coder with review feedback, up to the
    configured retry limit.
 
-Both sessions share the same fix branch, which is created from the
+The coder-reviewer loop starts at the STANDARD model tier and escalates to
+ADVANCED on repeated failures, controlled by `routing.retries_before_escalation`.
+
+All sessions share the same fix branch, which is created from the
 current `develop` HEAD. After the pipeline completes successfully, the fix
 branch is harvested into `develop` using the same squash-merge strategy as
 the spec-driven pipeline (squash merge, with merge agent on conflict).
-The originating issue is then closed with a comment pointing to the fix branch.
+The originating issue is labelled `af:fixed` and closed with a comment
+pointing to the fix branch. If the coder produces no commits, the issue
+receives an `af:no-change` label instead, signalling the need for human
+review.
 
 If any stage fails, the issue receives a failure comment with the branch name
 for manual recovery. The branch is preserved — the work done before the
 failure is not discarded.
+
+### Drain Behavior
+
+The fix phase does not process one batch of issues per interval. Instead, a
+drain loop re-polls GitHub after each fix and continues processing until zero
+`af:fix` issues remain, with a safety valve of 50 iterations. A `seen` set
+prevents re-processing recently closed issues that the API may still return
+due to eventual consistency. The drain loop respects cost limits, session
+limits, and shutdown signals between iterations. This means starting
+night-shift with many `af:fix` issues will process all of them in rapid
+succession rather than spacing them across intervals.
 
 ### Spec Construction
 
@@ -257,6 +280,42 @@ problems reported in another — for example, fixing a deprecated API usage
 might also resolve the linter warning that flagged it. Staleness detection
 re-evaluates open issues against the current codebase state and closes those
 that no longer apply.
+
+---
+
+## Labels
+
+Night-shift uses five GitHub labels to manage its workflow lifecycle:
+
+| Label | Applied by | Meaning |
+|-------|-----------|---------|
+| `af:hunt` | Hunt scan | Finding created by a hunt category |
+| `af:fix` | User or `--auto` | Issue eligible for automatic fixing |
+| `af:fixed` | Fix pipeline | Fix successfully merged into develop |
+| `af:no-change` | Fix pipeline | Coder produced no commits; needs human review |
+| `af:ignore` | User | False positive; suppresses semantically similar future findings |
+
+The `af:ignore` label is the primary mechanism for curating hunt results.
+When a user applies this label to a hunt issue, the ignore filter uses
+embedding similarity to suppress future findings that are semantically
+similar to any `af:ignore` issue (open or closed). The similarity threshold
+is controlled by `night_shift.similarity_threshold` (default: 0.85).
+
+All five labels are automatically created on the GitHub repository by
+`agent-fox init` when a `[platform]` section is configured.
+
+---
+
+## File Scope Control
+
+The `.night-shift` file in the project root controls which files the hunt scan
+analyzes. It uses gitignore syntax. Patterns are combined additively with
+`.gitignore` and hardcoded exclusions (`.agent-fox/**`, `.git/**`,
+`node_modules/**`, `__pycache__/**`, `.claude/**`). Negation patterns cannot
+override the hardcoded defaults.
+
+Edit this file to exclude vendored code, generated files, or directories you
+do not maintain. The file is created by `agent-fox init` with a seed template.
 
 ---
 

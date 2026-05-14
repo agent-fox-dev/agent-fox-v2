@@ -160,10 +160,13 @@ The knowledge store lives in a single DuckDB database
 ### 5.1 `review_findings`
 
 Findings from pre-review, drift-review, and audit-review sessions, classified
-by severity (critical, major, minor, observation). Each finding has provenance
-(spec, task group, session, attempt) and a `superseded_by` column. Unresolved
-critical and major findings are the highest-priority knowledge items — they
-represent known quality issues that coders must address.
+by severity (critical, major, minor, observation). Only critical and major
+findings are persisted; minor and observation findings are dropped at write
+time. Unrecognized severity values are normalized to observation (and
+therefore also dropped). Each finding has provenance (spec, task group,
+session, attempt) and a `superseded_by` column. Unresolved critical and major
+findings are the highest-priority knowledge items — they represent known
+quality issues that coders must address.
 
 ### 5.2 `drift_findings`
 
@@ -173,9 +176,10 @@ fields.
 
 ### 5.3 `verification_results`
 
-Per-requirement verdicts (PASS, FAIL, PARTIAL) from verifier sessions, with
-evidence text. Only FAIL verdicts are surfaced at retrieval time — PASS
-verdicts are not actionable knowledge.
+Per-requirement verdicts (PASS or FAIL) from verifier sessions, with evidence
+text. Non-standard verdicts (including PARTIAL) are normalized to FAIL. Only
+FAIL verdicts are surfaced at retrieval time — PASS verdicts are not
+actionable knowledge.
 
 ### 5.4 `finding_injections`
 
@@ -204,9 +208,20 @@ Queried by spec reference or keyword overlap.
 
 Spec divergence records indexed from `docs/errata/` markdown files. Each
 record is keyed by spec name and task group, with fields for finding summary,
-requirement reference, and fix summary. Errata are never automatically
-generated — they are registered explicitly when a spec-to-code divergence is
-discovered and documented.
+requirement reference, and fix summary.
+
+Errata are created through two paths:
+
+- **Automatic generation.** When a reviewer session produces critical or major
+  findings that block downstream coder tasks, the orchestrator auto-generates
+  errata records and persists them both to DuckDB and as markdown files at
+  `docs/errata/{spec_name}_auto_errata.md`. This closes a loop: blocking
+  findings become persistent institutional knowledge.
+- **Manual registration.** Users can create errata markdown files in
+  `docs/errata/` by hand. On the next run, `index_errata_from_markdown` reads
+  all `*.md` files from that directory, parses them (supporting both the
+  auto-generated format and free-form narrative), and indexes them into
+  DuckDB. The spec name is derived from the filename stem.
 
 ### 5.8 `audit_events`
 
